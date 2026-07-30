@@ -1,0 +1,223 @@
+'use client';
+
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GraduationCap, Users, Clock, Award, BookOpen, MapPin, CheckCircle2, Phone } from 'lucide-react';
+import { AnimatedSection } from './AnimatedSection';
+
+const HIGHLIGHTS = [
+  { icon: Users,        label: 'Small Batches',      sub: 'Max 12 per batch' },
+  { icon: BookOpen,     label: 'Hands-On Daily',     sub: 'Practice every session' },
+  { icon: Award,        label: 'Certificate',        sub: 'Industry recognised' },
+  { icon: Clock,        label: 'Flexible Timings',   sub: 'Weekday & weekend' },
+  { icon: MapPin,       label: '2 Centers',          sub: 'Jaipur & Delhi' },
+  { icon: GraduationCap, label: '240+ Trained',      sub: 'Alumni across India' },
+];
+
+export function TrainingSection() {
+  const [enrolled, setEnrolled] = useState(false);
+
+  const handleEnroll = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnrolled(true);
+    setTimeout(() => setEnrolled(false), 4000);
+  };
+
+  return (
+    <section id="training" className="relative py-28 px-4 sm:px-6 lg:px-8 bg-maroon-950 text-white overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0">
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.05, 0.12, 0.05] }}
+          transition={{ duration: 10, repeat: Infinity }}
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[900px] bg-royal-500/10 rounded-full blur-3xl"
+        />
+        <div className="absolute inset-0 pattern-diamond opacity-15" />
+      </div>
+
+      <div className="max-w-7xl mx-auto relative z-10">
+
+        {/* Header */}
+        <AnimatedSection className="text-center mb-16">
+          <motion.span
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-royal-500/15 border border-royal-400/30 text-royal-300 text-xs font-bold uppercase tracking-widest mb-5"
+          >
+            <GraduationCap size={14} /> SafaKing Academy
+          </motion.span>
+          <h2 className="text-4xl sm:text-5xl lg:text-6xl font-display font-black text-royal-50 mb-5">
+            Safa Artist{' '}
+            <span className="text-gradient-gold italic">Training</span> Facilities
+          </h2>
+          <p className="text-royal-100/55 max-w-2xl mx-auto text-base leading-relaxed">
+            Learn the sacred art of safa tying from heritage masters at our training centers in Jaipur and Delhi.
+          </p>
+        </AnimatedSection>
+
+        {/* Main content — photo gallery left + enroll form right */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+
+          {/* Left — photo collage */}
+          <AnimatedSection>
+            {/* Photo collage — 3 images */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Big image — teaching scene */}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="col-span-2 relative aspect-[16/9] rounded-3xl overflow-hidden border border-royal-400/20 shadow-2xl shadow-black/40"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/training-artist-teaching.jpg"
+                  alt="Master artist tying safa on student"
+                  className="w-full h-full object-cover object-center"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/60 to-transparent" />
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="absolute bottom-4 left-4 glass-dark rounded-xl px-4 py-2.5 border border-royal-400/20"
+                >
+                  <p className="text-xl font-display font-black text-royal-300">240+</p>
+                  <p className="text-[10px] text-royal-200/60 font-bold uppercase tracking-wider">Artists Trained</p>
+                </motion.div>
+              </motion.div>
+
+              {/* Bottom left — hands closeup */}
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                className="relative aspect-square rounded-2xl overflow-hidden border border-royal-400/15 shadow-xl"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/training-closeup-hands.jpg"
+                  alt="Expert hands placing kalgi on safa"
+                  className="w-full h-full object-cover object-top"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/50 to-transparent" />
+              </motion.div>
+
+              {/* Bottom right — group class */}
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                className="relative aspect-square rounded-2xl overflow-hidden border border-royal-400/15 shadow-xl"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/training-class-students.jpg"
+                  alt="Group safa training class"
+                  className="w-full h-full object-cover object-center"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/50 to-transparent" />
+              </motion.div>
+            </div>
+          </AnimatedSection>
+
+          {/* Right — what you learn + enroll form */}
+          <AnimatedSection>
+
+            {/* Enroll form */}
+            <AnimatePresence mode="wait">
+              {enrolled ? (
+                <motion.div
+                  key="success"
+                  initial={{ scale: 0.85, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.85, opacity: 0 }}
+                  className="flex flex-col items-center py-14 text-center glass-dark rounded-3xl border border-royal-400/20"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 0.6 }}
+                  >
+                    <CheckCircle2 size={64} className="text-green-400 mb-4" />
+                  </motion.div>
+                  <h4 className="text-2xl font-display font-bold text-royal-50">Enrollment Request Sent!</h4>
+                  <p className="text-sm text-royal-200/55 mt-2">We&apos;ll share batch schedule and fees shortly.</p>
+                </motion.div>
+              ) : (
+                <motion.form
+                  key="form"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  onSubmit={handleEnroll}
+                  className="glass-dark rounded-3xl border border-royal-400/20 p-7 space-y-4 shadow-2xl"
+                >
+                  <div className="text-center mb-2">
+                    <GraduationCap size={30} className="text-royal-400 mx-auto mb-3" />
+                    <h4 className="font-display font-bold text-2xl text-royal-50">Enroll in SafaKing Academy</h4>
+                    <p className="text-xs text-royal-200/50 mt-1">Join 240+ trained safa artists across India</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      required
+                      type="text"
+                      placeholder="Full Name"
+                      className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                    />
+                    <input
+                      required
+                      type="tel"
+                      placeholder="Phone Number"
+                      className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                    />
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Your City"
+                    className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                  />
+
+                  <select
+                    className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                    defaultValue=""
+                  >
+                    <option value="" disabled className="text-maroon-900">Preferred Center</option>
+                    <option value="jaipur" className="text-maroon-900 bg-white">Jaipur — Chomu House</option>
+                    <option value="delhi" className="text-maroon-900 bg-white">Delhi — Karol Bagh</option>
+                  </select>
+
+                  <motion.button
+                    whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
+                    whileTap={{ scale: 0.97 }}
+                    type="submit"
+                    className="w-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Phone size={15} /> Request Enrollment
+                  </motion.button>
+                  <p className="text-[10px] text-center text-royal-200/40">
+                    Free counselling call · No advance required
+                  </p>
+                </motion.form>
+              )}
+            </AnimatePresence>
+
+            {/* Highlight pills — below form */}
+            <div className="grid grid-cols-3 gap-3 mt-4">
+              {HIGHLIGHTS.map((h, i) => (
+                <motion.div
+                  key={h.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                  className="flex flex-col items-center text-center bg-white/5 border border-royal-400/15 rounded-2xl px-3 py-4 hover:bg-white/10 transition-colors"
+                >
+                  <h.icon size={20} className="text-royal-400 mb-2" />
+                  <p className="text-xs font-bold text-royal-100">{h.label}</p>
+                  <p className="text-[10px] text-royal-300/50 mt-0.5">{h.sub}</p>
+                </motion.div>
+              ))}
+            </div>
+          </AnimatedSection>
+        </div>
+      </div>
+    </section>
+  );
+}
