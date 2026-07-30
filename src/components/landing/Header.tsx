@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { href: '#training', label: 'Training' },
   { href: '#suppliers', label: 'Suppliers' },
   { href: '/shop', label: 'Shop' },
+  { href: '/careers', label: 'Careers' },
 ];
 
 export function Header({ wishlistCount, cartCount }: HeaderProps) {
