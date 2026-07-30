@@ -106,7 +106,17 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-royal-400/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-royal-400/40">
-          <p>© 2026 SafaKing Royal Turban House. All Rights Reserved.</p>
+          <p>
+            © 2026 SafaKing Royal Turban House. All Rights Reserved. | Designed & Developed by{' '}
+            <a
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-royal-400/60 hover:text-royal-300 font-bold underline transition-colors"
+            >
+              patidarmk
+            </a>
+          </p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-royal-300 transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-royal-300 transition-colors">Terms of Service</a>
