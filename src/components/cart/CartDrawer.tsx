@@ -47,6 +47,8 @@ export function CartDrawer() {
   };
 
   const total = subtotal; // Shipping is free pan-India.
+  const advanceAmount = Math.round(total * 0.5);
+  const balanceAmount = total - advanceAmount;
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,8 +64,11 @@ export function CartDrawer() {
       customer_id: user?.id ?? null,
       customer_name: name.trim(),
       customer_phone: phone.trim(),
-      shipping_address: address.trim(),
+      shipping_address: `${address.trim()} (Pincode: ${pincode})`,
       total_amount: total,
+      advance_amount: advanceAmount,
+      balance_amount: balanceAmount,
+      payment_status: 'advance_paid',
       status: 'pending',
     };
     if (user?.email) {
@@ -207,13 +212,21 @@ export function CartDrawer() {
                   </div>
                 )}
 
-                <div className="bg-royal-50 p-4 rounded-2xl border border-royal-200">
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-maroon-900 mb-2">
-                    Order Summary
+                <div className="bg-royal-50 p-4 rounded-2xl border border-royal-200 space-y-2">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-maroon-900 mb-1">
+                    50% Split Payment Summary
                   </h4>
-                  <div className="flex justify-between text-xs font-bold text-maroon-950">
-                    <span>Total ({items.length} items)</span>
-                    <span className="text-gradient-gold text-base">₹{total.toLocaleString()}</span>
+                  <div className="flex justify-between text-xs font-semibold text-gray-700">
+                    <span>Total Order Amount</span>
+                    <span className="font-bold text-maroon-950">₹{total.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold text-emerald-800 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                    <span>⚡ 50% Advance Today</span>
+                    <span>₹{advanceAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                    <span>📦 50% Balance on Delivery</span>
+                    <span>₹{balanceAmount.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -286,17 +299,16 @@ export function CartDrawer() {
 
                 <button
                   type="submit"
-                  disabled={submitting || items.length === 0}
+                  disabled={submitting || items.length === 0 || (!!pincodeResult && !pincodeResult.deliverable)}
                   className="w-full py-4 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 disabled:cursor-not-allowed text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-all mt-4"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" /> Confirming Order…
+                      <Loader2 size={16} className="animate-spin" /> Submitting Order…
                     </>
                   ) : (
                     <>
-                      Submit Order (Pending Admin Approval)
-                      <ArrowRight size={16} />
+                      Pay 50% Advance (₹{advanceAmount.toLocaleString()}) & Submit Order <ArrowRight size={16} />
                     </>
                   )}
                 </button>

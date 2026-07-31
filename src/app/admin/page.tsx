@@ -559,48 +559,77 @@ export default function AdminPanelPage() {
                         <th className={TH}>Customer</th>
                         <th className={TH}>Phone</th>
                         <th className={TH}>Shipping Address</th>
-                        <th className={TH}>Total</th>
+                        <th className={TH}>Payment (50% Split)</th>
                         <th className={TH}>Status</th>
                         <th className={TH}>Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {orders.map((order) => (
-                        <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
-                          <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
-                          <td className="p-4 text-gray-600">{order.customer_phone}</td>
-                          <td className="p-4 text-gray-600 max-w-xs">{order.shipping_address}</td>
-                          <td className="p-4 font-black text-gradient-gold">
-                            ₹{order.total_amount.toLocaleString()}
-                          </td>
-                          <td className="p-4">
-                            <Badge status={order.status} />
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <StatusSelect
-                                value={order.status}
-                                options={ORDER_STATUSES}
-                                onChange={(status) =>
-                                  patchRow<DBOrder>('orders', order.id, { status }, setOrders)
-                                }
-                              />
-                              <a
-                                href={getWhatsAppClickLink(
-                                  order.customer_phone,
-                                  `Hello ${order.customer_name}, regarding your SafaKing order #${order.id.slice(0, 8).toUpperCase()} (₹${order.total_amount}):`
+                      {orders.map((order) => {
+                        const adv = order.advance_amount ?? Math.round(order.total_amount * 0.5);
+                        const bal = order.balance_amount ?? (order.total_amount - adv);
+                        const isFullyPaid = order.payment_status === 'fully_paid';
+
+                        return (
+                          <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
+                            <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
+                            <td className="p-4 text-gray-600">{order.customer_phone}</td>
+                            <td className="p-4 text-gray-600 max-w-xs">{order.shipping_address}</td>
+                            <td className="p-4">
+                              <span className="font-bold text-maroon-950">Total: ₹{order.total_amount.toLocaleString()}</span>
+                              <div className="text-[10px] space-y-0.5 mt-0.5">
+                                <span className="block text-emerald-700 font-bold">⚡ 50% Adv: ₹{adv.toLocaleString()} (Paid)</span>
+                                <span className={`block font-bold ${isFullyPaid ? 'text-emerald-700' : 'text-amber-800'}`}>
+                                  📦 50% Bal: ₹{bal.toLocaleString()} ({isFullyPaid ? 'Collected ✓' : 'Due on Delivery'})
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <Badge status={order.status} />
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-2">
+                                  <StatusSelect
+                                    value={order.status}
+                                    options={ORDER_STATUSES}
+                                    onChange={(status) =>
+                                      patchRow<DBOrder>('orders', order.id, { status }, setOrders)
+                                    }
+                                  />
+                                  <a
+                                    href={getWhatsAppClickLink(
+                                      order.customer_phone,
+                                      `Hello ${order.customer_name}, regarding your SafaKing order #${order.id.slice(0, 8).toUpperCase()} (₹${order.total_amount}):`
+                                    )}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-2 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-[10px] flex items-center gap-1 transition-colors"
+                                    title="Chat on WhatsApp"
+                                  >
+                                    💬
+                                  </a>
+                                </div>
+                                {!isFullyPaid && (
+                                  <button
+                                    onClick={() =>
+                                      patchRow<DBOrder>(
+                                        'orders',
+                                        order.id,
+                                        { payment_status: 'fully_paid' },
+                                        setOrders
+                                      )
+                                    }
+                                    className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider text-center transition-colors"
+                                  >
+                                    Mark 50% Bal Paid ✓
+                                  </button>
                                 )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2.5 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-[10px] flex items-center gap-1 transition-colors"
-                                title="Chat on WhatsApp"
-                              >
-                                💬 WhatsApp
-                              </a>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}

@@ -74,6 +74,10 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
     setError(null);
     setSubmitting(true);
 
+    const totalBookingAmount = 50;
+    const advanceAmount = Math.round(totalBookingAmount * 0.5);
+    const balanceAmount = totalBookingAmount - advanceAmount;
+
     const { error: insertErr } = await supabase.from('artist_bookings').insert({
       customer_id: user?.id ?? null,
       customer_name: customerName.trim(),
@@ -81,7 +85,10 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
       event_date: eventDate,
       city_venue: cityVenue.trim(),
       safa_style: selectedStyle,
-      amount: 50,
+      amount: totalBookingAmount,
+      advance_amount: advanceAmount,
+      balance_amount: balanceAmount,
+      payment_status: 'advance_paid',
       status: 'pending',
     });
 
@@ -429,16 +436,16 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                       >
                         {submitting ? (
                           <>
-                            <Loader2 size={16} className="animate-spin" /> Sending Request…
+                            <Loader2 size={16} className="animate-spin" /> Reserving Date…
                           </>
                         ) : (
                           <>
-                            <Phone size={16} /> Book Safa Artist Now
+                            <Phone size={16} /> Pay 50% Advance (₹25) & Lock Wedding Date
                           </>
                         )}
                       </motion.button>
-                      <p className="text-[10px] text-center text-royal-200/40">
-                        Free consultation · No advance payment required
+                      <p className="text-[10px] text-center text-royal-200/50">
+                        ⚡ 50% Advance Today · 50% Balance to Artist at Event
                       </p>
                     </motion.form>
                   )}

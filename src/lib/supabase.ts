@@ -59,6 +59,9 @@ export interface DBOrder {
   customer_phone: string;
   customer_email?: string | null;
   total_amount: number;
+  advance_amount?: number;
+  balance_amount?: number;
+  payment_status?: 'advance_pending' | 'advance_paid' | 'fully_paid' | 'refunded';
   shipping_address: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   created_at?: string;
@@ -84,6 +87,9 @@ export interface DBArtistBooking {
   artist_id?: string | null;
   artist_name?: string | null;
   amount: number;
+  advance_amount?: number;
+  balance_amount?: number;
+  payment_status?: 'advance_pending' | 'advance_paid' | 'fully_paid' | 'refunded';
   status: 'pending' | 'assigned' | 'completed' | 'cancelled';
   notes?: string | null;
   created_at?: string;
