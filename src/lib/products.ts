@@ -165,11 +165,16 @@ export interface ProductsResult {
 
 /** Loads the live catalogue, falling back to the static list on any failure. */
 export async function fetchProducts(): Promise<ProductsResult> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('products')
     .select('*')
-    .eq('active', true)
-    .order('sort_order', { ascending: true });
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    const retry = await supabase.from('products').select('*');
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     return { products: STATIC_PRODUCTS, fromDatabase: false, error: error.message };

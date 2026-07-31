@@ -151,7 +151,7 @@ export default function AdminPanelPage() {
     const [o, b, p, s, e, j, u] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
-      supabase.from('products').select('*').order('sort_order', { ascending: true }),
+      supabase.from('products').select('*').order('created_at', { ascending: false }),
       supabase.from('supplier_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('academy_enrollments').select('*').order('created_at', { ascending: false }),
       supabase.from('job_applications').select('*').order('created_at', { ascending: false }),
