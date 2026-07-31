@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Crown, Search, Heart, ShoppingBag, Menu, X } from 'lucide-react';
+import { Crown, Search, Heart, ShoppingBag, Menu, X, User, ShieldCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/context/AuthContext';
 
 interface HeaderProps {
   wishlistCount: number;
   cartCount: number;
+  onOpenAuth: () => void;
+  onOpenCart: () => void;
 }
 
 const NAV_LINKS = [
@@ -19,7 +22,8 @@ const NAV_LINKS = [
   { href: '/careers', label: 'Careers' },
 ];
 
-export function Header({ wishlistCount, cartCount }: HeaderProps) {
+export function Header({ wishlistCount, cartCount, onOpenAuth, onOpenCart }: HeaderProps) {
+  const { user, profile, role } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -66,6 +70,24 @@ export function Header({ wishlistCount, cartCount }: HeaderProps) {
                 {link.label}
               </Link>
             ))}
+
+            {/* Role Links */}
+            {role === 'artist' && (
+              <Link
+                href="/artist-portal"
+                className="px-3.5 py-1.5 ml-2 text-[11px] font-black uppercase tracking-wider bg-royal-500 text-maroon-950 rounded-full shadow-md hover:bg-royal-400 transition-colors"
+              >
+                Artist Portal ➔
+              </Link>
+            )}
+            {role === 'admin' && (
+              <Link
+                href="/admin"
+                className="px-3.5 py-1.5 ml-2 text-[11px] font-black uppercase tracking-wider bg-maroon-950 text-royal-300 rounded-full shadow-md hover:bg-maroon-900 transition-colors flex items-center gap-1"
+              >
+                <ShieldCheck size={13} /> Admin Panel ➔
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center gap-4">
@@ -75,6 +97,20 @@ export function Header({ wishlistCount, cartCount }: HeaderProps) {
             >
               <Search size={20} />
             </Link>
+
+            <button
+              onClick={onOpenAuth}
+              className="flex items-center gap-1 text-maroon-800/70 hover:text-maroon-700 transition-colors"
+              title="Account Login / Portal"
+            >
+              <User size={20} />
+              {user && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-maroon-900 hidden md:inline">
+                  {profile?.full_name?.split(' ')[0]}
+                </span>
+              )}
+            </button>
+
             <button className="relative text-maroon-800/70 hover:text-maroon-700 transition-colors">
               <Heart size={20} />
               {wishlistCount > 0 && (
@@ -83,7 +119,11 @@ export function Header({ wishlistCount, cartCount }: HeaderProps) {
                 </span>
               )}
             </button>
-            <button className="relative text-maroon-800/70 hover:text-maroon-700 transition-colors">
+
+            <button
+              onClick={onOpenCart}
+              className="relative text-maroon-800/70 hover:text-maroon-700 transition-colors"
+            >
               <ShoppingBag size={20} />
               {cartCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-royal-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
@@ -91,6 +131,7 @@ export function Header({ wishlistCount, cartCount }: HeaderProps) {
                 </span>
               )}
             </button>
+
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="lg:hidden text-maroon-800"

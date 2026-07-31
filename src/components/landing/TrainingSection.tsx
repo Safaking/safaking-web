@@ -14,12 +14,33 @@ const HIGHLIGHTS = [
   { icon: GraduationCap, label: '240+ Trained',      sub: 'Alumni across India' },
 ];
 
+import { supabase } from '@/lib/supabase';
+
 export function TrainingSection() {
   const [enrolled, setEnrolled] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [center, setCenter] = useState('jaipur');
 
-  const handleEnroll = (e: React.FormEvent) => {
+  const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
     setEnrolled(true);
+
+    try {
+      await supabase.from('academy_enrollments').insert([
+        {
+          full_name: fullName,
+          phone,
+          city,
+          center,
+          status: 'pending',
+        },
+      ]);
+    } catch (err) {
+      console.warn('Enrollment insertion warning:', err);
+    }
+
     setTimeout(() => setEnrolled(false), 4000);
   };
 
@@ -158,12 +179,16 @@ export function TrainingSection() {
                       required
                       type="text"
                       placeholder="Full Name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                     />
                     <input
                       required
                       type="tel"
                       placeholder="Phone Number"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                     />
                   </div>
@@ -171,14 +196,16 @@ export function TrainingSection() {
                   <input
                     type="text"
                     placeholder="Your City"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                   />
 
                   <select
                     className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                    defaultValue=""
+                    value={center}
+                    onChange={(e) => setCenter(e.target.value)}
                   >
-                    <option value="" disabled className="text-maroon-900">Preferred Center</option>
                     <option value="jaipur" className="text-maroon-900 bg-white">Jaipur — Chomu House</option>
                     <option value="delhi" className="text-maroon-900 bg-white">Delhi — Karol Bagh</option>
                   </select>

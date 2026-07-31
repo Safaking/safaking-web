@@ -36,12 +36,35 @@ const SUPPLIER_TYPES = [
   'Brooch & Kalgi Accessory Makers',
 ];
 
+import { supabase } from '@/lib/supabase';
+
 export function SupplierSection() {
   const [submitted, setSubmitted] = useState(false);
+  const [businessName, setBusinessName] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
+
+    try {
+      await supabase.from('supplier_applications').insert([
+        {
+          business_name: businessName,
+          contact_name: contactName,
+          email,
+          phone,
+          city,
+          status: 'pending',
+        },
+      ]);
+    } catch (err) {
+      console.warn('Supplier insertion warning:', err);
+    }
+
     setTimeout(() => setSubmitted(false), 4000);
   };
 
@@ -122,12 +145,16 @@ export function SupplierSection() {
                           required
                           type="text"
                           placeholder="Business / Brand Name"
+                          value={businessName}
+                          onChange={(e) => setBusinessName(e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
                         />
                         <input
                           required
                           type="text"
                           placeholder="Contact Person"
+                          value={contactName}
+                          onChange={(e) => setContactName(e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
                         />
                       </div>
@@ -135,12 +162,16 @@ export function SupplierSection() {
                         required
                         type="email"
                         placeholder="Business Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
                       />
                       <input
                         required
                         type="tel"
                         placeholder="Phone Number"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
                       />
                       <select
@@ -160,6 +191,8 @@ export function SupplierSection() {
                       <input
                         type="text"
                         placeholder="City / State"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
                       />
                       <textarea

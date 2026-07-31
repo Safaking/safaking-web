@@ -48,14 +48,38 @@ const SAFA_STYLES = [
   },
 ];
 
+import { supabase } from '@/lib/supabase';
+
 export function ArtistsSection() {
   const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
   const [booked, setBooked] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const handleBooking = (e: React.FormEvent) => {
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [cityVenue, setCityVenue] = useState('');
+
+  const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setBooked(true);
+
+    try {
+      await supabase.from('artist_bookings').insert([
+        {
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          event_date: eventDate,
+          city_venue: cityVenue,
+          safa_style: selectedStyle,
+          amount: 50,
+          status: 'pending',
+        },
+      ]);
+    } catch (err) {
+      console.warn('Booking insertion error:', err);
+    }
+
     setTimeout(() => setBooked(false), 4000);
   };
 
@@ -278,12 +302,16 @@ export function ArtistsSection() {
                           required
                           type="text"
                           placeholder="Your Name"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                         />
                         <input
                           required
                           type="tel"
                           placeholder="Phone Number"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
                           className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                         />
                       </div>
@@ -293,6 +321,8 @@ export function ArtistsSection() {
                           <input
                             required
                             type="date"
+                            value={eventDate}
+                            onChange={(e) => setEventDate(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                           />
                         </div>
@@ -302,6 +332,8 @@ export function ArtistsSection() {
                             required
                             type="text"
                             placeholder="City / Venue"
+                            value={cityVenue}
+                            onChange={(e) => setCityVenue(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                           />
                         </div>

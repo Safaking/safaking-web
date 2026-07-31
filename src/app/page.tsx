@@ -12,9 +12,13 @@ import { TrainingSection } from '@/components/landing/TrainingSection';
 import { SupplierSection } from '@/components/landing/SupplierSection';
 import { Footer } from '@/components/landing/Footer';
 import { Preloader } from '@/components/landing/Preloader';
+import { AuthModal } from '@/components/auth/AuthModal';
+import { CartDrawer } from '@/components/cart/CartDrawer';
 
 export default function SafaKingLanding() {
   const [isLoading, setIsLoading] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [cart, setCart] = useState<SafaProduct[]>([]);
 
@@ -30,6 +34,11 @@ export default function SafaKingLanding() {
 
   const addToCart = (product: SafaProduct) => {
     setCart((prev) => [...prev, product]);
+    setCartOpen(true);
+  };
+
+  const removeFromCart = (index: number) => {
+    setCart((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -40,7 +49,12 @@ export default function SafaKingLanding() {
 
       <div className="min-h-screen bg-royal-50 text-maroon-950">
         <TopBanner />
-        <Header wishlistCount={wishlist.length} cartCount={cart.length} />
+        <Header
+          wishlistCount={wishlist.length}
+          cartCount={cart.length}
+          onOpenAuth={() => setAuthOpen(true)}
+          onOpenCart={() => setCartOpen(true)}
+        />
         <Hero />
         <TrustBar />
         <ArtistsSection />
@@ -53,6 +67,16 @@ export default function SafaKingLanding() {
         <SupplierSection />
         <Footer />
       </div>
+
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart}
+        onRemoveItem={removeFromCart}
+        onClearCart={() => setCart([])}
+      />
     </>
   );
 }
+
