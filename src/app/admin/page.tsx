@@ -10,21 +10,22 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import {
   supabase, friendlyError,
-  DBOrder, DBArtistBooking, DBSupplierApplication, DBAcademyEnrollment,
+  DBOrder, DBArtistBooking, DBArtistApplication, DBSupplierApplication, DBAcademyEnrollment,
   DBJobApplication, DBProduct, UserProfile, UserRole,
 } from '@/lib/supabase';
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
 
-type Tab = 'orders' | 'bookings' | 'products' | 'suppliers' | 'academy' | 'careers' | 'users';
+type Tab = 'orders' | 'bookings' | 'artist_apps' | 'products' | 'suppliers' | 'academy' | 'careers' | 'users';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
   { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
+  { id: 'artist_apps', label: 'Artist Applications', icon: Crown },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'suppliers', label: 'Suppliers', icon: Briefcase },
   { id: 'academy', label: 'Academy', icon: GraduationCap },
   { id: 'careers', label: 'Job Applications', icon: Users },
-  { id: 'users', label: 'Users & Roles', icon: Crown },
+  { id: 'users', label: 'Users & Roles', icon: Users },
 ];
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
@@ -130,6 +131,7 @@ export default function AdminPanelPage() {
 
   const [orders, setOrders] = useState<DBOrder[]>([]);
   const [bookings, setBookings] = useState<DBArtistBooking[]>([]);
+  const [artistApps, setArtistApps] = useState<DBArtistApplication[]>([]);
   const [products, setProducts] = useState<DBProduct[]>([]);
   const [suppliers, setSuppliers] = useState<DBSupplierApplication[]>([]);
   const [enrollments, setEnrollments] = useState<DBAcademyEnrollment[]>([]);
@@ -149,9 +151,10 @@ export default function AdminPanelPage() {
     setLoading(true);
     setError(null);
 
-    const [o, b, p, s, e, j, u] = await Promise.all([
+    const [o, b, aa, p, s, e, j, u] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
+      supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('products').select('*').order('created_at', { ascending: false }),
       supabase.from('supplier_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('academy_enrollments').select('*').order('created_at', { ascending: false }),
@@ -162,7 +165,7 @@ export default function AdminPanelPage() {
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
     const isMissingTable = (err: any) => err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [s, e, j, u].find((r) => r.error && !isMissingTable(r.error))?.error;
+    const secondaryError = [aa, s, e, j, u].find((r) => r.error && !isMissingTable(r.error))?.error;
     
     if (coreError || secondaryError) {
       setError(friendlyError(coreError || secondaryError));
@@ -170,6 +173,7 @@ export default function AdminPanelPage() {
 
     setOrders((o.data as DBOrder[]) ?? []);
     setBookings((b.data as DBArtistBooking[]) ?? []);
+    setArtistApps((aa.data as DBArtistApplication[]) ?? []);
     setProducts((p.data as DBProduct[]) ?? []);
     setSuppliers((s.data as DBSupplierApplication[]) ?? []);
     setEnrollments((e.data as DBAcademyEnrollment[]) ?? []);
@@ -609,6 +613,109 @@ export default function AdminPanelPage() {
                                 </option>
                               ))}
                             </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
+
+            {/* ---- ARTIST APPLICATIONS ---- */}
+            {activeTab === 'artist_apps' && (
+              <Panel title="Safa Artist Applications" subtitle="Review artist credentials & approve for wedding dispatches">
+                {artistApps.length === 0 ? (
+                  <Empty label="No artist applications received yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Artist Name</th>
+                        <th className={TH}>Phone</th>
+                        <th className={TH}>Base City & Exp</th>
+                        <th className={TH}>Specialties</th>
+                        <th className={TH}>Team & Rate</th>
+                        <th className={TH}>Status</th>
+                        <th className={TH}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {artistApps.map((artist) => (
+                        <tr key={artist.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-4 font-bold text-maroon-950">
+                            {artist.full_name}
+                            {artist.portfolio_link && (
+                              <a
+                                href={artist.portfolio_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block text-[10px] text-royal-700 underline font-normal mt-0.5"
+                              >
+                                View Portfolio ↗
+                              </a>
+                            )}
+                          </td>
+                          <td className="p-4 text-gray-700 font-medium">
+                            <a href={`tel:${artist.phone}`} className="hover:underline">
+                              {artist.phone}
+                            </a>
+                          </td>
+                          <td className="p-4 text-gray-700">
+                            <span className="font-bold">{artist.city}</span>
+                            <span className="block text-[10px] text-gray-400">
+                              {artist.experience_years} yrs exp
+                            </span>
+                          </td>
+                          <td className="p-4 max-w-xs">
+                            <div className="flex flex-wrap gap-1">
+                              {(artist.specialties || []).map((spec) => (
+                                <span
+                                  key={spec}
+                                  className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-md text-[9px] font-bold uppercase"
+                                >
+                                  {spec}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-4 text-gray-700 font-medium">
+                            <span>Crew: {artist.team_size}</span>
+                            {artist.per_safa_rate && (
+                              <span className="block text-[10px] font-bold text-gradient-gold">
+                                ₹{artist.per_safa_rate}/safa
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <Badge status={artist.status} />
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <StatusSelect
+                                value={artist.status}
+                                options={['pending', 'approved', 'rejected']}
+                                onChange={(status) =>
+                                  patchRow<DBArtistApplication>(
+                                    'artist_applications',
+                                    artist.id,
+                                    { status },
+                                    setArtistApps
+                                  )
+                                }
+                              />
+                              <a
+                                href={getWhatsAppClickLink(
+                                  artist.phone,
+                                  `Hello ${artist.full_name}, regarding your SafaKing Safa Artist application:`
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2 py-1 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-[10px] transition-colors"
+                              >
+                                💬
+                              </a>
+                            </div>
                           </td>
                         </tr>
                       ))}

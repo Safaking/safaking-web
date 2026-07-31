@@ -89,6 +89,21 @@ export interface DBArtistBooking {
   created_at?: string;
 }
 
+export interface DBArtistApplication {
+  id: string;
+  user_id?: string | null;
+  full_name: string;
+  phone: string;
+  city: string;
+  experience_years: number;
+  specialties: string[];
+  team_size: number;
+  per_safa_rate?: number | null;
+  portfolio_link?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at?: string;
+}
+
 export interface DBSupplierApplication {
   id: string;
   user_id?: string | null;

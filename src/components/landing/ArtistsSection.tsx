@@ -52,7 +52,11 @@ import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
-export function ArtistsSection() {
+interface ArtistsSectionProps {
+  onOpenArtistRegister?: () => void;
+}
+
+export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {}) {
   const { user } = useAuth();
   const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
   const [booked, setBooked] = useState(false);
@@ -133,10 +137,21 @@ export function ArtistsSection() {
             Tied in Every{' '}
             <span className="text-gradient-gold italic">Royal Style</span>
           </h2>
-          <p className="text-maroon-800/60 max-w-2xl mx-auto text-base leading-relaxed">
+          <p className="text-maroon-800/60 max-w-2xl mx-auto text-base leading-relaxed mb-6">
             Our certified safa artists travel across India to tie your safa in the tradition of your
             heritage — from Jodhpuri grandeur to Patiala elegance.
           </p>
+
+          {onOpenArtistRegister && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onOpenArtistRegister}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-maroon-950 text-royal-300 font-bold text-xs uppercase tracking-widest shadow-lg border border-royal-400/30 hover:bg-maroon-900 transition-colors"
+            >
+              <Crown size={15} /> Are You a Safa Artist? Apply to Join Network ➔
+            </motion.button>
+          )}
         </AnimatedSection>
 
         {/* Style cards — 3 categories */}

@@ -14,6 +14,7 @@ import { SupplierSection } from '@/components/landing/SupplierSection';
 import { Footer } from '@/components/landing/Footer';
 import { Preloader } from '@/components/landing/Preloader';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { ArtistRegistrationModal } from '@/components/auth/ArtistRegistrationModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { fetchProducts, StoreProduct, STATIC_PRODUCTS } from '@/lib/products';
 import { useWishlist } from '@/hooks/useWishlist';
@@ -24,6 +25,7 @@ function LandingContent() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
+  const [artistRegisterOpen, setArtistRegisterOpen] = useState(false);
   const [products, setProducts] = useState<StoreProduct[]>(STATIC_PRODUCTS);
   const [denied, setDenied] = useState<string | null>(null);
   const { wishlist, toggle: toggleWishlist } = useWishlist();
@@ -77,7 +79,7 @@ function LandingContent() {
         <Header onOpenAuth={() => setAuthOpen(true)} wishlistCount={wishlist.length} />
         <Hero />
         <TrustBar />
-        <ArtistsSection />
+        <ArtistsSection onOpenArtistRegister={() => setArtistRegisterOpen(true)} />
         <FeaturedCollection
           products={featured.length > 0 ? featured : products.slice(0, 4)}
           wishlist={wishlist}
@@ -89,6 +91,10 @@ function LandingContent() {
       </div>
 
       <AuthModal isOpen={authOpen} onClose={closeAuth} redirectTo={searchParams.get('next')} />
+      <ArtistRegistrationModal
+        isOpen={artistRegisterOpen}
+        onClose={() => setArtistRegisterOpen(false)}
+      />
       <CartDrawer />
     </>
   );
