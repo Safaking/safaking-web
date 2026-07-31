@@ -177,8 +177,57 @@ export default function AdminPanelPage() {
     setLoading(false);
   }, []);
 
+  const [newNotification, setNewNotification] = useState<string | null>(null);
+
+  const playChime = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.3); // A5
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+      // Audio context fallback
+    }
+  };
+
   useEffect(() => {
     fetchAll();
+
+    const channel = supabase
+      .channel('admin-live-orders')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          playChime();
+          const newOrder = payload.new as DBOrder;
+          setNewNotification(`🛍️ NEW ORDER: ₹${newOrder.total_amount?.toLocaleString()} from ${newOrder.customer_name} (${newOrder.customer_phone})`);
+          setOrders((prev) => [newOrder, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'artist_bookings' },
+        (payload) => {
+          playChime();
+          const newBooking = payload.new as DBArtistBooking;
+          setNewNotification(`👑 NEW SAFA ARTIST BOOKING: ${newBooking.customer_name} for ${newBooking.city_venue}`);
+          setBookings((prev) => [newBooking, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchAll]);
 
   /** Optimistic row update that rolls back and surfaces the error on failure. */
@@ -355,6 +404,16 @@ export default function AdminPanelPage() {
             <p className="text-xs leading-relaxed flex-1">{error}</p>
             <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700">
               <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {newNotification && (
+          <div className="flex items-center gap-3 p-4 mb-6 rounded-2xl bg-royal-100 border border-royal-300 text-maroon-950 font-bold shadow-lg animate-pulse">
+            <span className="text-lg">🔔</span>
+            <p className="text-xs leading-relaxed flex-1">{newNotification}</p>
+            <button onClick={() => setNewNotification(null)} className="text-maroon-800 hover:text-maroon-950 p-1">
+              <X size={16} />
             </button>
           </div>
         )}
