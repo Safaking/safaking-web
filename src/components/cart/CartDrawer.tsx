@@ -1,73 +1,107 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShoppingBag, Trash2, Plus, Minus, CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
-import { SafaProduct } from '@/components/landing/FeaturedCollection';
-import { supabase } from '@/lib/supabase';
+import {
+  X, ShoppingBag, Trash2, Plus, Minus, CheckCircle2, ArrowRight, AlertCircle, Loader2,
+} from 'lucide-react';
+import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 
-interface CartDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  items: SafaProduct[];
-  onRemoveItem: (index: number) => void;
-  onClearCart: () => void;
-}
+export function CartDrawer() {
+  const { profile, user } = useAuth();
+  const { items, subtotal, isOpen, closeCart, removeItem, setQuantity, clear } = useCart();
 
-export function CartDrawer({ isOpen, onClose, items, onRemoveItem, onClearCart }: CartDrawerProps) {
-  const { profile } = useAuth();
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
-  const [name, setName] = useState(profile?.full_name || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [orderRef, setOrderRef] = useState<string | null>(null);
 
-  const subtotal = items.reduce((sum, item) => sum + item.price, 0);
-  const shipping = items.length > 0 ? 0 : 0; // Free pan-India shipping
-  const total = subtotal + shipping;
+  // Prefill from the signed-in profile once it arrives.
+  useEffect(() => {
+    if (profile?.full_name) setName((prev) => prev || profile.full_name);
+    if (profile?.phone) setPhone((prev) => prev || profile.phone!);
+  }, [profile]);
+
+  const total = subtotal; // Shipping is free pan-India.
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setSubmitting(true);
 
-    try {
-      // Create order in Supabase
-      const { data: orderData, error: orderErr } = await supabase
-        .from('orders')
-        .insert([
-          {
-            customer_name: name,
-            customer_phone: phone,
-            total_amount: total,
-            shipping_address: address,
-            status: 'confirmed',
-          },
-        ])
-        .select()
-        .single();
-
-      if (orderData?.id) {
-        // Insert order items
-        const orderItems = items.map((item) => ({
-          order_id: orderData.id,
-          product_name: item.name,
-          price: item.price,
-          quantity: 1,
-        }));
-        await supabase.from('order_items').insert(orderItems);
-      }
-    } catch (err) {
-      console.warn('Supabase checkout fallback:', err);
+    const orderPayload: any = {
+      customer_id: user?.id ?? null,
+      customer_name: name.trim(),
+      customer_phone: phone.trim(),
+      shipping_address: address.trim(),
+      total_amount: total,
+      status: 'confirmed',
+    };
+    if (user?.email) {
+      orderPayload.customer_email = user.email;
     }
 
+    let { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .insert(orderPayload)
+      .select('id')
+      .single();
+
+    // Auto fallback if customer_email column does not exist in Supabase table
+    if (orderErr && (orderErr.message?.includes('customer_email') || orderErr.code === 'PGRST204')) {
+      delete orderPayload.customer_email;
+      const retry = await supabase
+        .from('orders')
+        .insert(orderPayload)
+        .select('id')
+        .single();
+      order = retry.data;
+      orderErr = retry.error;
+    }
+
+    if (orderErr || !order) {
+      setSubmitting(false);
+      setError(friendlyError(orderErr));
+      return;
+    }
+
+    const { error: itemsErr } = await supabase.from('order_items').insert(
+      items.map((item) => ({
+        order_id: order.id,
+        product_id: item.productId ?? null,
+        product_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      }))
+    );
+
     setSubmitting(false);
+
+    if (itemsErr) {
+      setError(
+        `Order ${order.id.slice(0, 8)} was created but its items failed to save: ${friendlyError(itemsErr)}`
+      );
+      return;
+    }
+
+    setOrderRef(order.id);
     setStep('success');
-    setTimeout(() => {
-      onClearCart();
+    clear();
+  };
+
+  const handleClose = () => {
+    closeCart();
+    // Reset back to the bag view once the success panel has been dismissed.
+    if (step === 'success') {
       setStep('cart');
-      onClose();
-    }, 4000);
+      setOrderRef(null);
+      setAddress('');
+    }
   };
 
   if (!isOpen) return null;
@@ -98,7 +132,7 @@ export function CartDrawer({ isOpen, onClose, items, onRemoveItem, onClearCart }
               </div>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
             >
               <X size={16} />
@@ -112,15 +146,39 @@ export function CartDrawer({ isOpen, onClose, items, onRemoveItem, onClearCart }
                 <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5 }}>
                   <CheckCircle2 size={64} className="text-emerald-500 mx-auto" />
                 </motion.div>
-                <h4 className="font-display font-black text-2xl text-maroon-900">Order Placed Successfully!</h4>
+                <h4 className="font-display font-black text-2xl text-maroon-900">
+                  Order Placed Successfully!
+                </h4>
+                {orderRef && (
+                  <p className="text-xs font-bold text-maroon-800 tracking-wider">
+                    Order reference:{' '}
+                    <span className="text-gradient-gold">{orderRef.slice(0, 8).toUpperCase()}</span>
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
-                  Thank you for shopping with SafaKing. Our dispatch team will contact you for delivery tracking.
+                  Thank you for shopping with SafaKing. Our dispatch team will contact you for
+                  delivery tracking.
                 </p>
+                <button
+                  onClick={handleClose}
+                  className="mt-2 px-6 py-3 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest transition-colors"
+                >
+                  Continue Shopping
+                </button>
               </div>
             ) : step === 'checkout' ? (
               <form onSubmit={handleCheckout} className="space-y-4">
+                {error && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+                    <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                    <p className="text-xs leading-relaxed">{error}</p>
+                  </div>
+                )}
+
                 <div className="bg-royal-50 p-4 rounded-2xl border border-royal-200">
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-maroon-900 mb-2">Order Summary</h4>
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-maroon-900 mb-2">
+                    Order Summary
+                  </h4>
                   <div className="flex justify-between text-xs font-bold text-maroon-950">
                     <span>Total ({items.length} items)</span>
                     <span className="text-gradient-gold text-base">₹{total.toLocaleString()}</span>
@@ -171,11 +229,19 @@ export function CartDrawer({ isOpen, onClose, items, onRemoveItem, onClearCart }
 
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="w-full py-4 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-all mt-4"
+                  disabled={submitting || items.length === 0}
+                  className="w-full py-4 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 disabled:cursor-not-allowed text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-all mt-4"
                 >
-                  {submitting ? 'Confirming Order...' : 'Confirm Order (Pay on Delivery)'}
-                  <ArrowRight size={16} />
+                  {submitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Confirming Order…
+                    </>
+                  ) : (
+                    <>
+                      Confirm Order (Pay on Delivery)
+                      <ArrowRight size={16} />
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -193,20 +259,46 @@ export function CartDrawer({ isOpen, onClose, items, onRemoveItem, onClearCart }
               </div>
             ) : (
               <div className="space-y-4">
-                {items.map((item, index) => (
-                  <div key={index} className="flex gap-4 p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex gap-4 p-3 bg-gray-50 rounded-2xl border border-gray-100"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={item.image}
                       alt={item.name}
                       className="w-16 h-16 rounded-xl object-cover"
                     />
-                    <div className="flex-1 flex flex-col justify-center">
-                      <h4 className="font-bold text-sm text-maroon-950">{item.name}</h4>
-                      <p className="text-xs text-gradient-gold font-black mt-0.5">₹{item.price.toLocaleString()}</p>
+                    <div className="flex-1 flex flex-col justify-center gap-1.5">
+                      <h4 className="font-bold text-sm text-maroon-950 leading-snug">{item.name}</h4>
+                      <p className="text-xs text-gradient-gold font-black">
+                        ₹{(item.price * item.quantity).toLocaleString()}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(item.id, item.quantity - 1)}
+                          className="w-6 h-6 rounded-lg border border-gray-200 flex items-center justify-center text-maroon-900 hover:bg-white transition-colors"
+                          aria-label={`Decrease quantity of ${item.name}`}
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <span className="text-xs font-bold w-5 text-center">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(item.id, item.quantity + 1)}
+                          className="w-6 h-6 rounded-lg border border-gray-200 flex items-center justify-center text-maroon-900 hover:bg-white transition-colors"
+                          aria-label={`Increase quantity of ${item.name}`}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
                     </div>
                     <button
-                      onClick={() => onRemoveItem(index)}
-                      className="text-gray-400 hover:text-rose-600 transition-colors p-2"
+                      onClick={() => removeItem(item.id)}
+                      className="text-gray-400 hover:text-rose-600 transition-colors p-2 self-start"
+                      aria-label={`Remove ${item.name}`}
                     >
                       <Trash2 size={16} />
                     </button>
