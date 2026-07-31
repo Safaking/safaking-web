@@ -81,9 +81,12 @@ export function CartDrawer() {
       .select('id')
       .single();
 
-    // Auto fallback if customer_email column does not exist in Supabase table
-    if (orderErr && (orderErr.message?.includes('customer_email') || orderErr.code === 'PGRST204')) {
+    // Auto fallback if customer_email / advance_amount / balance_amount columns do not exist in Supabase table
+    if (orderErr && (orderErr.message?.includes('customer_email') || orderErr.message?.includes('advance_amount') || orderErr.message?.includes('balance_amount') || orderErr.code === 'PGRST204')) {
       delete orderPayload.customer_email;
+      delete orderPayload.advance_amount;
+      delete orderPayload.balance_amount;
+      delete orderPayload.payment_status;
       const retry = await supabase
         .from('orders')
         .insert(orderPayload)

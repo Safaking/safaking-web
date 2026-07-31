@@ -106,7 +106,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
 
     setSubmitting(true);
 
-    const { error: insertErr } = await supabase.from('artist_bookings').insert({
+    const bookingPayload: any = {
       customer_id: user?.id ?? null,
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
@@ -118,7 +118,18 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
       balance_amount: balanceAmount,
       payment_status: 'advance_paid',
       status: 'pending',
-    });
+    };
+
+    let { error: insertErr } = await supabase.from('artist_bookings').insert(bookingPayload);
+
+    // Auto fallback if advance_amount / balance_amount / payment_status columns do not exist in remote Supabase table
+    if (insertErr && (insertErr.message?.includes('advance_amount') || insertErr.message?.includes('balance_amount') || insertErr.code === 'PGRST204')) {
+      delete bookingPayload.advance_amount;
+      delete bookingPayload.balance_amount;
+      delete bookingPayload.payment_status;
+      const retry = await supabase.from('artist_bookings').insert(bookingPayload);
+      insertErr = retry.error;
+    }
 
     setSubmitting(false);
 
