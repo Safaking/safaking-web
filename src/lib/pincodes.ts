@@ -76,3 +76,50 @@ export async function checkPincode(pincode: string): Promise<PincodeCheckResult>
     message: `✕ Delivery currently unavailable for Pincode ${cleanCode}. We are expanding soon!`,
   };
 }
+
+/**
+ * Checks if Master Safa Artists are available in a given 6-digit pincode for event booking.
+ */
+export async function checkArtistPincode(pincode: string): Promise<PincodeCheckResult> {
+  const cleanCode = pincode.replace(/\D/g, '').trim();
+
+  if (cleanCode.length !== 6) {
+    return {
+      deliverable: false,
+      message: 'Please enter a 6-digit Pincode for venue location.',
+    };
+  }
+
+  try {
+    const { data } = await supabase
+      .from('artist_pincodes')
+      .select('*')
+      .eq('pincode', cleanCode)
+      .eq('active', true)
+      .maybeSingle();
+
+    if (data) {
+      return {
+        deliverable: true,
+        pincodeObj: data as DBDeliverablePincode,
+        message: `✓ Master Safa Artists Available in ${data.city_state}!`,
+      };
+    }
+  } catch (err) {
+    console.warn('Supabase artist pincode query warning:', err);
+  }
+
+  const match = STATIC_PINCODES.find((p) => p.pincode === cleanCode && p.active);
+  if (match) {
+    return {
+      deliverable: true,
+      pincodeObj: match,
+      message: `✓ Master Safa Artists Available in ${match.city_state}!`,
+    };
+  }
+
+  return {
+    deliverable: false,
+    message: `✕ Safa Artist service not listed for Pincode ${cleanCode}. Contact us for travel arrangements.`,
+  };
+}

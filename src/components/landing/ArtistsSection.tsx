@@ -52,6 +52,8 @@ import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
+import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
+
 interface ArtistsSectionProps {
   onOpenArtistRegister?: () => void;
 }
@@ -59,6 +61,13 @@ interface ArtistsSectionProps {
 export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {}) {
   const { user } = useAuth();
   const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
+  const [safaCount, setSafaCount] = useState<number>(25);
+  const [pincode, setPincode] = useState('302001');
+  const [pincodeResult, setPincodeResult] = useState<PincodeCheckResult | null>({
+    deliverable: true,
+    message: '✓ Master Safa Artists Available in Jaipur, Rajasthan!',
+  });
+
   const [booked, setBooked] = useState(false);
   const [, setHovered] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -69,22 +78,41 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
   const [eventDate, setEventDate] = useState('');
   const [cityVenue, setCityVenue] = useState('');
 
+  const currentStyleObj = SAFA_STYLES.find((s) => s.name === selectedStyle) || SAFA_STYLES[0];
+  const unitPrice = currentStyleObj.price || 50;
+  const totalBookingAmount = safaCount * unitPrice;
+  const advanceAmount = Math.round(totalBookingAmount * 0.5);
+  const balanceAmount = totalBookingAmount - advanceAmount;
+
+  const handlePincodeChange = async (val: string) => {
+    const clean = val.replace(/\D/g, '').slice(0, 6);
+    setPincode(clean);
+    if (clean.length === 6) {
+      const res = await checkArtistPincode(clean);
+      setPincodeResult(res);
+    } else {
+      setPincodeResult(null);
+    }
+  };
+
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSubmitting(true);
 
-    const totalBookingAmount = 50;
-    const advanceAmount = Math.round(totalBookingAmount * 0.5);
-    const balanceAmount = totalBookingAmount - advanceAmount;
+    if (pincodeResult && !pincodeResult.deliverable) {
+      setError('Safa Artist service is currently unavailable for this pincode. Please contact us for custom travel.');
+      return;
+    }
+
+    setSubmitting(true);
 
     const { error: insertErr } = await supabase.from('artist_bookings').insert({
       customer_id: user?.id ?? null,
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
       event_date: eventDate,
-      city_venue: cityVenue.trim(),
-      safa_style: selectedStyle,
+      city_venue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${safaCount} Safas)`,
+      safa_style: `${selectedStyle} x ${safaCount}`,
       amount: totalBookingAmount,
       advance_amount: advanceAmount,
       balance_amount: balanceAmount,
@@ -103,9 +131,9 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
       bookingId: 'new',
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
-      cityVenue: cityVenue.trim(),
+      cityVenue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${safaCount})`,
       eventDate,
-      safaStyle: selectedStyle,
+      safaStyle: `${selectedStyle} x ${safaCount}`,
     });
 
     setCustomerName('');
@@ -382,13 +410,76 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                           <input
                             required
                             type="text"
-                            placeholder="City / Venue"
+                            placeholder="City / Venue Address"
                             value={cityVenue}
                             onChange={(e) => setCityVenue(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                           />
                         </div>
                       </div>
+
+                      {/* Event Pincode & Artist Availability Badge */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-[10px] font-bold text-royal-300/70 uppercase tracking-widest">
+                            Event Venue Pincode (6-Digits)
+                          </label>
+                        </div>
+                        <input
+                          required
+                          type="text"
+                          maxLength={6}
+                          placeholder="e.g. 302001"
+                          value={pincode}
+                          onChange={(e) => handlePincodeChange(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm placeholder:text-royal-200/40 focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                        />
+                        {pincodeResult && (
+                          <p
+                            className={`text-xs font-bold mt-1.5 p-2 rounded-xl border ${
+                              pincodeResult.deliverable
+                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40'
+                                : 'bg-rose-950/60 text-rose-300 border-rose-500/40'
+                            }`}
+                          >
+                            {pincodeResult.message}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Safa Count Selector */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest">
+                            Number of Safas to Tie (Count)
+                          </p>
+                          <span className="text-xs font-black text-royal-300">{safaCount} Safas</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {[10, 25, 50, 100].map((count) => (
+                            <button
+                              key={count}
+                              type="button"
+                              onClick={() => setSafaCount(count)}
+                              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                                safaCount === count
+                                  ? 'bg-royal-500 text-maroon-950 border-royal-400 shadow-md font-black'
+                                  : 'bg-white/10 text-white border-royal-400/20 hover:bg-white/20'
+                              }`}
+                            >
+                              {count}
+                            </button>
+                          ))}
+                          <input
+                            type="number"
+                            min={1}
+                            value={safaCount}
+                            onChange={(e) => setSafaCount(Math.max(1, Number(e.target.value) || 1))}
+                            className="w-16 py-2.5 px-2 text-center rounded-xl border border-royal-400/20 bg-white/10 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-royal-400/30"
+                          />
+                        </div>
+                      </div>
+
                       {/* Pill-style style selector */}
                       <div>
                         <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-2">Select Safa Tying Style</p>
@@ -421,17 +512,34 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                               <span className={`text-[10px] font-bold mt-0.5 ${
                                 selectedStyle === s.name ? 'text-maroon-800' : 'text-royal-400'
                               }`}>
-                                ₹{s.price}
+                                ₹{s.price}/safa
                               </span>
                             </motion.button>
                           ))}
                         </div>
                       </div>
+
+                      {/* 50% Split Payment Summary Card */}
+                      <div className="p-3.5 rounded-2xl bg-maroon-950/80 border border-royal-400/30 space-y-1.5 text-xs">
+                        <div className="flex justify-between font-bold text-royal-200/80">
+                          <span>Total Booking Fee ({safaCount} Safas @ ₹{unitPrice})</span>
+                          <span className="text-white font-black">₹{totalBookingAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-emerald-300 bg-emerald-950/60 p-2 rounded-xl border border-emerald-500/30">
+                          <span>⚡ 50% Booking Advance Today</span>
+                          <span>₹{advanceAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-amber-300 bg-amber-950/60 p-2 rounded-xl border border-amber-500/30">
+                          <span>🎨 50% Balance to Artist at Event</span>
+                          <span>₹{balanceAmount.toLocaleString()}</span>
+                        </div>
+                      </div>
+
                       <motion.button
                         whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
                         whileTap={{ scale: 0.97 }}
                         type="submit"
-                        disabled={submitting}
+                        disabled={submitting || (!!pincodeResult && !pincodeResult.deliverable)}
                         className="w-full bg-royal-500 hover:bg-royal-400 disabled:opacity-60 disabled:cursor-not-allowed text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
                       >
                         {submitting ? (
@@ -440,7 +548,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                           </>
                         ) : (
                           <>
-                            <Phone size={16} /> Pay 50% Advance (₹25) & Lock Wedding Date
+                            <Phone size={16} /> Pay 50% Advance (₹{advanceAmount.toLocaleString()}) & Lock Date for {safaCount} Safas
                           </>
                         )}
                       </motion.button>
