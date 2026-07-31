@@ -13,6 +13,7 @@ import {
   DBOrder, DBArtistBooking, DBSupplierApplication, DBAcademyEnrollment,
   DBJobApplication, DBProduct, UserProfile, UserRole,
 } from '@/lib/supabase';
+import { getWhatsAppClickLink } from '@/lib/whatsapp';
 
 type Tab = 'orders' | 'bookings' | 'products' | 'suppliers' | 'academy' | 'careers' | 'users';
 
@@ -520,13 +521,27 @@ export default function AdminPanelPage() {
                             <Badge status={order.status} />
                           </td>
                           <td className="p-4">
-                            <StatusSelect
-                              value={order.status}
-                              options={ORDER_STATUSES}
-                              onChange={(status) =>
-                                patchRow<DBOrder>('orders', order.id, { status }, setOrders)
-                              }
-                            />
+                            <div className="flex items-center gap-2">
+                              <StatusSelect
+                                value={order.status}
+                                options={ORDER_STATUSES}
+                                onChange={(status) =>
+                                  patchRow<DBOrder>('orders', order.id, { status }, setOrders)
+                                }
+                              />
+                              <a
+                                href={getWhatsAppClickLink(
+                                  order.customer_phone,
+                                  `Hello ${order.customer_name}, regarding your SafaKing order #${order.id.slice(0, 8).toUpperCase()} (₹${order.total_amount}):`
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-[10px] flex items-center gap-1 transition-colors"
+                                title="Chat on WhatsApp"
+                              >
+                                💬 WhatsApp
+                              </a>
+                            </div>
                           </td>
                         </tr>
                       ))}

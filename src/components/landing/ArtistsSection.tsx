@@ -50,6 +50,7 @@ const SAFA_STYLES = [
 
 import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
 export function ArtistsSection() {
   const { user } = useAuth();
@@ -86,6 +87,15 @@ export function ArtistsSection() {
       setError(friendlyError(insertErr));
       return;
     }
+
+    sendWhatsAppNotification('booking', {
+      bookingId: 'new',
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      cityVenue: cityVenue.trim(),
+      eventDate,
+      safaStyle: selectedStyle,
+    });
 
     setCustomerName('');
     setCustomerPhone('');

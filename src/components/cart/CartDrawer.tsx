@@ -8,6 +8,7 @@ import {
 import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
 export function CartDrawer() {
   const { profile, user } = useAuth();
@@ -88,6 +89,15 @@ export function CartDrawer() {
       );
       return;
     }
+
+    // Trigger WhatsApp notification for new order
+    sendWhatsAppNotification('order', {
+      orderId: order.id,
+      customerName: name.trim(),
+      customerPhone: phone.trim(),
+      totalAmount: total,
+      shippingAddress: address.trim(),
+    });
 
     setOrderRef(order.id);
     setStep('success');
