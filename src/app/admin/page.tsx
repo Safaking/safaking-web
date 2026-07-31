@@ -158,8 +158,14 @@ export default function AdminPanelPage() {
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
     ]);
 
-    const firstError = [o, b, p, s, e, j, u].find((r) => r.error)?.error;
-    if (firstError) setError(friendlyError(firstError));
+    // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
+    const isMissingTable = (err: any) => err?.code === 'PGRST205' || err?.code === '42P01';
+    const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
+    const secondaryError = [s, e, j, u].find((r) => r.error && !isMissingTable(r.error))?.error;
+    
+    if (coreError || secondaryError) {
+      setError(friendlyError(coreError || secondaryError));
+    }
 
     setOrders((o.data as DBOrder[]) ?? []);
     setBookings((b.data as DBArtistBooking[]) ?? []);
