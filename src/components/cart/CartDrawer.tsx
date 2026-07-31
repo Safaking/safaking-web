@@ -40,7 +40,7 @@ export function CartDrawer() {
       customer_phone: phone.trim(),
       shipping_address: address.trim(),
       total_amount: total,
-      status: 'confirmed',
+      status: 'pending',
     };
     if (user?.email) {
       orderPayload.customer_email = user.email;
@@ -147,17 +147,16 @@ export function CartDrawer() {
                   <CheckCircle2 size={64} className="text-emerald-500 mx-auto" />
                 </motion.div>
                 <h4 className="font-display font-black text-2xl text-maroon-900">
-                  Order Placed Successfully!
+                  Order Submitted!
                 </h4>
                 {orderRef && (
                   <p className="text-xs font-bold text-maroon-800 tracking-wider">
-                    Order reference:{' '}
+                    Order Reference:{' '}
                     <span className="text-gradient-gold">{orderRef.slice(0, 8).toUpperCase()}</span>
                   </p>
                 )}
                 <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
-                  Thank you for shopping with SafaKing. Our dispatch team will contact you for
-                  delivery tracking.
+                  Thank you for placing your order with SafaKing. Your order is pending admin confirmation. Our team will review your details and confirm your delivery.
                 </p>
                 <button
                   onClick={handleClose}
@@ -238,7 +237,7 @@ export function CartDrawer() {
                     </>
                   ) : (
                     <>
-                      Confirm Order (Pay on Delivery)
+                      Submit Order (Pending Admin Approval)
                       <ArrowRight size={16} />
                     </>
                   )}
