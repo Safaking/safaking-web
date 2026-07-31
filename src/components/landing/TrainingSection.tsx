@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Users, Clock, Award, BookOpen, MapPin, CheckCircle2, Phone } from 'lucide-react';
+import { GraduationCap, Users, Clock, Award, BookOpen, MapPin, CheckCircle2, Phone, AlertCircle, Loader2 } from 'lucide-react';
 import { AnimatedSection } from './AnimatedSection';
 
 const HIGHLIGHTS = [
@@ -14,10 +14,14 @@ const HIGHLIGHTS = [
   { icon: GraduationCap, label: '240+ Trained',      sub: 'Alumni across India' },
 ];
 
-import { supabase } from '@/lib/supabase';
+import { supabase, friendlyError } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 export function TrainingSection() {
+  const { user } = useAuth();
   const [enrolled, setEnrolled] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
@@ -25,23 +29,30 @@ export function TrainingSection() {
 
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEnrolled(true);
+    setError(null);
+    setSubmitting(true);
 
-    try {
-      await supabase.from('academy_enrollments').insert([
-        {
-          full_name: fullName,
-          phone,
-          city,
-          center,
-          status: 'pending',
-        },
-      ]);
-    } catch (err) {
-      console.warn('Enrollment insertion warning:', err);
+    const { error: insertErr } = await supabase.from('academy_enrollments').insert({
+      user_id: user?.id ?? null,
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      city: city.trim() || null,
+      center,
+      status: 'pending',
+    });
+
+    setSubmitting(false);
+
+    if (insertErr) {
+      setError(friendlyError(insertErr));
+      return;
     }
 
-    setTimeout(() => setEnrolled(false), 4000);
+    setFullName('');
+    setPhone('');
+    setCity('');
+    setEnrolled(true);
+    setTimeout(() => setEnrolled(false), 5000);
   };
 
   return (
@@ -174,6 +185,13 @@ export function TrainingSection() {
                     <p className="text-xs text-royal-200/50 mt-1">Join 240+ trained safa artists across India</p>
                   </div>
 
+                  {error && (
+                    <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/15 border border-rose-400/40 text-rose-100">
+                      <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                      <p className="text-[11px] leading-relaxed">{error}</p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       required
@@ -214,9 +232,18 @@ export function TrainingSection() {
                     whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
                     whileTap={{ scale: 0.97 }}
                     type="submit"
-                    className="w-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg transition-colors flex items-center justify-center gap-2"
+                    disabled={submitting}
+                    className="w-full bg-royal-500 hover:bg-royal-400 disabled:opacity-60 disabled:cursor-not-allowed text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg transition-colors flex items-center justify-center gap-2"
                   >
-                    <Phone size={15} /> Request Enrollment
+                    {submitting ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin" /> Submitting…
+                      </>
+                    ) : (
+                      <>
+                        <Phone size={15} /> Request Enrollment
+                      </>
+                    )}
                   </motion.button>
                   <p className="text-[10px] text-center text-royal-200/40">
                     Free counselling call · No advance required

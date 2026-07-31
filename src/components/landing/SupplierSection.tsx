@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Package, TrendingUp, Globe, Handshake, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Package, TrendingUp, Globe, Handshake, CheckCircle2, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { AnimatedSection, StaggerContainer, staggerItem } from './AnimatedSection';
 
 const BENEFITS = [
@@ -36,36 +36,55 @@ const SUPPLIER_TYPES = [
   'Brooch & Kalgi Accessory Makers',
 ];
 
-import { supabase } from '@/lib/supabase';
+import { supabase, friendlyError } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 export function SupplierSection() {
+  const { user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState('');
   const [contactName, setContactName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
+  const [category, setCategory] = useState('');
+  const [message, setMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setError(null);
+    setSubmitting(true);
 
-    try {
-      await supabase.from('supplier_applications').insert([
-        {
-          business_name: businessName,
-          contact_name: contactName,
-          email,
-          phone,
-          city,
-          status: 'pending',
-        },
-      ]);
-    } catch (err) {
-      console.warn('Supplier insertion warning:', err);
+    const { error: insertErr } = await supabase.from('supplier_applications').insert({
+      user_id: user?.id ?? null,
+      business_name: businessName.trim(),
+      contact_name: contactName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      city: city.trim() || null,
+      category: category || null,
+      message: message.trim() || null,
+      status: 'pending',
+    });
+
+    setSubmitting(false);
+
+    if (insertErr) {
+      setError(friendlyError(insertErr));
+      return;
     }
 
-    setTimeout(() => setSubmitted(false), 4000);
+    setBusinessName('');
+    setContactName('');
+    setEmail('');
+    setPhone('');
+    setCity('');
+    setCategory('');
+    setMessage('');
+    setSubmitted(true);
+    setTimeout(() => setSubmitted(false), 5000);
   };
 
   return (
@@ -140,6 +159,12 @@ export function SupplierSection() {
                     <p className="text-sm text-maroon-800/50 mb-8">Fill in your details to start the onboarding process.</p>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                      {error && (
+                        <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+                          <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                          <p className="text-xs leading-relaxed">{error}</p>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <input
                           required
@@ -176,8 +201,9 @@ export function SupplierSection() {
                       />
                       <select
                         required
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
-                        defaultValue=""
                       >
                         <option value="" disabled>
                           Supplier Category
@@ -198,16 +224,27 @@ export function SupplierSection() {
                       <textarea
                         rows={3}
                         placeholder="Tell us about your products & capacity..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all resize-none"
                       />
                       <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         type="submit"
-                        className="w-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
+                        disabled={submitting}
+                        className="w-full bg-royal-500 hover:bg-royal-400 disabled:opacity-60 disabled:cursor-not-allowed text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
                       >
-                        Register as Supplier
-                        <ArrowRight size={16} />
+                        {submitting ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" /> Submitting…
+                          </>
+                        ) : (
+                          <>
+                            Register as Supplier
+                            <ArrowRight size={16} />
+                          </>
+                        )}
                       </motion.button>
                     </form>
                   </>

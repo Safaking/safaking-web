@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -20,174 +20,46 @@ import {
   Crown 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-interface SafaProduct {
-  id: string;
-  name: string;
-  code: string;
-  price: number;
-  originalPrice: number;
-  rating: number;
-  reviewsCount: number;
-  color: string;
-  fabric: string;
-  style: string;
-  occasion: string;
-  inStock: boolean;
-  isNew?: boolean;
-  isBestseller?: boolean;
-  image: string;
-  description: string;
-}
-
-const SAFA_PRODUCTS: SafaProduct[] = [
-  {
-    id: 'safa-01',
-    name: 'Imperial Pearl Pink Chanderi Silk Safa',
-    code: 'SFA-PRL-801',
-    price: 3499,
-    originalPrice: 4999,
-    rating: 4.9,
-    reviewsCount: 42,
-    color: 'Pink',
-    fabric: 'Chanderi Silk',
-    style: 'Royal Groom',
-    occasion: 'Wedding / Groom',
-    inStock: true,
-    isBestseller: true,
-    image: '/product-pink-chanderi.jpg',
-    description: 'Exquisite pearl pink Chanderi silk safa adorned with rich floral gold zari borders and handcrafted jewel plume brooch holder. Designed for royal wedding grooms.'
-  },
-  {
-    id: 'safa-02',
-    name: 'Heritage Maroon Zari Brocade Royal Safa',
-    code: 'SFA-MRN-802',
-    price: 4199,
-    originalPrice: 5999,
-    rating: 4.8,
-    reviewsCount: 38,
-    color: 'Maroon',
-    fabric: 'Brocade Silk',
-    style: 'Jodhpuri Royal',
-    occasion: 'Wedding / Reception',
-    inStock: true,
-    isNew: true,
-    image: '/product-maroon-brocade.jpg',
-    description: 'Deep crimson maroon brocade safa featuring opulent metallic gold weave pattern and traditional flared kalgi tail. Ideal for grand ceremonial wear.'
-  },
-  {
-    id: 'safa-03',
-    name: 'Royal Beige & Champagne Zardosi Safa',
-    code: 'SFA-BGE-803',
-    price: 2999,
-    originalPrice: 3999,
-    rating: 4.7,
-    reviewsCount: 29,
-    color: 'Beige',
-    fabric: 'Banarasi Raw Silk',
-    style: 'Classic Elegance',
-    occasion: 'Baraat / Sangeet',
-    inStock: true,
-    isBestseller: true,
-    image: '/artist-jodhpuri-blue.jpg',
-    description: 'Regal champagne beige raw silk turban tailored with traditional pleating, subtle gold highlights, and delicate pearl detailing.'
-  },
-  {
-    id: 'safa-04',
-    name: 'Traditional Rajasthani Bandhani Leheriya Safa',
-    code: 'SFA-LHR-804',
-    price: 2299,
-    originalPrice: 3199,
-    rating: 4.9,
-    reviewsCount: 65,
-    color: 'Red & Yellow',
-    fabric: 'Georgette Silk',
-    style: 'Bandhani Leheriya',
-    occasion: 'Festive / Haldi / Mehendi',
-    inStock: true,
-    image: '/product-maroon-brocade.jpg',
-    description: 'Vibrant dual-tone hand-dyed Jaipur Bandhani leheriya safa in auspicious crimson and yellow with zari border finish.'
-  },
-  {
-    id: 'safa-05',
-    name: 'Emerald Velvet Embroidered Royal Safa',
-    code: 'SFA-EMR-805',
-    price: 4899,
-    originalPrice: 6499,
-    rating: 5.0,
-    reviewsCount: 19,
-    color: 'Green',
-    fabric: 'Micro Velvet',
-    style: 'Groom Luxury',
-    occasion: 'Royal Reception',
-    inStock: true,
-    isNew: true,
-    image: '/artist-jodhpuri-blue.jpg',
-    description: 'Heavy emerald green velvet safa with ornate zardosi handwork along the pleats and crowned with pearl motif brooch detailing.'
-  },
-  {
-    id: 'safa-06',
-    name: 'Peach Pastel Chanderi Floral Safa',
-    code: 'SFA-PCH-806',
-    price: 2699,
-    originalPrice: 3499,
-    rating: 4.6,
-    reviewsCount: 22,
-    color: 'Peach',
-    fabric: 'Chanderi Silk',
-    style: 'Modern Pastel',
-    occasion: 'Day Wedding / Destination',
-    inStock: true,
-    image: '/product-pink-chanderi.jpg',
-    description: 'Soft peach pastel safa ideal for contemporary destination weddings and sunlit day ceremonies. Features gold lace trim.'
-  },
-  {
-    id: 'safa-07',
-    name: 'Sun Gold Kanjeevaram Silk Safa',
-    code: 'SFA-GLD-807',
-    price: 3799,
-    originalPrice: 4999,
-    rating: 4.8,
-    reviewsCount: 31,
-    color: 'Gold',
-    fabric: 'Kanjeevaram Silk',
-    style: 'South Royal',
-    occasion: 'Wedding Ceremony',
-    inStock: true,
-    image: '/product-maroon-brocade.jpg',
-    description: 'Lustrous golden yellow silk safa with temple zari borders, creating a grand traditional aesthetic for groom and groomsmen.'
-  },
-  {
-    id: 'safa-08',
-    name: 'Midnight Blue Velvet Zari Safa',
-    code: 'SFA-NVY-808',
-    price: 4399,
-    originalPrice: 5799,
-    rating: 4.9,
-    reviewsCount: 27,
-    color: 'Blue',
-    fabric: 'Velvet Silk Blend',
-    style: 'Imperial Night',
-    occasion: 'Sangeet / Evening Gala',
-    inStock: true,
-    image: '/artist-jodhpuri-blue.jpg',
-    description: 'Sophisticated dark navy blue safa with subtle silver-gold zari embroidery along the tail and crown fold.'
-  }
-];
+import { fetchProducts, StoreProduct, STATIC_PRODUCTS } from '@/lib/products';
+import { useCart } from '@/context/CartContext';
+import { useWishlist } from '@/hooks/useWishlist';
+import { CartDrawer } from '@/components/cart/CartDrawer';
 
 function ShopContent() {
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get('category') || 'All';
 
+  const { addItem, count: cartCount, openCart } = useCart();
+  const { wishlist, toggle: toggleWishlist } = useWishlist();
+
+  const [products, setProducts] = useState<StoreProduct[]>(STATIC_PRODUCTS);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedColor, setSelectedColor] = useState<string>('All');
   const [selectedFabric, setSelectedFabric] = useState<string>('All');
   const [sortBy, setSortBy] = useState<string>('featured');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [wishlist, setWishlist] = useState<string[]>([]);
-  const [cart, setCart] = useState<SafaProduct[]>([]);
-  const [quickViewProduct, setQuickViewProduct] = useState<SafaProduct | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<StoreProduct | null>(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchProducts().then((result) => {
+      if (active) setProducts(result.products);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Filter options follow whatever is actually in the catalogue.
+  const colorOptions = useMemo(
+    () => ['All', ...Array.from(new Set(products.map((p) => p.color).filter(Boolean)))],
+    [products]
+  );
+  const fabricOptions = useMemo(
+    () => ['All', ...Array.from(new Set(products.map((p) => p.fabric).filter(Boolean)))],
+    [products]
+  );
 
   useEffect(() => {
     if (searchParams.get('category')) {
@@ -195,13 +67,16 @@ function ShopContent() {
     }
   }, [searchParams]);
 
-  const filteredProducts = SAFA_PRODUCTS.filter(product => {
+  const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           product.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.fabric.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesColor = selectedColor === 'All' || product.color === selectedColor;
     const matchesFabric = selectedFabric === 'All' || product.fabric === selectedFabric;
-    const matchesCategory = selectedCategory === 'All' || product.style.includes(selectedCategory);
+    const matchesCategory =
+      selectedCategory === 'All' ||
+      product.category === selectedCategory ||
+      product.style.includes(selectedCategory);
 
     return matchesSearch && matchesColor && matchesFabric && matchesCategory;
   }).sort((a, b) => {
@@ -211,12 +86,14 @@ function ShopContent() {
     return 0;
   });
 
-  const toggleWishlist = (id: string) => {
-    setWishlist(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
-  };
-
-  const addToCart = (product: SafaProduct) => {
-    setCart(prev => [...prev, product]);
+  const addToCart = (product: StoreProduct) => {
+    addItem({
+      id: product.id,
+      productId: product.productId,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+    });
   };
 
   return (
@@ -274,11 +151,15 @@ function ShopContent() {
                 )}
               </button>
 
-              <button className="relative text-slate-700 hover:text-[#8B1E2F] transition-colors">
+              <button
+                onClick={openCart}
+                className="relative text-slate-700 hover:text-[#8B1E2F] transition-colors"
+                aria-label="Open shopping bag"
+              >
                 <ShoppingBag size={22} />
-                {cart.length > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-amber-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {cart.length}
+                    {cartCount}
                   </span>
                 )}
               </button>
@@ -342,7 +223,7 @@ function ShopContent() {
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Color</h4>
               <div className="space-y-2">
-                {['All', 'Pink', 'Maroon', 'Beige', 'Red & Yellow', 'Green', 'Peach', 'Gold', 'Blue'].map(color => (
+                {colorOptions.map(color => (
                   <label key={color} className="flex items-center gap-2.5 cursor-pointer group">
                     <input 
                       type="radio" 
@@ -362,7 +243,7 @@ function ShopContent() {
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Fabric Material</h4>
               <div className="space-y-2">
-                {['All', 'Chanderi Silk', 'Brocade Silk', 'Banarasi Raw Silk', 'Georgette Silk', 'Micro Velvet', 'Kanjeevaram Silk'].map(fabric => (
+                {fabricOptions.map(fabric => (
                   <label key={fabric} className="flex items-center gap-2.5 cursor-pointer group">
                     <input 
                       type="radio" 
@@ -541,6 +422,8 @@ function ShopContent() {
         <p className="max-w-md mx-auto text-amber-200/60 font-light">Standalone E-Commerce Safa Store integrated with Supabase.</p>
         <p className="text-[11px] text-amber-200/40">© 2026 SafaKing Web. All Rights Reserved.</p>
       </footer>
+
+      <CartDrawer />
     </div>
   );
 }

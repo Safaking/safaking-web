@@ -1,132 +1,153 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, UserProfile, UserRole } from '@/lib/supabase';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase, friendlyError, UserProfile, UserRole } from '@/lib/supabase';
+
+export interface SignUpInput {
+  email: string;
+  password: string;
+  fullName: string;
+  phone: string;
+  city?: string;
+  role: Exclude<UserRole, 'admin'>;
+}
 
 interface AuthContextType {
-  user: any | null;
+  user: User | null;
   profile: UserProfile | null;
-  role: UserRole;
+  role: UserRole | null;
   loading: boolean;
-  login: (email: string, role?: UserRole) => Promise<void>;
+  /** Resolve to null on success, or a human-readable error message. */
+  signIn: (email: string, password: string) => Promise<string | null>;
+  signUp: (input: SignUpInput) => Promise<string | null>;
   logout: () => Promise<void>;
-  setDemoRole: (role: UserRole) => void;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
-  role: 'customer',
+  role: null,
   loading: true,
-  login: async () => {},
+  signIn: async () => 'Auth not ready',
+  signUp: async () => 'Auth not ready',
   logout: async () => {},
-  setDemoRole: () => {},
+  refreshProfile: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<UserRole>('customer');
   const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
+
+  const loadProfile = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!mounted.current) return;
+
+    if (error) {
+      // A missing profiles table (schema not applied) shouldn't wedge the app —
+      // the user stays signed in with no role, and the portals stay locked.
+      console.error('Could not load profile:', friendlyError(error));
+      setProfile(null);
+      return;
+    }
+    setProfile((data as UserProfile) ?? null);
+  }, []);
 
   useEffect(() => {
-    // Check initial Supabase session
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-          fetchProfile(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (err) {
-        console.warn('Supabase auth warning:', err);
-        setLoading(false);
-      }
-    };
+    mounted.current = true;
 
-    getSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const applySession = async (session: Session | null) => {
       if (session?.user) {
         setUser(session.user);
-        fetchProfile(session.user.id);
+        await loadProfile(session.user.id);
       } else {
         setUser(null);
         setProfile(null);
-        setRole('customer');
-        setLoading(false);
       }
+      if (mounted.current) setLoading(false);
+    };
+
+    supabase.auth.getSession().then(({ data }) => applySession(data.session));
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session);
     });
 
     return () => {
-      authListener.subscription.unsubscribe();
+      mounted.current = false;
+      listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [loadProfile]);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return error.message;
+      if (data.user) await loadProfile(data.user.id);
+      return null;
+    },
+    [loadProfile]
+  );
 
-      if (data) {
-        setProfile(data);
-        setRole(data.role || 'customer');
-      }
-    } catch (err) {
-      console.warn('Profile fetch warning:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const signUp = useCallback(
+    async (input: SignUpInput) => {
+      const { data, error } = await supabase.auth.signUp({
+        email: input.email,
+        password: input.password,
+        options: {
+          // Read by the handle_new_user() trigger, which refuses to honour
+          // role: 'admin' regardless of what is sent from here.
+          data: {
+            full_name: input.fullName,
+            phone: input.phone,
+            city: input.city ?? null,
+            role: input.role,
+          },
+        },
+      });
 
-  const login = async (email: string, userRole: UserRole = 'customer') => {
-    // Demo login handler for rapid frontend testing
-    const demoProfile: UserProfile = {
-      id: 'demo-user-123',
-      full_name: email.split('@')[0].toUpperCase(),
-      phone: '+91 98765 43210',
-      role: userRole,
-      city: 'Jaipur',
-    };
-    setUser({ id: 'demo-user-123', email });
-    setProfile(demoProfile);
-    setRole(userRole);
-  };
+      if (error) return error.message;
 
-  const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      // ignore
-    }
+      // With "Confirm email" enabled in Supabase there is no session yet.
+      if (!data.session) return 'CONFIRM_EMAIL';
+
+      if (data.user) await loadProfile(data.user.id);
+      return null;
+    },
+    [loadProfile]
+  );
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
-    setRole('customer');
-  };
+  }, []);
 
-  const setDemoRole = (newRole: UserRole) => {
-    setRole(newRole);
-    if (profile) {
-      setProfile({ ...profile, role: newRole });
-    } else {
-      setProfile({
-        id: 'demo-user-123',
-        full_name: 'DEMO USER',
-        phone: '+91 98765 43210',
-        role: newRole,
-        city: 'Jaipur',
-      });
-      setUser({ id: 'demo-user-123', email: 'demo@safaking.com' });
-    }
-  };
+  const refreshProfile = useCallback(async () => {
+    if (user) await loadProfile(user.id);
+  }, [user, loadProfile]);
 
   return (
-    <AuthContext.Provider value={{ user, profile, role, loading, login, logout, setDemoRole }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        role: profile?.role ?? null,
+        loading,
+        signIn,
+        signUp,
+        logout,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

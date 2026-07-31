@@ -6,123 +6,37 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ShoppingBag, Star, Eye, X, ArrowRight, Crown } from 'lucide-react';
 import { AnimatedSection } from './AnimatedSection';
-
-export interface SafaProduct {
-  id: string;
-  name: string;
-  code: string;
-  price: number;
-  originalPrice: number;
-  rating: number;
-  reviewsCount: number;
-  color: string;
-  fabric: string;
-  style: string;
-  occasion: string;
-  inStock: boolean;
-  isNew?: boolean;
-  isBestseller?: boolean;
-  image: string;
-  imagePosition?: string;
-  description: string;
-}
-
-export const FEATURED_SAFAS: SafaProduct[] = [
-  {
-    id: 'safa-01',
-    name: 'Imperial Pearl Pink Chanderi Silk Safa',
-    code: 'SFA-PRL-801',
-    price: 3499,
-    originalPrice: 4999,
-    rating: 4.9,
-    reviewsCount: 42,
-    color: 'Pink',
-    fabric: 'Chanderi Silk',
-    style: 'Royal Groom',
-    occasion: 'Wedding / Groom',
-    inStock: true,
-    isBestseller: true,
-    image: '/product-pink-chanderi.jpg',
-    imagePosition: 'object-center',
-    description:
-      'Exquisite pearl pink Chanderi silk safa adorned with rich floral gold zari borders and handcrafted jewel plume brooch holder.',
-  },
-  {
-    id: 'safa-02',
-    name: 'Heritage Maroon Zari Brocade Royal Safa',
-    code: 'SFA-MRN-802',
-    price: 4199,
-    originalPrice: 5999,
-    rating: 4.8,
-    reviewsCount: 38,
-    color: 'Maroon',
-    fabric: 'Brocade Silk',
-    style: 'Jodhpuri Royal',
-    occasion: 'Wedding / Reception',
-    inStock: true,
-    isNew: true,
-    image: '/product-maroon-brocade.jpg',
-    imagePosition: 'object-top',
-    description:
-      'Deep crimson maroon brocade safa featuring opulent metallic gold weave pattern and traditional flared kalgi tail.',
-  },
-  {
-    id: 'safa-03',
-    name: 'Royal Jodhpuri Navy Velvet Safa',
-    code: 'SFA-NVY-803',
-    price: 4799,
-    originalPrice: 6499,
-    rating: 4.9,
-    reviewsCount: 56,
-    color: 'Navy Blue',
-    fabric: 'Velvet Brocade',
-    style: 'Jodhpuri Royal',
-    occasion: 'Baraat / Wedding',
-    inStock: true,
-    isBestseller: true,
-    image: '/artist-jodhpuri-blue.jpg',
-    imagePosition: 'object-top',
-    description:
-      'Majestic navy blue velvet safa with gold zari embroidery and sapphire-studded kalgi — the ultimate royal statement.',
-  },
-  {
-    id: 'safa-04',
-    name: 'Grand Maroon Groom Shahi Safa',
-    code: 'SFA-GRM-804',
-    price: 5299,
-    originalPrice: 7499,
-    rating: 5.0,
-    reviewsCount: 29,
-    color: 'Maroon & Gold',
-    fabric: 'Heavy Silk Brocade',
-    style: 'Rajputi Pagdi',
-    occasion: 'Wedding Baraat',
-    inStock: true,
-    image: '/hero-groom-maroon.jpg',
-    imagePosition: 'object-top',
-    description:
-      'The ultimate groom safa — rich maroon velvet with gold zari, emerald-studded kalgi, and triple-strand pearl chains.',
-  },
-];
+import { StoreProduct } from '@/lib/products';
+import { useCart } from '@/context/CartContext';
 
 interface FeaturedCollectionProps {
+  /** Featured slice of the live catalogue, already loaded by the page. */
+  products: StoreProduct[];
   wishlist: string[];
   onToggleWishlist: (id: string) => void;
-  onAddToCart: (product: SafaProduct) => void;
 }
 
-export function FeaturedCollection({ wishlist, onToggleWishlist, onAddToCart }: FeaturedCollectionProps) {
-  const [quickViewProduct, setQuickViewProduct] = useState<SafaProduct | null>(null);
+export function FeaturedCollection({ products, wishlist, onToggleWishlist }: FeaturedCollectionProps) {
+  const { addItem } = useCart();
+  const [quickViewProduct, setQuickViewProduct] = useState<StoreProduct | null>(null);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
 
-  const handleAddToCart = (product: SafaProduct) => {
-    onAddToCart(product);
+  const handleAddToCart = (product: StoreProduct) => {
+    addItem({
+      id: product.id,
+      productId: product.productId,
+      name: product.name,
+      price: product.price,
+      image: product.image,
+    });
     setAddedToCart(product.id);
     setTimeout(() => setAddedToCart(null), 1500);
   };
 
-  const discount = (p: SafaProduct) =>
-    Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100);
+  const discount = (p: StoreProduct) =>
+    p.originalPrice > p.price
+      ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100)
+      : 0;
 
   return (
     <section className="py-28 px-4 sm:px-6 lg:px-8 bg-cream-gradient overflow-hidden">
@@ -158,7 +72,7 @@ export function FeaturedCollection({ wishlist, onToggleWishlist, onAddToCart }: 
         </AnimatedSection>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {FEATURED_SAFAS.map((product, i) => (
+          {products.map((product, i) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 50 }}
@@ -181,13 +95,15 @@ export function FeaturedCollection({ wishlist, onToggleWishlist, onAddToCart }: 
                   <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                   {/* Discount badge */}
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute top-3 left-3 bg-maroon-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full"
-                  >
-                    -{discount(product)}%
-                  </motion.div>
+                  {discount(product) > 0 && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute top-3 left-3 bg-maroon-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full"
+                    >
+                      -{discount(product)}%
+                    </motion.div>
+                  )}
 
                   {product.isBestseller && (
                     <span className="absolute top-9 left-3 bg-royal-500 text-maroon-950 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-sm">
@@ -343,9 +259,11 @@ export function FeaturedCollection({ wishlist, onToggleWishlist, onAddToCart }: 
                       <span className="text-sm text-maroon-800/30 line-through">
                         ₹{quickViewProduct.originalPrice.toLocaleString()}
                       </span>
-                      <span className="text-xs font-bold text-maroon-700 bg-maroon-100 px-2 py-0.5 rounded-full">
-                        -{discount(quickViewProduct)}% OFF
-                      </span>
+                      {discount(quickViewProduct) > 0 && (
+                        <span className="text-xs font-bold text-maroon-700 bg-maroon-100 px-2 py-0.5 rounded-full">
+                          -{discount(quickViewProduct)}% OFF
+                        </span>
+                      )}
                     </div>
                     <motion.button
                       whileHover={{ scale: 1.03 }}

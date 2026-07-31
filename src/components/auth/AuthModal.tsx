@@ -1,56 +1,128 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Mail, Lock, User, Phone, X, Shield, Sparkles, CheckCircle2 } from 'lucide-react';
+import {
+  Crown, Mail, Lock, User, Phone, MapPin, X, ShieldCheck,
+  CheckCircle2, AlertCircle, Loader2,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@/lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Path to send the user to after a successful sign-in. */
+  redirectTo?: string | null;
 }
 
-export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const { login, setDemoRole } = useAuth();
+type SignupRole = Exclude<UserRole, 'admin'>;
+
+const SIGNUP_ROLE_OPTIONS: { id: SignupRole; label: string; hint: string }[] = [
+  { id: 'customer', label: 'Customer', hint: 'Shop safas & book artists' },
+  { id: 'artist', label: 'Safa Artist', hint: 'Receive wedding bookings' },
+];
+
+/** Where each role lands after signing in, when no explicit redirect was given. */
+const HOME_FOR_ROLE: Record<UserRole, string> = {
+  admin: '/admin',
+  artist: '/artist-portal',
+  customer: '/',
+};
+
+export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
+  const { signIn, signUp, role: sessionRole } = useAuth();
+  const router = useRouter();
+
   const [tab, setTab] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<UserRole>('customer');
-  const [submitted, setSubmitted] = useState(false);
+  const [city, setCity] = useState('');
+  const [role, setRole] = useState<SignupRole>('customer');
+
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Clear transient state whenever the modal is reopened or the tab flips.
+  useEffect(() => {
+    setError(null);
+    setNotice(null);
+  }, [tab, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await login(email || 'user@safaking.com', role);
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      onClose();
-    }, 1500);
+  const closeAndReset = () => {
+    setPassword('');
+    setError(null);
+    setNotice(null);
+    onClose();
   };
 
-  const handleQuickDemo = (selectedRole: UserRole) => {
-    setDemoRole(selectedRole);
-    onClose();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+
+    const message =
+      tab === 'login'
+        ? await signIn(email.trim(), password)
+        : await signUp({
+            email: email.trim(),
+            password,
+            fullName: fullName.trim(),
+            phone: phone.trim(),
+            city: city.trim() || undefined,
+            role,
+          });
+
+    setBusy(false);
+
+    if (message === 'CONFIRM_EMAIL') {
+      setNotice(
+        'Account created. Check your inbox and confirm your email address, then sign in.'
+      );
+      setTab('login');
+      setPassword('');
+      return;
+    }
+
+    if (message) {
+      setError(message);
+      return;
+    }
+
+    // signIn/signUp resolve only after the profile is loaded, so `role` is current.
+    setNotice('Signed in successfully.');
+    setTimeout(() => {
+      closeAndReset();
+      router.refresh();
+      const destination = redirectTo ?? (sessionRole ? HOME_FOR_ROLE[sessionRole] : '/');
+      if (destination && destination !== '/') router.push(destination);
+    }, 700);
   };
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-maroon-950/80 backdrop-blur-md">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-maroon-950/80 backdrop-blur-md"
+        onClick={closeAndReset}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl shadow-2xl border border-royal-200"
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-md overflow-hidden bg-white rounded-3xl shadow-2xl border border-royal-200 max-h-[90vh] overflow-y-auto custom-scrollbar"
         >
-          {/* Close button */}
           <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-maroon-900 transition-colors"
+            onClick={closeAndReset}
+            className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors border border-white/20"
+            title="Close"
           >
             <X size={18} />
           </button>
@@ -69,7 +141,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               SafaKing Account
             </h3>
             <p className="text-xs text-royal-200/60 mt-1 relative z-10">
-              {tab === 'login' ? 'Sign in to access your royal portal' : 'Join India\'s premier safa network'}
+              {tab === 'login'
+                ? 'Sign in to access your royal portal'
+                : "Join India's premier safa network"}
             </p>
           </div>
 
@@ -95,123 +169,167 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           {/* Content */}
           <div className="p-7">
-            {submitted ? (
-              <div className="py-8 text-center space-y-3">
-                <CheckCircle2 size={48} className="text-emerald-500 mx-auto animate-bounce" />
-                <h4 className="font-display font-bold text-xl text-maroon-900">Welcome Back!</h4>
-                <p className="text-xs text-gray-500">Redirecting to your portal...</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Role Selector */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-                    Account Role
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'customer', label: 'Customer' },
-                      { id: 'artist', label: 'Safa Artist' },
-                      { id: 'admin', label: 'Admin' },
-                    ].map((r) => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => setRole(r.id as UserRole)}
-                        className={`py-2 px-1 text-xs font-bold rounded-xl border transition-all ${
-                          role === r.id
-                            ? 'bg-maroon-950 text-royal-300 border-maroon-950 shadow-md'
-                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        {r.label}
-                      </button>
-                    ))}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">{error}</p>
+                </div>
+              )}
+              {notice && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+                  <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">{notice}</p>
+                </div>
+              )}
+
+              {tab === 'signup' && (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                      Account Role
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SIGNUP_ROLE_OPTIONS.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setRole(r.id)}
+                          className={`py-2.5 px-2 rounded-xl border transition-all text-left ${
+                            role === r.id
+                              ? 'bg-maroon-950 text-royal-300 border-maroon-950 shadow-md'
+                              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                          }`}
+                        >
+                          <span className="block text-xs font-bold">{r.label}</span>
+                          <span
+                            className={`block text-[10px] mt-0.5 ${
+                              role === r.id ? 'text-royal-200/70' : 'text-gray-400'
+                            }`}
+                          >
+                            {r.hint}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-2 leading-relaxed">
+                      <ShieldCheck size={12} className="shrink-0" />
+                      Admin access is granted by an existing administrator, not chosen here.
+                    </p>
                   </div>
-                </div>
 
-                {tab === 'signup' && (
-                  <>
-                    <div className="relative">
-                      <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        required
-                        type="text"
-                        placeholder="Full Name"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
-                      />
-                    </div>
-                    <div className="relative">
-                      <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        required
-                        type="tel"
-                        placeholder="Phone Number"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
-                      />
-                    </div>
-                  </>
-                )}
+                  <div className="relative">
+                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      required
+                      type="text"
+                      placeholder="Full Name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      required
+                      type="tel"
+                      placeholder="Phone Number"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                  <div className="relative">
+                    <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="City (optional)"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                </>
+              )}
 
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    required
-                    type="email"
-                    placeholder="Email Address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
-                  />
-                </div>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  placeholder="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                />
+              </div>
 
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    required
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
-                  />
-                </div>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  required
+                  minLength={6}
+                  type="password"
+                  autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+                  placeholder={tab === 'login' ? 'Password' : 'Password (min. 6 characters)'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                />
+              </div>
 
+              <div className="flex gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={closeAndReset}
+                  className="w-1/3 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <X size={14} /> Cancel
+                </button>
                 <button
                   type="submit"
-                  className="w-full py-3.5 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg transition-colors"
+                  disabled={busy}
+                  className="w-2/3 py-3.5 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 disabled:cursor-not-allowed text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg transition-colors flex items-center justify-center gap-2"
                 >
-                  {tab === 'login' ? 'Sign In' : 'Create Account'}
+                  {busy && <Loader2 size={14} className="animate-spin" />}
+                  {busy
+                    ? tab === 'login'
+                      ? 'Signing In…'
+                      : 'Creating Account…'
+                    : tab === 'login'
+                    ? 'Sign In'
+                    : 'Create Account'}
                 </button>
+              </div>
 
-                {/* Quick Demo Switcher */}
-                <div className="pt-3 border-t border-gray-100 text-center">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2 font-bold flex items-center justify-center gap-1">
-                    <Sparkles size={11} className="text-amber-500" /> One-Click Role Testing
-                  </p>
-                  <div className="flex justify-center gap-2">
+              <p className="text-[10px] text-center text-gray-400 leading-relaxed pt-1">
+                {tab === 'login' ? (
+                  <>
+                    New to SafaKing?{' '}
                     <button
                       type="button"
-                      onClick={() => handleQuickDemo('artist')}
-                      className="px-3 py-1.5 bg-royal-100 text-royal-800 text-[10px] font-bold rounded-lg hover:bg-royal-200 transition-colors"
+                      onClick={() => setTab('signup')}
+                      className="font-bold text-maroon-800 hover:underline"
                     >
-                      Login as Artist
+                      Create an account
                     </button>
+                  </>
+                ) : (
+                  <>
+                    Already registered?{' '}
                     <button
                       type="button"
-                      onClick={() => handleQuickDemo('admin')}
-                      className="px-3 py-1.5 bg-maroon-100 text-maroon-900 text-[10px] font-bold rounded-lg hover:bg-maroon-200 transition-colors"
+                      onClick={() => setTab('login')}
+                      className="font-bold text-maroon-800 hover:underline"
                     >
-                      Login as Admin
+                      Sign in instead
                     </button>
-                  </div>
-                </div>
-              </form>
-            )}
+                  </>
+                )}
+              </p>
+            </form>
           </div>
         </motion.div>
       </div>

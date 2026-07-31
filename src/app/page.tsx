@@ -1,82 +1,103 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import { TopBanner } from '@/components/landing/TopBanner';
 import { Header } from '@/components/landing/Header';
 import { Hero } from '@/components/landing/Hero';
 import { TrustBar } from '@/components/landing/TrustBar';
 import { ArtistsSection } from '@/components/landing/ArtistsSection';
-import { FeaturedCollection, SafaProduct } from '@/components/landing/FeaturedCollection';
+import { FeaturedCollection } from '@/components/landing/FeaturedCollection';
 import { TrainingSection } from '@/components/landing/TrainingSection';
 import { SupplierSection } from '@/components/landing/SupplierSection';
 import { Footer } from '@/components/landing/Footer';
 import { Preloader } from '@/components/landing/Preloader';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
+import { fetchProducts, StoreProduct, STATIC_PRODUCTS } from '@/lib/products';
+import { useWishlist } from '@/hooks/useWishlist';
 
-export default function SafaKingLanding() {
+function LandingContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [isLoading, setIsLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [wishlist, setWishlist] = useState<string[]>([]);
-  const [cart, setCart] = useState<SafaProduct[]>([]);
+  const [products, setProducts] = useState<StoreProduct[]>(STATIC_PRODUCTS);
+  const [denied, setDenied] = useState<string | null>(null);
+  const { wishlist, toggle: toggleWishlist } = useWishlist();
 
   useEffect(() => {
-    // Hide loading screen after 2.2 seconds (matching the loading bar duration)
     const timer = setTimeout(() => setIsLoading(false), 2200);
     return () => clearTimeout(timer);
   }, []);
 
-  const toggleWishlist = (id: string) => {
-    setWishlist((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
-  };
+  useEffect(() => {
+    let active = true;
+    fetchProducts().then((result) => {
+      if (active) setProducts(result.products);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const addToCart = (product: SafaProduct) => {
-    setCart((prev) => [...prev, product]);
-    setCartOpen(true);
-  };
+  // Middleware bounces unauthorised portal visits back here with a hint.
+  useEffect(() => {
+    if (searchParams.get('auth') === 'login') setAuthOpen(true);
 
-  const removeFromCart = (index: number) => {
-    setCart((prev) => prev.filter((_, i) => i !== index));
-  };
+    const deniedFor = searchParams.get('denied');
+    if (!deniedFor) return;
+
+    setDenied(deniedFor);
+    const timer = setTimeout(() => setDenied(null), 6000);
+    return () => clearTimeout(timer);
+  }, [searchParams]);
+
+  const closeAuth = useCallback(() => {
+    setAuthOpen(false);
+    if (searchParams.get('auth')) router.replace('/');
+  }, [searchParams, router]);
+
+  const featured = products.filter((p) => p.featured).slice(0, 4);
 
   return (
     <>
-      <AnimatePresence mode="wait">
-        {isLoading && <Preloader key="loader" />}
-      </AnimatePresence>
+      <AnimatePresence mode="wait">{isLoading && <Preloader key="loader" />}</AnimatePresence>
+
+      {denied && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-2xl bg-rose-600 text-white text-xs font-bold shadow-2xl">
+          You don&apos;t have access to the {denied === 'admin' ? 'admin panel' : 'artist portal'}.
+        </div>
+      )}
 
       <div className="min-h-screen bg-royal-50 text-maroon-950">
         <TopBanner />
-        <Header
-          wishlistCount={wishlist.length}
-          cartCount={cart.length}
-          onOpenAuth={() => setAuthOpen(true)}
-          onOpenCart={() => setCartOpen(true)}
-        />
+        <Header onOpenAuth={() => setAuthOpen(true)} wishlistCount={wishlist.length} />
         <Hero />
         <TrustBar />
         <ArtistsSection />
         <FeaturedCollection
+          products={featured.length > 0 ? featured : products.slice(0, 4)}
           wishlist={wishlist}
           onToggleWishlist={toggleWishlist}
-          onAddToCart={addToCart}
         />
         <TrainingSection />
         <SupplierSection />
         <Footer />
       </div>
 
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
-      <CartDrawer
-        isOpen={cartOpen}
-        onClose={() => setCartOpen(false)}
-        items={cart}
-        onRemoveItem={removeFromCart}
-        onClearCart={() => setCart([])}
-      />
+      <AuthModal isOpen={authOpen} onClose={closeAuth} redirectTo={searchParams.get('next')} />
+      <CartDrawer />
     </>
   );
 }
 
+export default function SafaKingLanding() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-royal-50" />}>
+      <LandingContent />
+    </Suspense>
+  );
+}

@@ -140,7 +140,7 @@ export function CartDrawer() {
           </div>
 
           {/* Drawer Body */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
             {step === 'success' ? (
               <div className="py-16 text-center space-y-4">
                 <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5 }}>

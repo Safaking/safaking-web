@@ -1,88 +1,60 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Crown, Calendar, MapPin, Phone, CheckCircle2, Clock,
-  User, Sparkles, Filter, ChevronRight, AlertCircle, LogOut, ArrowLeft
+  Crown, Calendar, MapPin, Phone, CheckCircle2,
+  User, Sparkles, AlertCircle, LogOut, ArrowLeft, Loader2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase, DBArtistBooking } from '@/lib/supabase';
-
-// Mock initial bookings for testing before DB insertion
-const INITIAL_ARTIST_BOOKINGS: DBArtistBooking[] = [
-  {
-    id: 'b-01',
-    customer_name: 'Rajesh Sharma',
-    customer_phone: '+91 98290 12345',
-    city_venue: 'Rambagh Palace, Jaipur',
-    event_date: '2026-08-15',
-    safa_style: 'Jodhpuri',
-    amount: 50,
-    status: 'assigned',
-    created_at: '2026-07-29',
-  },
-  {
-    id: 'b-02',
-    customer_name: 'Amitabh Verma',
-    customer_phone: '+91 98100 54321',
-    city_venue: 'Hotel Taj Mahal, Delhi',
-    event_date: '2026-08-20',
-    safa_style: 'Rounded',
-    amount: 50,
-    status: 'assigned',
-    created_at: '2026-07-30',
-  },
-  {
-    id: 'b-03',
-    customer_name: 'Vikramaditya Singh',
-    customer_phone: '+91 97722 88990',
-    city_venue: 'The Leela Palace, Udaipur',
-    event_date: '2026-07-10',
-    safa_style: 'Barati Safa',
-    amount: 50,
-    status: 'completed',
-    created_at: '2026-07-05',
-  },
-];
+import { supabase, friendlyError, DBArtistBooking } from '@/lib/supabase';
 
 export default function ArtistPortalPage() {
-  const { profile, logout } = useAuth();
-  const [bookings, setBookings] = useState<DBArtistBooking[]>(INITIAL_ARTIST_BOOKINGS);
+  const { profile, user, logout } = useAuth();
+  const [bookings, setBookings] = useState<DBArtistBooking[]>([]);
   const [filter, setFilter] = useState<'all' | 'assigned' | 'completed'>('all');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBookings = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+
+    // RLS already limits an artist to their own rows; the explicit filter keeps
+    // an admin previewing this page from seeing the whole dispatch board.
+    const { data, error: fetchErr } = await supabase
+      .from('artist_bookings')
+      .select('*')
+      .eq('artist_id', user.id)
+      .order('event_date', { ascending: true });
+
+    if (fetchErr) {
+      setError(friendlyError(fetchErr));
+      setBookings([]);
+    } else {
+      setBookings((data as DBArtistBooking[]) ?? []);
+    }
+    setLoading(false);
+  }, [user]);
 
   useEffect(() => {
     fetchBookings();
-  }, []);
-
-  const fetchBookings = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.from('artist_bookings').select('*');
-      if (data && data.length > 0) {
-        setBookings(data);
-      }
-    } catch (err) {
-      console.warn('Supabase fetch error, using local bookings:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchBookings]);
 
   const markCompleted = async (id: string) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status: 'completed' } : b))
-    );
+    const previous = bookings;
+    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'completed' } : b)));
 
-    try {
-      await supabase
-        .from('artist_bookings')
-        .update({ status: 'completed' })
-        .eq('id', id);
-    } catch (err) {
-      console.warn('Update error:', err);
+    const { error: updateErr } = await supabase
+      .from('artist_bookings')
+      .update({ status: 'completed' })
+      .eq('id', id);
+
+    if (updateErr) {
+      setBookings(previous); // Roll the optimistic update back.
+      setError(friendlyError(updateErr));
     }
   };
 
@@ -208,12 +180,27 @@ export default function ArtistPortalPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="flex items-start gap-2 p-4 mb-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">{error}</p>
+          </div>
+        )}
+
         {/* Bookings List */}
         <div className="space-y-4">
-          {filteredBookings.length === 0 ? (
+          {loading ? (
+            <div className="p-12 text-center bg-white rounded-3xl border border-amber-200/60">
+              <Loader2 size={30} className="text-amber-500 mx-auto mb-3 animate-spin" />
+              <p className="font-bold text-gray-700 text-sm">Loading your bookings…</p>
+            </div>
+          ) : filteredBookings.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-3xl border border-amber-200/60">
               <AlertCircle size={36} className="text-gray-400 mx-auto mb-3" />
               <p className="font-bold text-gray-700">No bookings found in this view.</p>
+              <p className="text-xs text-gray-500 mt-1.5">
+                An admin assigns weddings to you from the Admin Panel — they appear here straight away.
+              </p>
             </div>
           ) : (
             filteredBookings.map((b) => (

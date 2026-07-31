@@ -1,16 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { Crown, Search, Heart, ShoppingBag, Menu, X, User, ShieldCheck } from 'lucide-react';
+import { Crown, Search, Heart, ShoppingBag, Menu, X, User, ShieldCheck, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 
 interface HeaderProps {
   wishlistCount: number;
-  cartCount: number;
   onOpenAuth: () => void;
-  onOpenCart: () => void;
 }
 
 const NAV_LINKS = [
@@ -22,8 +21,9 @@ const NAV_LINKS = [
   { href: '/careers', label: 'Careers' },
 ];
 
-export function Header({ wishlistCount, cartCount, onOpenAuth, onOpenCart }: HeaderProps) {
-  const { user, profile, role } = useAuth();
+export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
+  const { user, profile, role, logout } = useAuth();
+  const { count: cartCount, openCart } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -98,18 +98,28 @@ export function Header({ wishlistCount, cartCount, onOpenAuth, onOpenCart }: Hea
               <Search size={20} />
             </Link>
 
-            <button
-              onClick={onOpenAuth}
-              className="flex items-center gap-1 text-maroon-800/70 hover:text-maroon-700 transition-colors"
-              title="Account Login / Portal"
-            >
-              <User size={20} />
-              {user && (
+            {user ? (
+              <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-maroon-900 hidden md:inline">
-                  {profile?.full_name?.split(' ')[0]}
+                  {profile?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
                 </span>
-              )}
-            </button>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-1 text-maroon-800/70 hover:text-maroon-700 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut size={20} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="flex items-center gap-1 text-maroon-800/70 hover:text-maroon-700 transition-colors"
+                title="Account Login / Register"
+              >
+                <User size={20} />
+              </button>
+            )}
 
             <button className="relative text-maroon-800/70 hover:text-maroon-700 transition-colors">
               <Heart size={20} />
@@ -121,7 +131,7 @@ export function Header({ wishlistCount, cartCount, onOpenAuth, onOpenCart }: Hea
             </button>
 
             <button
-              onClick={onOpenCart}
+              onClick={openCart}
               className="relative text-maroon-800/70 hover:text-maroon-700 transition-colors"
             >
               <ShoppingBag size={20} />
@@ -161,6 +171,25 @@ export function Header({ wishlistCount, cartCount, onOpenAuth, onOpenCart }: Hea
                   {link.label}
                 </Link>
               ))}
+
+              {role === 'artist' && (
+                <Link
+                  href="/artist-portal"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-4 py-3 text-sm font-black tracking-wider uppercase bg-royal-500 text-maroon-950 rounded-xl"
+                >
+                  Artist Portal ➔
+                </Link>
+              )}
+              {role === 'admin' && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-4 py-3 text-sm font-black tracking-wider uppercase bg-maroon-950 text-royal-300 rounded-xl flex items-center gap-1.5"
+                >
+                  <ShieldCheck size={15} /> Admin Panel ➔
+                </Link>
+              )}
             </nav>
           </motion.div>
         )}

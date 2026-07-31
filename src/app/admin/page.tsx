@@ -1,135 +1,305 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Crown, ShoppingBag, Calendar, Users, Package,
-  TrendingUp, CheckCircle2, Clock, Truck, ShieldAlert,
-  Plus, Edit, Trash2, ArrowLeft, LogOut, Search, Filter, Sparkles
+  Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase,
+  TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase, DBOrder, DBArtistBooking, DBSupplierApplication, DBAcademyEnrollment } from '@/lib/supabase';
+import {
+  supabase, friendlyError,
+  DBOrder, DBArtistBooking, DBSupplierApplication, DBAcademyEnrollment,
+  DBJobApplication, DBProduct, UserProfile, UserRole,
+} from '@/lib/supabase';
 
-// Mock datasets for Admin view when live Supabase DB table is empty
-const INITIAL_ORDERS: DBOrder[] = [
-  {
-    id: 'ord-101',
-    customer_name: 'Harish Chandra',
-    customer_phone: '+91 94140 11223',
-    total_amount: 5499,
-    shipping_address: '14, Civil Lines, Jaipur, Rajasthan',
-    status: 'confirmed',
-    created_at: '2026-07-30',
-  },
-  {
-    id: 'ord-102',
-    customer_name: 'Devendra Rathore',
-    customer_phone: '+91 98280 44556',
-    total_amount: 3299,
-    shipping_address: 'Flat 402, Royal Residency, Delhi',
-    status: 'shipped',
-    created_at: '2026-07-29',
-  },
+type Tab = 'orders' | 'bookings' | 'products' | 'suppliers' | 'academy' | 'careers' | 'users';
+
+const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
+  { id: 'orders', label: 'Orders', icon: ShoppingBag },
+  { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
+  { id: 'products', label: 'Products', icon: Package },
+  { id: 'suppliers', label: 'Suppliers', icon: Briefcase },
+  { id: 'academy', label: 'Academy', icon: GraduationCap },
+  { id: 'careers', label: 'Job Applications', icon: Users },
+  { id: 'users', label: 'Users & Roles', icon: Crown },
 ];
 
-const INITIAL_BOOKINGS: DBArtistBooking[] = [
-  {
-    id: 'b-01',
-    customer_name: 'Rajesh Sharma',
-    customer_phone: '+91 98290 12345',
-    city_venue: 'Rambagh Palace, Jaipur',
-    event_date: '2026-08-15',
-    safa_style: 'Jodhpuri',
-    artist_name: 'Master Ramesh',
-    amount: 50,
-    status: 'assigned',
-  },
-  {
-    id: 'b-04',
-    customer_name: 'Gaurav Khandelwal',
-    customer_phone: '+91 99887 66554',
-    city_venue: 'Fairmont Hotel, Jaipur',
-    event_date: '2026-08-25',
-    safa_style: 'Rounded',
-    artist_name: 'Unassigned',
-    amount: 50,
-    status: 'pending',
-  },
-];
+const ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
+const APPLICATION_STATUSES = ['pending', 'approved', 'rejected'] as const;
+const ENROLLMENT_STATUSES = ['pending', 'contacted', 'enrolled'] as const;
+const JOB_STATUSES = ['pending', 'shortlisted', 'hired', 'rejected'] as const;
+const ROLES: UserRole[] = ['customer', 'artist', 'admin'];
 
-const INITIAL_SUPPLIERS: DBSupplierApplication[] = [
-  {
-    id: 'sup-01',
-    business_name: 'Royal Rajasthan Silks',
-    contact_name: 'Mahesh Sharma',
-    phone: '+91 94140 88776',
-    city: 'Jaipur',
-    status: 'pending',
-  },
-];
+const EMPTY_PRODUCT = {
+  name: '', code: '', price: '', original_price: '', category: '', color: '',
+  fabric: '', style: '', occasion: '', image: '', description: '', stock: '',
+  is_bestseller: false, is_new: false, featured: false, active: true,
+};
+type ProductForm = typeof EMPTY_PRODUCT;
+
+function statusTone(status: string): string {
+  switch (status) {
+    case 'delivered':
+    case 'completed':
+    case 'approved':
+    case 'enrolled':
+    case 'hired':
+      return 'bg-emerald-100 text-emerald-800';
+    case 'shipped':
+    case 'assigned':
+    case 'contacted':
+    case 'shortlisted':
+      return 'bg-blue-100 text-blue-800';
+    case 'cancelled':
+    case 'rejected':
+      return 'bg-rose-100 text-rose-800';
+    default:
+      return 'bg-amber-100 text-amber-800';
+  }
+}
+
+function Badge({ status }: { status: string }) {
+  return (
+    <span
+      className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${statusTone(status)}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function StatusSelect<T extends string>({
+  value, options, onChange,
+}: {
+  value: T;
+  options: readonly T[];
+  onChange: (next: T) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as T)}
+      className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] capitalize focus:ring-2 focus:ring-maroon-950/20"
+    >
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function Panel({
+  title, subtitle, children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden">
+      <div className="p-6 border-b border-amber-100 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="font-display font-bold text-lg text-maroon-950">{title}</h3>
+        {subtitle && <span className="text-xs text-gray-400 font-medium">{subtitle}</span>}
+      </div>
+      <div className="overflow-x-auto">{children}</div>
+    </div>
+  );
+}
+
+function Empty({ label }: { label: string }) {
+  return (
+    <div className="p-12 text-center">
+      <AlertCircle size={30} className="text-gray-300 mx-auto mb-3" />
+      <p className="text-sm font-bold text-gray-600">{label}</p>
+    </div>
+  );
+}
+
+const TH = 'p-4 text-left';
+const THEAD =
+  'bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-amber-100';
 
 export default function AdminPanelPage() {
   const { profile, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'orders' | 'bookings' | 'products' | 'suppliers'>('orders');
+  const [activeTab, setActiveTab] = useState<Tab>('orders');
 
-  const [orders, setOrders] = useState<DBOrder[]>(INITIAL_ORDERS);
-  const [bookings, setBookings] = useState<DBArtistBooking[]>(INITIAL_BOOKINGS);
-  const [suppliers, setSuppliers] = useState<DBSupplierApplication[]>(INITIAL_SUPPLIERS);
+  const [orders, setOrders] = useState<DBOrder[]>([]);
+  const [bookings, setBookings] = useState<DBArtistBooking[]>([]);
+  const [products, setProducts] = useState<DBProduct[]>([]);
+  const [suppliers, setSuppliers] = useState<DBSupplierApplication[]>([]);
+  const [enrollments, setEnrollments] = useState<DBAcademyEnrollment[]>([]);
+  const [jobApps, setJobApps] = useState<DBJobApplication[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
 
-  const [assigningArtist, setAssigningArtist] = useState<string | null>(null);
-  const [artistNameInput, setArtistNameInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAdminData();
+  const [editingProduct, setEditingProduct] = useState<string | null>(null);
+  const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT);
+  const [savingProduct, setSavingProduct] = useState(false);
+
+  const artists = useMemo(() => users.filter((u) => u.role === 'artist'), [users]);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    const [o, b, p, s, e, j, u] = await Promise.all([
+      supabase.from('orders').select('*').order('created_at', { ascending: false }),
+      supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
+      supabase.from('products').select('*').order('sort_order', { ascending: true }),
+      supabase.from('supplier_applications').select('*').order('created_at', { ascending: false }),
+      supabase.from('academy_enrollments').select('*').order('created_at', { ascending: false }),
+      supabase.from('job_applications').select('*').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+    ]);
+
+    const firstError = [o, b, p, s, e, j, u].find((r) => r.error)?.error;
+    if (firstError) setError(friendlyError(firstError));
+
+    setOrders((o.data as DBOrder[]) ?? []);
+    setBookings((b.data as DBArtistBooking[]) ?? []);
+    setProducts((p.data as DBProduct[]) ?? []);
+    setSuppliers((s.data as DBSupplierApplication[]) ?? []);
+    setEnrollments((e.data as DBAcademyEnrollment[]) ?? []);
+    setJobApps((j.data as DBJobApplication[]) ?? []);
+    setUsers((u.data as UserProfile[]) ?? []);
+    setLoading(false);
   }, []);
 
-  const fetchAdminData = async () => {
-    try {
-      const { data: orderRes } = await supabase.from('orders').select('*');
-      if (orderRes && orderRes.length > 0) setOrders(orderRes);
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
-      const { data: bookingRes } = await supabase.from('artist_bookings').select('*');
-      if (bookingRes && bookingRes.length > 0) setBookings(bookingRes);
+  /** Optimistic row update that rolls back and surfaces the error on failure. */
+  async function patchRow<T extends { id: string }>(
+    table: string,
+    id: string,
+    patch: Partial<T>,
+    setRows: React.Dispatch<React.SetStateAction<T[]>>
+  ) {
+    let previous: T[] = [];
+    setRows((prev) => {
+      previous = prev;
+      return prev.map((row) => (row.id === id ? { ...row, ...patch } : row));
+    });
 
-      const { data: supRes } = await supabase.from('supplier_applications').select('*');
-      if (supRes && supRes.length > 0) setSuppliers(supRes);
-    } catch (e) {
-      console.warn('Admin fetch warning:', e);
+    const { error: updateErr } = await supabase
+      .from(table)
+      .update(patch as Record<string, unknown>)
+      .eq('id', id);
+    if (updateErr) {
+      setRows(previous);
+      setError(friendlyError(updateErr));
+    } else {
+      setError(null);
     }
-  };
+  }
 
-  const updateOrderStatus = async (id: string, newStatus: DBOrder['status']) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
+  const assignArtist = async (bookingId: string, artistId: string) => {
+    if (!artistId) return;
+    const artist = artists.find((a) => a.id === artistId);
+    await patchRow<DBArtistBooking>(
+      'artist_bookings',
+      bookingId,
+      { artist_id: artistId, artist_name: artist?.full_name ?? null, status: 'assigned' },
+      setBookings
     );
-    try {
-      await supabase.from('orders').update({ status: newStatus }).eq('id', id);
-    } catch (err) {
-      console.warn('Status update warning:', err);
+  };
+
+  // ---- Products CRUD -------------------------------------------------------
+  const openProductEditor = (product?: DBProduct) => {
+    if (product) {
+      setEditingProduct(product.id);
+      setProductForm({
+        name: product.name ?? '',
+        code: product.code ?? '',
+        price: String(product.price ?? ''),
+        original_price: String(product.original_price ?? ''),
+        category: product.category ?? '',
+        color: product.color ?? '',
+        fabric: product.fabric ?? '',
+        style: product.style ?? '',
+        occasion: product.occasion ?? '',
+        image: product.image ?? '',
+        description: product.description ?? '',
+        stock: String(product.stock ?? 0),
+        is_bestseller: !!product.is_bestseller,
+        is_new: !!product.is_new,
+        featured: !!(product as DBProduct & { featured?: boolean }).featured,
+        active: product.active !== false,
+      });
+    } else {
+      setEditingProduct('new');
+      setProductForm(EMPTY_PRODUCT);
     }
   };
 
-  const handleAssignArtist = async (bookingId: string) => {
-    if (!artistNameInput) return;
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === bookingId ? { ...b, artist_name: artistNameInput, status: 'assigned' } : b
-      )
+  const saveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProduct(true);
+    setError(null);
+
+    const payload = {
+      name: productForm.name.trim(),
+      code: productForm.code.trim() || null,
+      price: Number(productForm.price) || 0,
+      original_price: productForm.original_price ? Number(productForm.original_price) : null,
+      category: productForm.category.trim() || null,
+      color: productForm.color.trim() || null,
+      fabric: productForm.fabric.trim() || null,
+      style: productForm.style.trim() || null,
+      occasion: productForm.occasion.trim() || null,
+      image: productForm.image.trim() || null,
+      description: productForm.description.trim() || null,
+      stock: Number(productForm.stock) || 0,
+      is_bestseller: productForm.is_bestseller,
+      is_new: productForm.is_new,
+      featured: productForm.featured,
+      active: productForm.active,
+    };
+
+    const query =
+      editingProduct === 'new'
+        ? supabase.from('products').insert(payload).select().single()
+        : supabase.from('products').update(payload).eq('id', editingProduct!).select().single();
+
+    const { data, error: saveErr } = await query;
+    setSavingProduct(false);
+
+    if (saveErr || !data) {
+      setError(friendlyError(saveErr));
+      return;
+    }
+
+    const saved = data as DBProduct;
+    setProducts((prev) =>
+      editingProduct === 'new'
+        ? [...prev, saved]
+        : prev.map((p) => (p.id === saved.id ? saved : p))
     );
-    try {
-      await supabase
-        .from('artist_bookings')
-        .update({ artist_name: artistNameInput, status: 'assigned' })
-        .eq('id', bookingId);
-    } catch (err) {
-      console.warn('Assign error:', err);
-    }
-    setAssigningArtist(null);
-    setArtistNameInput('');
+    setEditingProduct(null);
   };
 
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total_amount, 0);
+  const deleteProduct = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+
+    const { error: deleteErr } = await supabase.from('products').delete().eq('id', id);
+    if (deleteErr) {
+      setError(friendlyError(deleteErr));
+      return;
+    }
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const totalRevenue = orders
+    .filter((o) => o.status !== 'cancelled')
+    .reduce((sum, o) => sum + o.total_amount, 0);
+  const pendingSuppliers = suppliers.filter((s) => s.status === 'pending').length;
 
   return (
     <div className="min-h-screen bg-[#FDF6EC] text-maroon-950 font-sans">
@@ -138,7 +308,10 @@ export default function AdminPanelPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <Link href="/" className="w-10 h-10 rounded-full bg-royal-gradient flex items-center justify-center shadow-md">
+              <Link
+                href="/"
+                className="w-10 h-10 rounded-full bg-royal-gradient flex items-center justify-center shadow-md"
+              >
                 <Crown size={20} className="text-maroon-950" />
               </Link>
               <div>
@@ -146,7 +319,7 @@ export default function AdminPanelPage() {
                   SafaKing Admin Control
                 </h1>
                 <p className="text-[10px] text-royal-200/60 uppercase tracking-widest mt-1">
-                  Master Operations & Logistics
+                  {profile?.full_name || 'Master Operations & Logistics'}
                 </p>
               </div>
             </div>
@@ -169,71 +342,71 @@ export default function AdminPanelPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {error && (
+          <div className="flex items-start gap-2 p-4 mb-6 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed flex-1">{error}</p>
+            <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700">
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
-        {/* Executive Metrics Overview */}
+        {/* Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <div className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-sm flex items-center gap-5">
-            <div className="w-12 h-12 rounded-2xl bg-royal-100 text-royal-800 flex items-center justify-center">
-              <TrendingUp size={24} />
+          {[
+            {
+              label: 'Total Sales Revenue',
+              value: `₹${totalRevenue.toLocaleString()}`,
+              icon: TrendingUp,
+              tone: 'bg-royal-100 text-royal-800',
+            },
+            {
+              label: 'Orders',
+              value: orders.length,
+              icon: ShoppingBag,
+              tone: 'bg-amber-100 text-amber-800',
+            },
+            {
+              label: 'Artist Bookings',
+              value: bookings.length,
+              icon: Calendar,
+              tone: 'bg-emerald-100 text-emerald-800',
+            },
+            {
+              label: 'Suppliers Pending',
+              value: pendingSuppliers,
+              icon: Package,
+              tone: 'bg-indigo-100 text-indigo-800',
+            },
+          ].map((metric) => (
+            <div
+              key={metric.label}
+              className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-sm flex items-center gap-5"
+            >
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${metric.tone}`}>
+                <metric.icon size={24} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  {metric.label}
+                </p>
+                <p className="text-2xl font-display font-black text-maroon-950 mt-0.5">
+                  {loading ? '—' : metric.value}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-black text-royal-800/60 uppercase tracking-widest">Total Sales Revenue</p>
-              <p className="text-2xl font-display font-black text-maroon-950 mt-0.5">
-                ₹{totalRevenue.toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-sm flex items-center gap-5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
-              <ShoppingBag size={24} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-amber-800/60 uppercase tracking-widest">Active Orders</p>
-              <p className="text-2xl font-display font-black text-maroon-950 mt-0.5">
-                {orders.length}
-              </p>
-            </div>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-sm flex items-center gap-5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-              <Calendar size={24} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-emerald-800/60 uppercase tracking-widest">Artist Bookings</p>
-              <p className="text-2xl font-display font-black text-maroon-950 mt-0.5">
-                {bookings.length}
-              </p>
-            </div>
-          </div>
-
-          <div className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-sm flex items-center gap-5">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-800 flex items-center justify-center">
-              <Package size={24} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-indigo-800/60 uppercase tracking-widest">Suppliers Pending</p>
-              <p className="text-2xl font-display font-black text-maroon-950 mt-0.5">
-                {suppliers.length}
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Tabs */}
         <div className="flex border-b border-amber-200/70 mb-8 overflow-x-auto gap-2">
-          {[
-            { id: 'orders', label: 'Product Orders', icon: ShoppingBag },
-            { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
-            { id: 'suppliers', label: 'Supplier Applications', icon: Package },
-          ].map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-6 py-3.5 text-xs font-bold uppercase tracking-widest border-b-2 transition-all shrink-0 ${
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-5 py-3.5 text-xs font-bold uppercase tracking-widest border-b-2 transition-all shrink-0 ${
                 activeTab === tab.id
                   ? 'border-maroon-950 text-maroon-950 bg-white rounded-t-2xl shadow-sm'
                   : 'border-transparent text-gray-500 hover:text-gray-800'
@@ -245,174 +418,531 @@ export default function AdminPanelPage() {
           ))}
         </div>
 
-        {/* TAB 1: PRODUCT ORDERS */}
-        {activeTab === 'orders' && (
-          <div className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-amber-100 flex items-center justify-between">
-              <h3 className="font-display font-bold text-lg text-maroon-950">Fulfillment & Orders List</h3>
-              <span className="text-xs text-gray-400 font-medium">Real-time status updater</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-amber-100">
-                  <tr>
-                    <th className="p-4">Customer</th>
-                    <th className="p-4">Phone</th>
-                    <th className="p-4">Shipping Address</th>
-                    <th className="p-4">Total</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-amber-100 text-xs">
-                  {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
-                      <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
-                      <td className="p-4 text-gray-600">{order.customer_phone}</td>
-                      <td className="p-4 text-gray-600 max-w-xs">{order.shipping_address}</td>
-                      <td className="p-4 font-black text-gradient-gold">₹{order.total_amount.toLocaleString()}</td>
-                      <td className="p-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            order.status === 'delivered'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : order.status === 'shipped'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <select
-                          value={order.status}
-                          onChange={(e) => updateOrderStatus(order.id, e.target.value as any)}
-                          className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] focus:ring-2 focus:ring-maroon-950/20"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="shipped">Shipped</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {loading ? (
+          <div className="p-16 text-center bg-white rounded-3xl border border-amber-200/60">
+            <Loader2 size={30} className="text-amber-500 mx-auto mb-3 animate-spin" />
+            <p className="text-sm font-bold text-gray-600">Loading control data…</p>
           </div>
-        )}
-
-        {/* TAB 2: ARTIST BOOKINGS */}
-        {activeTab === 'bookings' && (
-          <div className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-amber-100 flex items-center justify-between">
-              <h3 className="font-display font-bold text-lg text-maroon-950">Artist Booking Dispatch</h3>
-              <span className="text-xs text-gray-400 font-medium">Assign Safa Artists to Weddings</span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-amber-100">
-                  <tr>
-                    <th className="p-4">Client</th>
-                    <th className="p-4">Event Date</th>
-                    <th className="p-4">City / Venue</th>
-                    <th className="p-4">Safa Style</th>
-                    <th className="p-4">Assigned Artist</th>
-                    <th className="p-4">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-amber-100 text-xs">
-                  {bookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-amber-50/30 transition-colors">
-                      <td className="p-4 font-bold text-maroon-950">
-                        {booking.customer_name}
-                        <br />
-                        <span className="text-[10px] text-gray-400 font-normal">{booking.customer_phone}</span>
-                      </td>
-                      <td className="p-4 text-gray-700 font-medium">{booking.event_date}</td>
-                      <td className="p-4 text-gray-700">{booking.city_venue}</td>
-                      <td className="p-4">
-                        <span className="px-2.5 py-1 bg-royal-100 text-royal-800 text-[10px] font-bold rounded-full uppercase">
-                          {booking.safa_style}
-                        </span>
-                      </td>
-                      <td className="p-4 font-bold text-maroon-900">
-                        {booking.artist_name || 'Unassigned'}
-                      </td>
-                      <td className="p-4">
-                        {assigningArtist === booking.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              placeholder="Artist Name"
-                              value={artistNameInput}
-                              onChange={(e) => setArtistNameInput(e.target.value)}
-                              className="px-2.5 py-1 text-xs border border-gray-300 rounded-lg w-28"
+        ) : (
+          <>
+            {/* ---- ORDERS ---- */}
+            {activeTab === 'orders' && (
+              <Panel title="Fulfilment & Orders" subtitle="Change a status to update it live">
+                {orders.length === 0 ? (
+                  <Empty label="No orders yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Customer</th>
+                        <th className={TH}>Phone</th>
+                        <th className={TH}>Shipping Address</th>
+                        <th className={TH}>Total</th>
+                        <th className={TH}>Status</th>
+                        <th className={TH}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {orders.map((order) => (
+                        <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
+                          <td className="p-4 text-gray-600">{order.customer_phone}</td>
+                          <td className="p-4 text-gray-600 max-w-xs">{order.shipping_address}</td>
+                          <td className="p-4 font-black text-gradient-gold">
+                            ₹{order.total_amount.toLocaleString()}
+                          </td>
+                          <td className="p-4">
+                            <Badge status={order.status} />
+                          </td>
+                          <td className="p-4">
+                            <StatusSelect
+                              value={order.status}
+                              options={ORDER_STATUSES}
+                              onChange={(status) =>
+                                patchRow<DBOrder>('orders', order.id, { status }, setOrders)
+                              }
                             />
-                            <button
-                              onClick={() => handleAssignArtist(booking.id)}
-                              className="px-3 py-1 bg-maroon-950 text-white rounded-lg text-[10px] font-bold uppercase"
-                            >
-                              Save
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setAssigningArtist(booking.id)}
-                            className="px-3 py-1.5 bg-royal-100 hover:bg-royal-200 text-royal-900 font-bold rounded-xl text-[10px] uppercase tracking-wider"
-                          >
-                            Assign Artist
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
 
-        {/* TAB 3: SUPPLIER APPLICATIONS */}
-        {activeTab === 'suppliers' && (
-          <div className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-amber-100">
-              <h3 className="font-display font-bold text-lg text-maroon-950">Supplier Network Submissions</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-amber-100">
-                  <tr>
-                    <th className="p-4">Business Name</th>
-                    <th className="p-4">Contact Person</th>
-                    <th className="p-4">Phone</th>
-                    <th className="p-4">City</th>
-                    <th className="p-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-amber-100 text-xs">
-                  {suppliers.map((sup) => (
-                    <tr key={sup.id} className="hover:bg-amber-50/30 transition-colors">
-                      <td className="p-4 font-bold text-maroon-950">{sup.business_name}</td>
-                      <td className="p-4 text-gray-700">{sup.contact_name}</td>
-                      <td className="p-4 text-gray-700">{sup.phone}</td>
-                      <td className="p-4 text-gray-700">{sup.city}</td>
-                      <td className="p-4">
-                        <span className="px-3 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-full uppercase">
-                          {sup.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            {/* ---- BOOKINGS ---- */}
+            {activeTab === 'bookings' && (
+              <Panel
+                title="Artist Booking Dispatch"
+                subtitle={
+                  artists.length === 0
+                    ? 'No artists registered yet — an artist must sign up first'
+                    : `${artists.length} artist${artists.length === 1 ? '' : 's'} available`
+                }
+              >
+                {bookings.length === 0 ? (
+                  <Empty label="No bookings yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Client</th>
+                        <th className={TH}>Event Date</th>
+                        <th className={TH}>City / Venue</th>
+                        <th className={TH}>Safa Style</th>
+                        <th className={TH}>Status</th>
+                        <th className={TH}>Assign Artist</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {bookings.map((booking) => (
+                        <tr key={booking.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-4 font-bold text-maroon-950">
+                            {booking.customer_name}
+                            <br />
+                            <span className="text-[10px] text-gray-400 font-normal">
+                              {booking.customer_phone}
+                            </span>
+                          </td>
+                          <td className="p-4 text-gray-700 font-medium">{booking.event_date}</td>
+                          <td className="p-4 text-gray-700">{booking.city_venue}</td>
+                          <td className="p-4">
+                            <span className="px-2.5 py-1 bg-royal-100 text-royal-800 text-[10px] font-bold rounded-full uppercase">
+                              {booking.safa_style}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <Badge status={booking.status} />
+                          </td>
+                          <td className="p-4">
+                            <select
+                              value={booking.artist_id ?? ''}
+                              onChange={(e) => assignArtist(booking.id, e.target.value)}
+                              disabled={artists.length === 0}
+                              className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] focus:ring-2 focus:ring-maroon-950/20 disabled:opacity-50"
+                            >
+                              <option value="">Unassigned</option>
+                              {artists.map((artist) => (
+                                <option key={artist.id} value={artist.id}>
+                                  {artist.full_name || artist.email}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
+
+            {/* ---- PRODUCTS ---- */}
+            {activeTab === 'products' && (
+              <div className="space-y-6">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => openProductEditor()}
+                    className="flex items-center gap-2 px-5 py-3 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-2xl text-xs uppercase tracking-widest shadow-lg transition-colors"
+                  >
+                    <Plus size={15} /> New Product
+                  </button>
+                </div>
+
+                <Panel title="Catalogue" subtitle={`${products.length} products`}>
+                  {products.length === 0 ? (
+                    <Empty label="No products yet — add one, or run supabase/seed.sql." />
+                  ) : (
+                    <table className="w-full text-left">
+                      <thead className={THEAD}>
+                        <tr>
+                          <th className={TH}>Product</th>
+                          <th className={TH}>Code</th>
+                          <th className={TH}>Price</th>
+                          <th className={TH}>Stock</th>
+                          <th className={TH}>Flags</th>
+                          <th className={TH}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-100 text-xs">
+                        {products.map((product) => (
+                          <tr key={product.id} className="hover:bg-amber-50/30 transition-colors">
+                            <td className="p-4 font-bold text-maroon-950 max-w-xs">
+                              {product.name}
+                              <span className="block text-[10px] text-gray-400 font-normal">
+                                {product.category} · {product.fabric}
+                              </span>
+                            </td>
+                            <td className="p-4 text-gray-500 font-mono text-[11px]">{product.code}</td>
+                            <td className="p-4 font-black text-gradient-gold">
+                              ₹{product.price.toLocaleString()}
+                            </td>
+                            <td className="p-4">
+                              <span
+                                className={`font-bold ${
+                                  product.stock > 0 ? 'text-emerald-700' : 'text-rose-600'
+                                }`}
+                              >
+                                {product.stock}
+                              </span>
+                            </td>
+                            <td className="p-4 space-x-1">
+                              {product.active === false && <Badge status="inactive" />}
+                              {product.is_bestseller && (
+                                <span className="px-2 py-0.5 rounded-full bg-royal-100 text-royal-800 text-[10px] font-bold uppercase">
+                                  Bestseller
+                                </span>
+                              )}
+                              {product.is_new && (
+                                <span className="px-2 py-0.5 rounded-full bg-maroon-100 text-maroon-900 text-[10px] font-bold uppercase">
+                                  New
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => openProductEditor(product)}
+                                  className="p-2 rounded-lg bg-royal-100 text-royal-800 hover:bg-royal-200 transition-colors"
+                                  aria-label={`Edit ${product.name}`}
+                                >
+                                  <Edit size={13} />
+                                </button>
+                                <button
+                                  onClick={() => deleteProduct(product.id, product.name)}
+                                  className="p-2 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-200 transition-colors"
+                                  aria-label={`Delete ${product.name}`}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Panel>
+              </div>
+            )}
+
+            {/* ---- SUPPLIERS ---- */}
+            {activeTab === 'suppliers' && (
+              <Panel title="Supplier Network Submissions">
+                {suppliers.length === 0 ? (
+                  <Empty label="No supplier applications yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Business</th>
+                        <th className={TH}>Contact</th>
+                        <th className={TH}>Phone / Email</th>
+                        <th className={TH}>City</th>
+                        <th className={TH}>Category</th>
+                        <th className={TH}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {suppliers.map((supplier) => (
+                        <tr key={supplier.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-4 font-bold text-maroon-950">{supplier.business_name}</td>
+                          <td className="p-4 text-gray-700">{supplier.contact_name}</td>
+                          <td className="p-4 text-gray-600">
+                            {supplier.phone}
+                            <span className="block text-[10px] text-gray-400">{supplier.email}</span>
+                          </td>
+                          <td className="p-4 text-gray-700">{supplier.city}</td>
+                          <td className="p-4 text-gray-700">{supplier.category}</td>
+                          <td className="p-4">
+                            <StatusSelect
+                              value={supplier.status}
+                              options={APPLICATION_STATUSES}
+                              onChange={(status) =>
+                                patchRow<DBSupplierApplication>(
+                                  'supplier_applications', supplier.id, { status }, setSuppliers
+                                )
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
+
+            {/* ---- ACADEMY ---- */}
+            {activeTab === 'academy' && (
+              <Panel title="Academy Enrollment Requests">
+                {enrollments.length === 0 ? (
+                  <Empty label="No enrollment requests yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Applicant</th>
+                        <th className={TH}>Phone</th>
+                        <th className={TH}>City</th>
+                        <th className={TH}>Centre</th>
+                        <th className={TH}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {enrollments.map((enrollment) => (
+                        <tr key={enrollment.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-4 font-bold text-maroon-950">{enrollment.full_name}</td>
+                          <td className="p-4 text-gray-600">{enrollment.phone}</td>
+                          <td className="p-4 text-gray-700">{enrollment.city}</td>
+                          <td className="p-4 text-gray-700 capitalize">{enrollment.center}</td>
+                          <td className="p-4">
+                            <StatusSelect
+                              value={enrollment.status}
+                              options={ENROLLMENT_STATUSES}
+                              onChange={(status) =>
+                                patchRow<DBAcademyEnrollment>(
+                                  'academy_enrollments', enrollment.id, { status }, setEnrollments
+                                )
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
+
+            {/* ---- CAREERS ---- */}
+            {activeTab === 'careers' && (
+              <Panel title="Job Applications">
+                {jobApps.length === 0 ? (
+                  <Empty label="No job applications yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Applicant</th>
+                        <th className={TH}>Role Applied</th>
+                        <th className={TH}>Contact</th>
+                        <th className={TH}>Experience</th>
+                        <th className={TH}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {jobApps.map((application) => (
+                        <tr key={application.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-4 font-bold text-maroon-950">
+                            {application.full_name}
+                            <span className="block text-[10px] text-gray-400 font-normal">
+                              {application.city}
+                            </span>
+                          </td>
+                          <td className="p-4 text-gray-700">{application.job_title}</td>
+                          <td className="p-4 text-gray-600">
+                            {application.phone}
+                            <span className="block text-[10px] text-gray-400">
+                              {application.email}
+                            </span>
+                          </td>
+                          <td className="p-4 text-gray-700">{application.experience || '—'}</td>
+                          <td className="p-4">
+                            <StatusSelect
+                              value={application.status}
+                              options={JOB_STATUSES}
+                              onChange={(status) =>
+                                patchRow<DBJobApplication>(
+                                  'job_applications', application.id, { status }, setJobApps
+                                )
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
+
+            {/* ---- USERS ---- */}
+            {activeTab === 'users' && (
+              <Panel
+                title="Users & Roles"
+                subtitle="Promote an artist or another administrator here"
+              >
+                {users.length === 0 ? (
+                  <Empty label="No registered users yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Name</th>
+                        <th className={TH}>Email</th>
+                        <th className={TH}>Phone</th>
+                        <th className={TH}>City</th>
+                        <th className={TH}>Role</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {users.map((account) => (
+                        <tr key={account.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="p-4 font-bold text-maroon-950">
+                            {account.full_name || '—'}
+                          </td>
+                          <td className="p-4 text-gray-600">{account.email}</td>
+                          <td className="p-4 text-gray-600">{account.phone || '—'}</td>
+                          <td className="p-4 text-gray-600">{account.city || '—'}</td>
+                          <td className="p-4">
+                            {account.id === profile?.id ? (
+                              <span className="text-[11px] font-bold text-gray-500">
+                                {account.role} (you)
+                              </span>
+                            ) : (
+                              <StatusSelect
+                                value={account.role}
+                                options={ROLES}
+                                onChange={(role) =>
+                                  patchRow<UserProfile>('profiles', account.id, { role }, setUsers)
+                                }
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
+          </>
         )}
       </main>
+
+      {/* Product editor */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.form
+            initial={{ scale: 0.92, opacity: 0, y: 24 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            onSubmit={saveProduct}
+            className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto"
+          >
+            <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between">
+              <h3 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest">
+                {editingProduct === 'new' ? 'New Product' : 'Edit Product'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-7 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {(
+                  [
+                    ['name', 'Product Name', 'text', true],
+                    ['code', 'Product Code', 'text', false],
+                    ['price', 'Price (₹)', 'number', true],
+                    ['original_price', 'Original Price (₹)', 'number', false],
+                    ['stock', 'Stock Quantity', 'number', true],
+                    ['category', 'Category (Groom / Jodhpuri / Bandhani)', 'text', false],
+                    ['color', 'Colour', 'text', false],
+                    ['fabric', 'Fabric', 'text', false],
+                    ['style', 'Style', 'text', false],
+                    ['occasion', 'Occasion', 'text', false],
+                    ['image', 'Image path (e.g. /product-pink-chanderi.jpg)', 'text', false],
+                  ] as const
+                ).map(([key, label, type, required]) => (
+                  <div key={key} className={key === 'image' ? 'sm:col-span-2' : ''}>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                      {label}
+                    </label>
+                    <input
+                      type={type}
+                      required={required}
+                      value={productForm[key]}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={productForm.description}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({ ...prev, description: e.target.value }))
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-4">
+                {(
+                  [
+                    ['active', 'Active (visible in shop)'],
+                    ['featured', 'Featured on landing page'],
+                    ['is_bestseller', 'Bestseller'],
+                    ['is_new', 'New arrival'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={productForm[key]}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({ ...prev, [key]: e.target.checked }))
+                      }
+                      className="accent-maroon-900"
+                    />
+                    <span className="text-xs font-bold text-gray-600">{label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="flex-1 border-2 border-amber-200 text-maroon-700 text-xs font-bold uppercase tracking-wider py-3.5 rounded-xl hover:bg-amber-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProduct}
+                  className="flex-1 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 text-royal-300 text-xs font-bold uppercase tracking-wider py-3.5 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {savingProduct ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save size={14} /> Save Product
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.form>
+        </div>
+      )}
     </div>
   );
 }

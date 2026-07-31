@@ -6,8 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown, MapPin, Clock, Users, Briefcase, Heart,
   GraduationCap, Star, ChevronDown, ChevronUp,
-  ArrowUpRight, CheckCircle2, Sparkles, Phone, Mail,
+  ArrowUpRight, CheckCircle2, Sparkles, Phone, Mail, AlertCircle, Loader2,
 } from 'lucide-react';
+import { supabase, friendlyError } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 /* ── Job Listings ── */
 const JOBS = [
@@ -131,16 +133,67 @@ const PERKS = [
 ];
 
 /* ── Component ── */
+const EMPTY_APPLICATION = {
+  fullName: '',
+  phone: '',
+  email: '',
+  city: '',
+  experience: '',
+  message: '',
+};
+
 export default function CareersPage() {
+  const { user } = useAuth();
   const [openJob, setOpenJob] = useState<string | null>(null);
   const [applying, setApplying] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<string | null>(null);
+  const [form, setForm] = useState(EMPTY_APPLICATION);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleApply = (e: React.FormEvent, jobId: string) => {
+  const field = (key: keyof typeof EMPTY_APPLICATION) => ({
+    value: form[key],
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((prev) => ({ ...prev, [key]: e.target.value })),
+  });
+
+  const handleApply = async (e: React.FormEvent, jobId: string) => {
     e.preventDefault();
+    const job = JOBS.find((j) => j.id === jobId);
+    if (!job) return;
+
+    setError(null);
+    setSubmitting(true);
+
+    const { error: insertErr } = await supabase.from('job_applications').insert({
+      user_id: user?.id ?? null,
+      job_id: job.id,
+      job_title: job.title,
+      full_name: form.fullName.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      city: form.city.trim() || null,
+      experience: form.experience.trim() || null,
+      message: form.message.trim() || null,
+      status: 'pending',
+    });
+
+    setSubmitting(false);
+
+    if (insertErr) {
+      setError(friendlyError(insertErr));
+      return;
+    }
+
+    setForm(EMPTY_APPLICATION);
     setSubmitted(jobId);
     setApplying(null);
-    setTimeout(() => setSubmitted(null), 5000);
+    setTimeout(() => setSubmitted(null), 6000);
+  };
+
+  const closeApplyModal = () => {
+    setApplying(null);
+    setError(null);
   };
 
   return (
@@ -451,7 +504,7 @@ export default function CareersPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-maroon-950/75 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => setApplying(null)}
+            onClick={closeApplyModal}
           >
             <motion.div
               initial={{ scale: 0.85, opacity: 0, y: 30 }}
@@ -477,17 +530,25 @@ export default function CareersPage() {
 
               {/* Form */}
               <form onSubmit={(e) => handleApply(e, applying)} className="p-8 space-y-4">
+                {error && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                    <p className="text-xs leading-relaxed">{error}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     required
                     type="text"
                     placeholder="Full Name"
+                    {...field('fullName')}
                     className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-[#FDF6EC] text-maroon-900 placeholder:text-maroon-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                   />
                   <input
                     required
                     type="tel"
                     placeholder="Phone Number"
+                    {...field('phone')}
                     className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-[#FDF6EC] text-maroon-900 placeholder:text-maroon-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                   />
                 </div>
@@ -495,27 +556,31 @@ export default function CareersPage() {
                   required
                   type="email"
                   placeholder="Email Address"
+                  {...field('email')}
                   className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-[#FDF6EC] text-maroon-900 placeholder:text-maroon-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                 />
                 <input
                   type="text"
                   placeholder="Your City"
+                  {...field('city')}
                   className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-[#FDF6EC] text-maroon-900 placeholder:text-maroon-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                 />
                 <input
                   type="text"
                   placeholder="Years of Experience"
+                  {...field('experience')}
                   className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-[#FDF6EC] text-maroon-900 placeholder:text-maroon-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                 />
                 <textarea
                   rows={3}
                   placeholder="Tell us about yourself and why you want to join SafaKing..."
+                  {...field('message')}
                   className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-[#FDF6EC] text-maroon-900 placeholder:text-maroon-800/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all resize-none"
                 />
                 <div className="flex gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => setApplying(null)}
+                    onClick={closeApplyModal}
                     className="flex-1 border-2 border-amber-200 text-maroon-700 text-xs font-bold uppercase tracking-wider py-3.5 rounded-xl hover:bg-amber-50 transition-colors"
                   >
                     Cancel
@@ -524,9 +589,16 @@ export default function CareersPage() {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                     type="submit"
-                    className="flex-1 bg-maroon-800 hover:bg-maroon-900 text-amber-100 text-xs font-bold uppercase tracking-wider py-3.5 rounded-xl shadow-lg transition-colors"
+                    disabled={submitting}
+                    className="flex-1 bg-maroon-800 hover:bg-maroon-900 disabled:opacity-60 disabled:cursor-not-allowed text-amber-100 text-xs font-bold uppercase tracking-wider py-3.5 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
                   >
-                    Submit Application
+                    {submitting ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" /> Submitting…
+                      </>
+                    ) : (
+                      'Submit Application'
+                    )}
                   </motion.button>
                 </div>
                 <p className="text-[10px] text-center text-maroon-800/35">

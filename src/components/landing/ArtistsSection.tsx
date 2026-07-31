@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2 } from 'lucide-react';
+import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { AnimatedSection, StaggerContainer, staggerItem } from './AnimatedSection';
 
 const SAFA_STYLES = [
@@ -48,12 +48,16 @@ const SAFA_STYLES = [
   },
 ];
 
-import { supabase } from '@/lib/supabase';
+import { supabase, friendlyError } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 export function ArtistsSection() {
+  const { user } = useAuth();
   const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
   const [booked, setBooked] = useState(false);
-  const [hovered, setHovered] = useState<string | null>(null);
+  const [, setHovered] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -62,25 +66,33 @@ export function ArtistsSection() {
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBooked(true);
+    setError(null);
+    setSubmitting(true);
 
-    try {
-      await supabase.from('artist_bookings').insert([
-        {
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          event_date: eventDate,
-          city_venue: cityVenue,
-          safa_style: selectedStyle,
-          amount: 50,
-          status: 'pending',
-        },
-      ]);
-    } catch (err) {
-      console.warn('Booking insertion error:', err);
+    const { error: insertErr } = await supabase.from('artist_bookings').insert({
+      customer_id: user?.id ?? null,
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone.trim(),
+      event_date: eventDate,
+      city_venue: cityVenue.trim(),
+      safa_style: selectedStyle,
+      amount: 50,
+      status: 'pending',
+    });
+
+    setSubmitting(false);
+
+    if (insertErr) {
+      setError(friendlyError(insertErr));
+      return;
     }
 
-    setTimeout(() => setBooked(false), 4000);
+    setCustomerName('');
+    setCustomerPhone('');
+    setEventDate('');
+    setCityVenue('');
+    setBooked(true);
+    setTimeout(() => setBooked(false), 5000);
   };
 
   return (
@@ -297,6 +309,13 @@ export function ArtistsSection() {
                       <h4 className="font-display font-bold text-lg text-white mb-4">
                         Quick Booking — {selectedStyle}
                       </h4>
+
+                      {error && (
+                        <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/15 border border-rose-400/40 text-rose-100">
+                          <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                          <p className="text-[11px] leading-relaxed">{error}</p>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-3">
                         <input
                           required
@@ -380,10 +399,18 @@ export function ArtistsSection() {
                         whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
                         whileTap={{ scale: 0.97 }}
                         type="submit"
-                        className="w-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
+                        disabled={submitting}
+                        className="w-full bg-royal-500 hover:bg-royal-400 disabled:opacity-60 disabled:cursor-not-allowed text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
                       >
-                        <Phone size={16} />
-                        Book Safa Artist Now
+                        {submitting ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" /> Sending Request…
+                          </>
+                        ) : (
+                          <>
+                            <Phone size={16} /> Book Safa Artist Now
+                          </>
+                        )}
                       </motion.button>
                       <p className="text-[10px] text-center text-royal-200/40">
                         Free consultation · No advance payment required
