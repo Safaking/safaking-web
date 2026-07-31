@@ -10,6 +10,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
+import { checkPincode, PincodeCheckResult } from '@/lib/pincodes';
+
 export function CartDrawer() {
   const { profile, user } = useAuth();
   const { items, subtotal, isOpen, closeCart, removeItem, setQuantity, clear } = useCart();
@@ -18,6 +20,11 @@ export function CartDrawer() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [pincode, setPincode] = useState('302001');
+  const [pincodeResult, setPincodeResult] = useState<PincodeCheckResult | null>({
+    deliverable: true,
+    message: '✓ Delivery Available to Jaipur, Rajasthan (Est. 2 days)',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderRef, setOrderRef] = useState<string | null>(null);
@@ -28,11 +35,27 @@ export function CartDrawer() {
     if (profile?.phone) setPhone((prev) => prev || profile.phone!);
   }, [profile]);
 
+  const handlePincodeChange = async (val: string) => {
+    const clean = val.replace(/\D/g, '').slice(0, 6);
+    setPincode(clean);
+    if (clean.length === 6) {
+      const res = await checkPincode(clean);
+      setPincodeResult(res);
+    } else {
+      setPincodeResult(null);
+    }
+  };
+
   const total = subtotal; // Shipping is free pan-India.
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (pincodeResult && !pincodeResult.deliverable) {
+      setError('Delivery is currently unavailable for this pincode. Please enter a deliverable pincode.');
+      return;
+    }
     setSubmitting(true);
 
     const orderPayload: any = {
@@ -223,12 +246,37 @@ export function CartDrawer() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                      Delivery Pincode (6-Digits)
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      maxLength={6}
+                      placeholder="e.g. 302001"
+                      value={pincode}
+                      onChange={(e) => handlePincodeChange(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                    />
+                    {pincodeResult && (
+                      <p
+                        className={`text-xs font-bold mt-1.5 p-2 rounded-lg ${
+                          pincodeResult.deliverable
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-800 border border-rose-200'
+                        }`}
+                      >
+                        {pincodeResult.message}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
                       Shipping Address
                     </label>
                     <textarea
                       required
                       rows={3}
-                      placeholder="Full delivery address with Pincode"
+                      placeholder="Full delivery street address & landmark"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-maroon-800/20 outline-none resize-none"

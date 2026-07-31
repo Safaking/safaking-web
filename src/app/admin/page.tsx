@@ -4,24 +4,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase,
+  Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
   supabase, friendlyError,
-  DBOrder, DBArtistBooking, DBArtistApplication, DBSupplierApplication, DBAcademyEnrollment,
+  DBOrder, DBArtistBooking, DBArtistApplication, DBDeliverablePincode, DBSupplierApplication, DBAcademyEnrollment,
   DBJobApplication, DBProduct, UserProfile, UserRole,
 } from '@/lib/supabase';
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
+import { STATIC_PINCODES } from '@/lib/pincodes';
 
-type Tab = 'orders' | 'bookings' | 'artist_apps' | 'products' | 'suppliers' | 'academy' | 'careers' | 'users';
+type Tab = 'orders' | 'bookings' | 'artist_apps' | 'products' | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
   { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
   { id: 'artist_apps', label: 'Artist Applications', icon: Crown },
   { id: 'products', label: 'Products', icon: Package },
+  { id: 'pincodes', label: 'Pincodes', icon: MapPin },
   { id: 'suppliers', label: 'Suppliers', icon: Briefcase },
   { id: 'academy', label: 'Academy', icon: GraduationCap },
   { id: 'careers', label: 'Job Applications', icon: Users },
@@ -133,10 +135,15 @@ export default function AdminPanelPage() {
   const [bookings, setBookings] = useState<DBArtistBooking[]>([]);
   const [artistApps, setArtistApps] = useState<DBArtistApplication[]>([]);
   const [products, setProducts] = useState<DBProduct[]>([]);
+  const [pincodes, setPincodes] = useState<DBDeliverablePincode[]>(STATIC_PINCODES);
   const [suppliers, setSuppliers] = useState<DBSupplierApplication[]>([]);
   const [enrollments, setEnrollments] = useState<DBAcademyEnrollment[]>([]);
   const [jobApps, setJobApps] = useState<DBJobApplication[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+
+  const [newPinCode, setNewPinCode] = useState('');
+  const [newPinCity, setNewPinCity] = useState('');
+  const [newPinDays, setNewPinDays] = useState('2');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,11 +158,12 @@ export default function AdminPanelPage() {
     setLoading(true);
     setError(null);
 
-    const [o, b, aa, p, s, e, j, u] = await Promise.all([
+    const [o, b, aa, p, pin, s, e, j, u] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('products').select('*').order('created_at', { ascending: false }),
+      supabase.from('deliverable_pincodes').select('*').order('pincode', { ascending: true }),
       supabase.from('supplier_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('academy_enrollments').select('*').order('created_at', { ascending: false }),
       supabase.from('job_applications').select('*').order('created_at', { ascending: false }),
@@ -165,7 +173,7 @@ export default function AdminPanelPage() {
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
     const isMissingTable = (err: any) => err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [aa, s, e, j, u].find((r) => r.error && !isMissingTable(r.error))?.error;
+    const secondaryError = [aa, pin, s, e, j, u].find((r) => r.error && !isMissingTable(r.error))?.error;
     
     if (coreError || secondaryError) {
       setError(friendlyError(coreError || secondaryError));
@@ -175,6 +183,9 @@ export default function AdminPanelPage() {
     setBookings((b.data as DBArtistBooking[]) ?? []);
     setArtistApps((aa.data as DBArtistApplication[]) ?? []);
     setProducts((p.data as DBProduct[]) ?? []);
+    if (pin.data && pin.data.length > 0) {
+      setPincodes(pin.data as DBDeliverablePincode[]);
+    }
     setSuppliers((s.data as DBSupplierApplication[]) ?? []);
     setEnrollments((e.data as DBAcademyEnrollment[]) ?? []);
     setJobApps((j.data as DBJobApplication[]) ?? []);
@@ -360,6 +371,47 @@ export default function AdminPanelPage() {
     .filter((o) => o.status !== 'cancelled')
     .reduce((sum, o) => sum + o.total_amount, 0);
   const pendingSuppliers = suppliers.filter((s) => s.status === 'pending').length;
+
+  const handleAddPincode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPin = newPinCode.replace(/\D/g, '').slice(0, 6);
+    if (cleanPin.length !== 6 || !newPinCity) return;
+
+    const newObj: DBDeliverablePincode = {
+      id: `pin-${Date.now()}`,
+      pincode: cleanPin,
+      city_state: newPinCity.trim(),
+      estimated_days: Number(newPinDays) || 2,
+      active: true,
+    };
+
+    setPincodes((prev) => [newObj, ...prev]);
+
+    try {
+      await supabase.from('deliverable_pincodes').insert([
+        {
+          pincode: cleanPin,
+          city_state: newPinCity.trim(),
+          estimated_days: Number(newPinDays) || 2,
+          active: true,
+        },
+      ]);
+    } catch (err) {
+      console.warn('Pincode insert warning:', err);
+    }
+
+    setNewPinCode('');
+    setNewPinCity('');
+  };
+
+  const handleDeletePincode = async (id: string, pincode: string) => {
+    setPincodes((prev) => prev.filter((p) => p.id !== id && p.pincode !== pincode));
+    try {
+      await supabase.from('deliverable_pincodes').delete().eq('pincode', pincode);
+    } catch (err) {
+      console.warn('Pincode delete warning:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FDF6EC] text-maroon-950 font-sans">
@@ -723,6 +775,100 @@ export default function AdminPanelPage() {
                   </table>
                 )}
               </Panel>
+            )}
+
+            {/* ---- PINCODES ---- */}
+            {activeTab === 'pincodes' && (
+              <div className="space-y-6">
+                <Panel title="Add Deliverable Pincode" subtitle="Add new Indian pincodes for deliverability checks">
+                  <form onSubmit={handleAddPincode} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <input
+                      required
+                      type="text"
+                      maxLength={6}
+                      placeholder="6-Digit Pincode (e.g. 302001)"
+                      value={newPinCode}
+                      onChange={(e) => setNewPinCode(e.target.value)}
+                      className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                    />
+                    <input
+                      required
+                      type="text"
+                      placeholder="City / Region (e.g. Jaipur, Rajasthan)"
+                      value={newPinCity}
+                      onChange={(e) => setNewPinCity(e.target.value)}
+                      className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                    />
+                    <input
+                      required
+                      type="number"
+                      min={1}
+                      max={14}
+                      placeholder="Est. Delivery Days (e.g. 2)"
+                      value={newPinDays}
+                      onChange={(e) => setNewPinDays(e.target.value)}
+                      className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="py-2.5 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <Plus size={14} /> Add Pincode
+                    </button>
+                  </form>
+                </Panel>
+
+                <Panel title="Deliverable Service Areas" subtitle={`${pincodes.length} deliverable pincodes configured`}>
+                  {pincodes.length === 0 ? (
+                    <Empty label="No deliverable pincodes added yet." />
+                  ) : (
+                    <table className="w-full text-left">
+                      <thead className={THEAD}>
+                        <tr>
+                          <th className={TH}>Pincode</th>
+                          <th className={TH}>City & Region</th>
+                          <th className={TH}>Est. Delivery</th>
+                          <th className={TH}>Status</th>
+                          <th className={TH}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-100 text-xs">
+                        {pincodes.map((pin) => (
+                          <tr key={pin.id} className="hover:bg-amber-50/30 transition-colors">
+                            <td className="p-4 font-black text-maroon-950 font-mono text-sm">
+                              {pin.pincode}
+                            </td>
+                            <td className="p-4 font-bold text-gray-700">{pin.city_state}</td>
+                            <td className="p-4 text-gray-600 font-medium">
+                              {pin.estimated_days || 2} Days
+                            </td>
+                            <td className="p-4">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                  pin.active !== false
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-rose-100 text-rose-800'
+                                }`}
+                              >
+                                {pin.active !== false ? 'Active ✓' : 'Inactive'}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <button
+                                onClick={() => handleDeletePincode(pin.id, pin.pincode)}
+                                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+                                title="Remove Pincode"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Panel>
+              </div>
             )}
 
             {/* ---- PRODUCTS ---- */}

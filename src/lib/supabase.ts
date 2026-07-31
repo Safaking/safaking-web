@@ -104,6 +104,15 @@ export interface DBArtistApplication {
   created_at?: string;
 }
 
+export interface DBDeliverablePincode {
+  id: string;
+  pincode: string;
+  city_state: string;
+  estimated_days: number;
+  active: boolean;
+  created_at?: string;
+}
+
 export interface DBSupplierApplication {
   id: string;
   user_id?: string | null;
