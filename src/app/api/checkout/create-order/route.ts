@@ -6,8 +6,8 @@ import { createRazorpayOrder, publicKeyId, toPaise } from '@/lib/razorpay';
 
 export const runtime = 'nodejs';
 
-/** Fraction of the order taken up front. */
-const ADVANCE_RATE = 0.5;
+/** Fallback only — the real rate lives in app_settings.advance_rate. */
+const DEFAULT_ADVANCE_RATE = 0.2;
 
 interface CartLine {
   productId: string;
@@ -131,8 +131,18 @@ export async function POST(request: Request) {
     });
   }
 
+  // Advance percentage is admin-controlled (10-30% per the business rules), so
+  // it is read from the database rather than hardcoded.
+  const { data: rateRow } = await admin
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'advance_rate')
+    .maybeSingle();
+
+  const advanceRate = Number(rateRow?.value ?? DEFAULT_ADVANCE_RATE);
+
   const totalAmount = priced.reduce((sum, l) => sum + l.price * l.quantity, 0);
-  const advanceAmount = Math.round(totalAmount * ADVANCE_RATE);
+  const advanceAmount = Math.round(totalAmount * advanceRate);
   const balanceAmount = totalAmount - advanceAmount;
 
   if (totalAmount <= 0) return bad('Order total must be greater than zero.');
@@ -203,6 +213,7 @@ export async function POST(request: Request) {
       totalAmount,
       advanceAmount,
       balanceAmount,
+      advanceRate,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Payment setup failed.';

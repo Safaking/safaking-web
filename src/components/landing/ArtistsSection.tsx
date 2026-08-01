@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
@@ -72,6 +72,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
   const [, setHovered] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [advanceRate, setAdvanceRate] = useState(0.2);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -81,8 +82,20 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
   const currentStyleObj = SAFA_STYLES.find((s) => s.name === selectedStyle) || SAFA_STYLES[0];
   const unitPrice = currentStyleObj.price || 50;
   const totalBookingAmount = safaCount * unitPrice;
-  const advanceAmount = Math.round(totalBookingAmount * 0.5);
+  const advanceAmount = Math.round(totalBookingAmount * advanceRate);
   const balanceAmount = totalBookingAmount - advanceAmount;
+
+  // The advance percentage is admin-controlled (10-30%).
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'advance_rate')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value != null) setAdvanceRate(Number(data.value));
+      });
+  }, []);
 
   const handlePincodeChange = async (val: string) => {
     const clean = val.replace(/\D/g, '').slice(0, 6);
@@ -527,18 +540,18 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                         </div>
                       </div>
 
-                      {/* 50% Split Payment Summary Card */}
+                      {/* Split Payment Summary Card */}
                       <div className="p-3.5 rounded-2xl bg-maroon-950/80 border border-royal-400/30 space-y-1.5 text-xs">
                         <div className="flex justify-between font-bold text-royal-200/80">
                           <span>Total Booking Fee ({safaCount} Safas @ ₹{unitPrice})</span>
                           <span className="text-white font-black">₹{totalBookingAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between font-bold text-emerald-300 bg-emerald-950/60 p-2 rounded-xl border border-emerald-500/30">
-                          <span>⚡ 50% Booking Advance Today</span>
+                          <span>⚡ {Math.round(advanceRate * 100)}% Booking Advance Today</span>
                           <span>₹{advanceAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between font-bold text-amber-300 bg-amber-950/60 p-2 rounded-xl border border-amber-500/30">
-                          <span>🎨 50% Balance to Artist at Event</span>
+                          <span>🎨 Balance to Artist at Event</span>
                           <span>₹{balanceAmount.toLocaleString()}</span>
                         </div>
                       </div>
@@ -556,12 +569,12 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                           </>
                         ) : (
                           <>
-                            <Phone size={16} /> Pay 50% Advance (₹{advanceAmount.toLocaleString()}) & Lock Date for {safaCount} Safas
+                            <Phone size={16} /> Pay {Math.round(advanceRate * 100)}% Advance (₹{advanceAmount.toLocaleString()}) & Lock Date for {safaCount} Safas
                           </>
                         )}
                       </motion.button>
                       <p className="text-[10px] text-center text-royal-200/50">
-                        ⚡ 50% Advance Today · 50% Balance to Artist at Event
+                        ⚡ {Math.round(advanceRate * 100)}% Advance Today · Balance to Artist at Event
                       </p>
                     </motion.form>
                   )}

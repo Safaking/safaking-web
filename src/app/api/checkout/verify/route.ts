@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
   const { data: payment } = await admin
     .from('payments')
-    .select('id, order_id, status')
+    .select('id, order_id, rental_id, status')
     .eq('razorpay_order_id', razorpay_order_id)
     .maybeSingle();
 
@@ -54,7 +54,12 @@ export async function POST(request: Request) {
 
   // Replay of an already-verified payment: succeed without touching stock again.
   if (payment.status === 'paid') {
-    return NextResponse.json({ success: true, orderId: payment.order_id, alreadyVerified: true });
+    return NextResponse.json({
+      success: true,
+      orderId: payment.order_id,
+      rentalId: payment.rental_id,
+      alreadyVerified: true,
+    });
   }
 
   const signatureValid = verifyPaymentSignature({
@@ -66,10 +71,13 @@ export async function POST(request: Request) {
   if (!signatureValid) {
     await admin.from('payments').update({ status: 'failed' }).eq('id', payment.id);
     if (payment.order_id) {
+      await admin.from('orders').update({ payment_status: 'failed' }).eq('id', payment.order_id);
+    }
+    if (payment.rental_id) {
       await admin
-        .from('orders')
+        .from('rental_bookings')
         .update({ payment_status: 'failed' })
-        .eq('id', payment.order_id);
+        .eq('id', payment.rental_id);
     }
     return NextResponse.json({ error: 'Payment signature verification failed.' }, { status: 400 });
   }
@@ -83,6 +91,17 @@ export async function POST(request: Request) {
       verified_at: new Date().toISOString(),
     })
     .eq('id', payment.id);
+
+  // ---- Rental: no stock decrement. A rental returns, so the safas stay in
+  // stock and availability is derived from the booking's date range instead.
+  if (payment.rental_id) {
+    await admin
+      .from('rental_bookings')
+      .update({ payment_status: 'advance_paid', razorpay_payment_id })
+      .eq('id', payment.rental_id);
+
+    return NextResponse.json({ success: true, rentalId: payment.rental_id, orderId: null });
+  }
 
   if (!payment.order_id) {
     return NextResponse.json({ success: true, orderId: null });

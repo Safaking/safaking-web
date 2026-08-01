@@ -160,6 +160,56 @@ export interface DBJobApplication {
   created_at?: string;
 }
 
+
+export interface DBRentalBooking {
+  id: string;
+  customer_id?: string | null;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string | null;
+  start_date: string;
+  end_date: string;
+  rental_days: number;
+  venue_address: string;
+  city?: string | null;
+  pincode: string;
+  safa_count: number;
+  needs_artist: boolean;
+  artist_id?: string | null;
+  artist_name?: string | null;
+  artist_amount: number;
+  rent_amount: number;
+  deposit_amount: number;
+  total_amount: number;
+  advance_amount: number;
+  balance_amount: number;
+  deposit_refunded: boolean;
+  payment_status: string;
+  status: 'pending' | 'confirmed' | 'dispatched' | 'active' | 'returned' | 'completed' | 'cancelled';
+  notes?: string | null;
+  created_at?: string;
+}
+
+export interface DBRentalItem {
+  id: string;
+  rental_id: string;
+  product_id?: string | null;
+  product_name: string;
+  quantity: number;
+  unit_rent_per_day: number;
+  unit_deposit: number;
+  line_rent: number;
+  line_deposit: number;
+}
+
+export interface DBAppSetting {
+  key: string;
+  value: number;
+  label: string;
+  description?: string | null;
+  updated_at?: string;
+}
+
 /**
  * Turns a Postgres/PostgREST error into something a visitor can read.
  * PGRST205 means the table is missing — i.e. schema.sql was never run.

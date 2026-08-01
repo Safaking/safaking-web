@@ -8,7 +8,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
-import { createOrder, loadRazorpayScript, payAndVerify } from '@/lib/checkout';
+import { createOrder, loadRazorpayScript, payAndVerify, payableFromOrder } from '@/lib/checkout';
 import { checkPincode, PincodeCheckResult } from '@/lib/pincodes';
 
 export function CartDrawer() {
@@ -28,6 +28,7 @@ export function CartDrawer() {
   const [error, setError] = useState<string | null>(null);
   const [orderRef, setOrderRef] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [advanceRate, setAdvanceRate] = useState(0.2);
 
   // Items added before the catalogue moved into the database have no productId
   // and can no longer be priced by the server.
@@ -51,8 +52,10 @@ export function CartDrawer() {
   };
 
   const total = subtotal; // Shipping is free pan-India.
-  const advanceAmount = Math.round(total * 0.5);
+  // Indicative only — the server recomputes both from app_settings at checkout.
+  const advanceAmount = Math.round(total * advanceRate);
   const balanceAmount = total - advanceAmount;
+  const advancePct = Math.round(advanceRate * 100);
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,23 +78,24 @@ export function CartDrawer() {
 
     try {
       // The server prices the order from the products table and opens a
-      // Razorpay order for the 50% advance.
+      // Razorpay order for the advance.
       const created = await createOrder(items, customer);
+      setAdvanceRate(created.advanceRate);
 
       const ready = await loadRazorpayScript();
       if (!ready) throw new Error('Could not reach the payment provider. Check your connection.');
 
-      const outcome = await payAndVerify(created, customer);
+      const outcome = await payAndVerify(payableFromOrder(created), customer);
 
       sendWhatsAppNotification('order', {
-        orderId: outcome.orderId,
+        orderId: outcome.orderId ?? created.orderId,
         customerName: customer.name,
         customerPhone: customer.phone,
         totalAmount: created.totalAmount,
         shippingAddress: customer.address,
       });
 
-      setOrderRef(outcome.orderId);
+      setOrderRef(outcome.orderId ?? created.orderId);
       setWarning(outcome.warning ?? null);
       setStep('success');
       clear();
@@ -164,7 +168,7 @@ export function CartDrawer() {
                   </p>
                 )}
                 <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
-                  Your 50% advance has been received. The order is now pending admin confirmation —
+                  Your advance has been received. The order is now pending admin confirmation —
                   our team will review the details and confirm your delivery.
                 </p>
                 {warning && (
@@ -202,18 +206,18 @@ export function CartDrawer() {
 
                 <div className="bg-royal-50 p-4 rounded-2xl border border-royal-200 space-y-2">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-maroon-900 mb-1">
-                    50% Split Payment Summary
+                    Split Payment Summary
                   </h4>
                   <div className="flex justify-between text-xs font-semibold text-gray-700">
                     <span>Total Order Amount</span>
                     <span className="font-bold text-maroon-950">₹{total.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-emerald-800 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                    <span>⚡ 50% Advance Today</span>
+                    <span>⚡ {advancePct}% Advance Today</span>
                     <span>₹{advanceAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                    <span>📦 50% Balance on Delivery</span>
+                    <span>📦 Balance on Delivery</span>
                     <span>₹{balanceAmount.toLocaleString()}</span>
                   </div>
                   <p className="text-[10px] text-gray-500 leading-relaxed pt-0.5">
@@ -304,7 +308,7 @@ export function CartDrawer() {
                     </>
                   ) : (
                     <>
-                      Pay 50% Advance (₹{advanceAmount.toLocaleString()}) <ArrowRight size={16} />
+                      Pay {advancePct}% Advance (₹{advanceAmount.toLocaleString()}) <ArrowRight size={16} />
                     </>
                   )}
                 </button>

@@ -26,6 +26,8 @@ export interface CreatedOrder {
   totalAmount: number;
   advanceAmount: number;
   balanceAmount: number;
+  /** Fraction taken up front, as configured by the admin. */
+  advanceRate: number;
 }
 
 interface RazorpayResponse {
@@ -91,8 +93,104 @@ export async function createOrder(
 }
 
 export interface PaymentOutcome {
-  orderId: string;
+  orderId: string | null;
+  rentalId?: string | null;
   warning?: string;
+}
+
+/** Everything the Razorpay widget needs, regardless of what is being paid for. */
+export interface PayableOrder {
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  /** Shown on the Razorpay panel. */
+  reference: string;
+  description: string;
+}
+
+export interface RentalQuoteLine {
+  productId: string;
+  name: string;
+  quantity: number;
+  unitRentPerDay: number;
+  unitDeposit: number;
+  lineRent: number;
+  lineDeposit: number;
+  available: number;
+}
+
+export interface RentalQuote {
+  startDate: string;
+  endDate: string;
+  days: number;
+  safaCount: number;
+  lines: RentalQuoteLine[];
+  rentAmount: number;
+  depositAmount: number;
+  artistAmount: number;
+  totalAmount: number;
+  advanceAmount: number;
+  balanceAmount: number;
+  needsArtist: boolean;
+  artistPerSafaRate: number;
+}
+
+export interface RentalSelection {
+  startDate: string;
+  endDate: string;
+  items: { productId: string; quantity: number }[];
+  needsArtist: boolean;
+}
+
+export interface RentalCustomer {
+  name: string;
+  phone: string;
+  venueAddress: string;
+  city?: string;
+  pincode: string;
+}
+
+export interface CreatedRental {
+  rentalId: string;
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  quote: RentalQuote;
+}
+
+/** Live price + availability preview. Writes nothing. */
+export async function quoteRental(selection: RentalSelection): Promise<RentalQuote> {
+  const response = await fetch('/api/rentals/quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(selection),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body?.error ?? 'Could not price this rental.');
+  return body as RentalQuote;
+}
+
+export async function createRental(
+  selection: RentalSelection,
+  customer: RentalCustomer
+): Promise<CreatedRental> {
+  const response = await fetch('/api/rentals/create-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...selection,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      venueAddress: customer.venueAddress,
+      city: customer.city,
+      pincode: customer.pincode,
+    }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body?.error ?? 'Could not start the rental booking.');
+  return body as CreatedRental;
 }
 
 /**
@@ -100,8 +198,8 @@ export interface PaymentOutcome {
  * signature. Rejects if the customer dismisses the widget or verification fails.
  */
 export function payAndVerify(
-  order: CreatedOrder,
-  customer: CheckoutCustomer
+  order: PayableOrder,
+  customer: { name: string; phone: string }
 ): Promise<PaymentOutcome> {
   return new Promise((resolve, reject) => {
     if (!window.Razorpay) {
@@ -114,9 +212,9 @@ export function payAndVerify(
       currency: order.currency,
       order_id: order.razorpayOrderId,
       name: 'SafaKing',
-      description: `Advance payment (50%) · Order ${order.orderId.slice(0, 8).toUpperCase()}`,
+      description: order.description,
       prefill: { name: customer.name, contact: customer.phone },
-      notes: { safaking_order_id: order.orderId },
+      notes: { safaking_reference: order.reference },
       theme: { color: '#4A0E1A' },
       modal: {
         ondismiss: () =>
@@ -139,7 +237,11 @@ export function payAndVerify(
               )
             );
           }
-          resolve({ orderId: verifyBody.orderId, warning: verifyBody.warning });
+          resolve({
+            orderId: verifyBody.orderId ?? null,
+            rentalId: verifyBody.rentalId ?? null,
+            warning: verifyBody.warning,
+          });
         } catch {
           reject(
             new Error(
@@ -152,4 +254,31 @@ export function payAndVerify(
 
     checkout.open();
   });
+}
+
+
+/** Adapts a purchase order to the shared Razorpay payload. */
+export function payableFromOrder(order: CreatedOrder): PayableOrder {
+  return {
+    razorpayOrderId: order.razorpayOrderId,
+    amount: order.amount,
+    currency: order.currency,
+    keyId: order.keyId,
+    reference: order.orderId,
+    description: `Advance ${Math.round(order.advanceRate * 100)}% · Order ${order.orderId
+      .slice(0, 8)
+      .toUpperCase()}`,
+  };
+}
+
+/** Adapts a rental booking to the shared Razorpay payload. */
+export function payableFromRental(rental: CreatedRental): PayableOrder {
+  return {
+    razorpayOrderId: rental.razorpayOrderId,
+    amount: rental.amount,
+    currency: rental.currency,
+    keyId: rental.keyId,
+    reference: rental.rentalId,
+    description: `Rental advance · ${rental.quote.safaCount} safa(s) · ${rental.quote.days} day(s)`,
+  };
 }

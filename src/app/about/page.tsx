@@ -100,7 +100,7 @@ export default function AboutPage() {
               {[
                 'Handcrafted Chanderi, Zari Brocade & Pure Mulberry Silk',
                 'Certified Master Tying Artists with 10+ years experience',
-                'Transparent 50% Advance / 50% Post-Delivery Pricing',
+                'Transparent Advance / Post-Delivery Split Pricing',
                 'Pincode delivery verification across 500+ hubs in India',
               ].map((point) => (
                 <li key={point} className="flex items-center gap-2">
@@ -146,8 +146,8 @@ export default function AboutPage() {
               },
               {
                 icon: ShieldCheck,
-                title: '50% Fair Split Payment',
-                desc: 'Pay 50% advance to confirm your order or date, and pay the remaining 50% only after delivery or event completion.',
+                title: 'Fair Split Payment',
+                desc: 'Pay a small advance to confirm your order or date, and settle the balance only after delivery or event completion.',
               },
               {
                 icon: MapPin,
