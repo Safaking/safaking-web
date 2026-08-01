@@ -20,6 +20,7 @@ const NAV_LINKS = [
   { href: '/shop', label: 'Shop' },
   { href: '/rent', label: 'Rent Safa' },
   { href: '/plan', label: 'Plan Event' },
+  { href: '/artists', label: 'Artists' },
   { href: '/careers', label: 'Careers' },
 ];
 

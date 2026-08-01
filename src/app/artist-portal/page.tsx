@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError, DBArtistBooking } from '@/lib/supabase';
 import { VerificationPanel } from '@/components/verification/VerificationPanel';
+import { PortfolioManager } from '@/components/reviews/PortfolioManager';
 
 export default function ArtistPortalPage() {
   const { profile, user, logout } = useAuth();
@@ -182,8 +183,9 @@ export default function ArtistPortalPage() {
         </div>
 
         {user && (
-          <div className="mb-8">
+          <div className="mb-8 space-y-6">
             <VerificationPanel ownerId={user.id} subjectType="artist" />
+            <PortfolioManager artistId={user.id} />
           </div>
         )}
 
