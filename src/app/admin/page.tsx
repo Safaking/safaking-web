@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
-  CalendarRange, SlidersHorizontal,
+  CalendarRange, SlidersHorizontal, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -16,16 +16,18 @@ import {
 } from '@/lib/supabase';
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
+import { VerificationQueue } from '@/components/verification/VerificationQueue';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
   { id: 'rentals', label: 'Rentals', icon: CalendarRange },
   { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
   { id: 'artist_apps', label: 'Artist Applications', icon: Crown },
+  { id: 'verification', label: 'Verification', icon: ShieldCheck },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'pincodes', label: 'Pincodes', icon: MapPin },
   { id: 'suppliers', label: 'Suppliers', icon: Briefcase },
@@ -1355,6 +1357,9 @@ export default function AdminPanelPage() {
                 )}
               </Panel>
             )}
+
+            {/* ---- VERIFICATION ---- */}
+            {activeTab === 'verification' && <VerificationQueue />}
 
             {/* ---- USERS ---- */}
             {activeTab === 'users' && (
