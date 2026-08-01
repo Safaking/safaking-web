@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { href: '#suppliers', label: 'Suppliers' },
   { href: '/shop', label: 'Shop' },
   { href: '/rent', label: 'Rent Safa' },
+  { href: '/plan', label: 'Plan Event' },
   { href: '/careers', label: 'Careers' },
 ];
 
