@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
-  CalendarRange, SlidersHorizontal, ShieldCheck,
+  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -17,10 +17,11 @@ import {
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
 import { VerificationQueue } from '@/components/verification/VerificationQueue';
+import { CancellationDesk } from '@/components/protection/CancellationDesk';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
@@ -28,6 +29,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
   { id: 'artist_apps', label: 'Artist Applications', icon: Crown },
   { id: 'verification', label: 'Verification', icon: ShieldCheck },
+  { id: 'protection', label: 'Cancellations', icon: ShieldAlert },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'pincodes', label: 'Pincodes', icon: MapPin },
   { id: 'suppliers', label: 'Suppliers', icon: Briefcase },
@@ -1360,6 +1362,9 @@ export default function AdminPanelPage() {
 
             {/* ---- VERIFICATION ---- */}
             {activeTab === 'verification' && <VerificationQueue />}
+
+            {/* ---- BOOKING PROTECTION ---- */}
+            {activeTab === 'protection' && <CancellationDesk />}
 
             {/* ---- USERS ---- */}
             {activeTab === 'users' && (

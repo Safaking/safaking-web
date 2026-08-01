@@ -107,3 +107,43 @@ export function verifyPaymentSignature(params: {
 export function toPaise(rupees: number): number {
   return Math.round(rupees * 100);
 }
+
+export interface RazorpayRefund {
+  id: string;
+  amount: number;
+  status: string;
+}
+
+/**
+ * Refunds part or all of a captured payment.
+ *
+ * @param amountPaise Amount to return, in paise. Must not exceed what was paid;
+ *                    Razorpay rejects over-refunds, which is the safety net we
+ *                    want rather than something to work around.
+ */
+export async function refundPayment(
+  paymentId: string,
+  amountPaise: number,
+  notes: Record<string, string> = {}
+): Promise<RazorpayRefund> {
+  const { keyId, keySecret } = credentials();
+
+  if (!Number.isInteger(amountPaise) || amountPaise <= 0) {
+    throw new Error(`Invalid refund amount: ${amountPaise} paise`);
+  }
+
+  const response = await fetch(`${RAZORPAY_API}/payments/${paymentId}/refund`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`,
+    },
+    body: JSON.stringify({ amount: amountPaise, speed: 'normal', notes }),
+  });
+
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(`Refund failed: ${body?.error?.description ?? response.statusText}`);
+  }
+  return body as RazorpayRefund;
+}
