@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown, User, Phone, MapPin, Briefcase, Users, IndianRupee, Link as LinkIcon,
-  X, CheckCircle2, AlertCircle, Loader2, Sparkles, ShieldCheck
+  X, CheckCircle2, AlertCircle, Loader2, Sparkles
 } from 'lucide-react';
 import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -51,30 +51,28 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
     setError(null);
     setSubmitting(true);
 
-    try {
-      const { error: insertErr } = await supabase.from('artist_applications').insert({
-        user_id: user?.id ?? null,
-        full_name: fullName.trim(),
-        phone: phone.trim(),
-        city: city.trim(),
-        experience_years: Number(experienceYears) || 1,
-        specialties,
-        team_size: Number(teamSize) || 1,
-        per_safa_rate: Number(perSafaRate) || 50,
-        portfolio_link: portfolioLink.trim() || null,
-        status: 'pending',
-      });
-
-      if (insertErr && insertErr.code !== 'PGRST205' && insertErr.code !== '42P01') {
-        setError(friendlyError(insertErr));
-        setSubmitting(false);
-        return;
-      }
-    } catch (err) {
-      console.warn('Artist application submission warning:', err);
-    }
+    const { error: insertErr } = await supabase.from('artist_applications').insert({
+      user_id: user?.id ?? null,
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      city: city.trim(),
+      experience_years: Number(experienceYears) || 1,
+      specialties,
+      team_size: Number(teamSize) || 1,
+      per_safa_rate: Number(perSafaRate) || 50,
+      portfolio_link: portfolioLink.trim() || null,
+      status: 'pending',
+    });
 
     setSubmitting(false);
+
+    // Never report success on a failed insert. A missing table used to be
+    // swallowed here, which silently discarded every artist application.
+    if (insertErr) {
+      setError(friendlyError(insertErr));
+      return;
+    }
+
     setSubmitted(true);
     setTimeout(() => {
       setSubmitted(false);
@@ -128,7 +126,7 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
                 <CheckCircle2 size={56} className="text-emerald-500 mx-auto animate-bounce" />
                 <h4 className="font-display font-bold text-2xl text-maroon-900">Application Submitted!</h4>
                 <p className="text-xs text-gray-600 max-w-xs mx-auto leading-relaxed">
-                  Thank you for applying to SafaKing's Master Artist Network. Our operations team will review your application and contact you shortly.
+                  Thank you for applying to SafaKing&apos;s Master Artist Network. Our operations team will review your application and contact you shortly.
                 </p>
               </div>
             ) : (

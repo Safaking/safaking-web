@@ -106,7 +106,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
 
     setSubmitting(true);
 
-    const bookingPayload: any = {
+    const bookingPayload = {
       customer_id: user?.id ?? null,
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
@@ -116,20 +116,17 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
       amount: totalBookingAmount,
       advance_amount: advanceAmount,
       balance_amount: balanceAmount,
-      payment_status: 'advance_paid',
+      // No money has moved yet — artist bookings do not go through Razorpay
+      // (see Pillar 2). Recording 'advance_paid' here would be a false record.
+      payment_status: 'advance_pending',
       status: 'pending',
     };
 
-    let { error: insertErr } = await supabase.from('artist_bookings').insert(bookingPayload);
-
-    // Auto fallback if advance_amount / balance_amount / payment_status columns do not exist in remote Supabase table
-    if (insertErr && (insertErr.message?.includes('advance_amount') || insertErr.message?.includes('balance_amount') || insertErr.code === 'PGRST204')) {
-      delete bookingPayload.advance_amount;
-      delete bookingPayload.balance_amount;
-      delete bookingPayload.payment_status;
-      const retry = await supabase.from('artist_bookings').insert(bookingPayload);
-      insertErr = retry.error;
-    }
+    // No column-stripping retry here: silently dropping advance_amount /
+    // balance_amount / payment_status saved bookings with no payment record
+    // while still reporting success. The columns exist as of
+    // supabase/002_production_hardening.sql.
+    const { error: insertErr } = await supabase.from('artist_bookings').insert(bookingPayload);
 
     setSubmitting(false);
 

@@ -171,7 +171,8 @@ export default function AdminPanelPage() {
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
-    const isMissingTable = (err: any) => err?.code === 'PGRST205' || err?.code === '42P01';
+    const isMissingTable = (err: { code?: string } | null) =>
+      err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
     const secondaryError = [aa, pin, s, e, j, u].find((r) => r.error && !isMissingTable(r.error))?.error;
     
@@ -197,7 +198,8 @@ export default function AdminPanelPage() {
 
   const playChime = () => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
@@ -209,8 +211,8 @@ export default function AdminPanelPage() {
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.5);
-    } catch (e) {
-      // Audio context fallback
+    } catch {
+      // Browser blocked autoplay audio; the visual alert still fires.
     }
   };
 
