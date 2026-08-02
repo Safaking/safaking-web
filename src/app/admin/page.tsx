@@ -21,6 +21,7 @@ import { CancellationDesk } from '@/components/protection/CancellationDesk';
 import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 import { TrainingManager } from '@/components/admin/TrainingManager';
+import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
@@ -174,6 +175,7 @@ export default function AdminPanelPage() {
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [teamFor, setTeamFor] = useState<string | null>(null);
 
   const artists = useMemo(() => users.filter((u) => u.role === 'artist'), [users]);
 
@@ -1274,19 +1276,28 @@ export default function AdminPanelPage() {
                           </td>
                           <td className="p-4">
                             {rental.needs_artist ? (
-                              <select
-                                value={rental.artist_id ?? ''}
-                                onChange={(e) => assignRentalArtist(rental.id, e.target.value)}
-                                disabled={artists.length === 0}
-                                className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] disabled:opacity-50"
-                              >
-                                <option value="">Unassigned</option>
-                                {artists.map((artist) => (
-                                  <option key={artist.id} value={artist.id}>
-                                    {artist.full_name || artist.email}
-                                  </option>
-                                ))}
-                              </select>
+                              <>
+                                <select
+                                  value={rental.artist_id ?? ''}
+                                  onChange={(e) => assignRentalArtist(rental.id, e.target.value)}
+                                  disabled={artists.length === 0}
+                                  className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] disabled:opacity-50"
+                                >
+                                  <option value="">Unassigned</option>
+                                  {artists.map((artist) => (
+                                    <option key={artist.id} value={artist.id}>
+                                      {artist.full_name || artist.email}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => setTeamFor(rental.id)}
+                                  className="block mt-1.5 px-2.5 py-1 rounded-lg bg-maroon-950 text-royal-300 text-[10px] font-bold uppercase tracking-wider"
+                                  title="Build a crew for a large event"
+                                >
+                                  Team ({rental.safa_count})
+                                </button>
+                              </>
                             ) : (
                               <span className="text-[10px] text-gray-400 font-bold">Not required</span>
                             )}
@@ -1442,6 +1453,14 @@ export default function AdminPanelPage() {
           </>
         )}
       </main>
+
+      {teamFor && (
+        <TeamBuilder
+          rentalId={teamFor}
+          onClose={() => setTeamFor(null)}
+          onAssigned={fetchAll}
+        />
+      )}
 
       {/* Product editor */}
       {editingProduct && (
