@@ -3,6 +3,7 @@ import {
   formatOrderWhatsAppMessage,
   formatBookingWhatsAppMessage,
 } from '@/lib/whatsapp';
+import { BUSINESS } from '@/lib/business';
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +18,10 @@ export async function POST(req: Request) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const fromWhatsApp = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
-    const adminPhone = process.env.ADMIN_WHATSAPP_PHONE || process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || '919829012345';
+    const adminPhone =
+      process.env.ADMIN_WHATSAPP_PHONE ||
+      process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE ||
+      BUSINESS.phoneDigits;
 
     // If Twilio credentials exist, send via Twilio API
     if (accountSid && authToken) {

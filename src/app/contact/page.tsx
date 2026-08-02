@@ -11,14 +11,7 @@ import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
 
-/** Single source of truth for how to reach SafaKing. */
-const CONTACT = {
-  phone: '+91 90013 47143',
-  phoneDigits: '919001347143',
-  email: 'hello@safaking.com',
-  address: 'MI Road, Jaipur, Rajasthan 302001',
-  hours: 'Monday to Saturday, 10 AM – 8 PM',
-};
+import { BUSINESS as CONTACT, telHref, mailtoHref } from '@/lib/business';
 
 const SUBJECTS = [
   'Booking a safa artist',
@@ -135,7 +128,7 @@ export default function ContactPage() {
               </a>
 
               <a
-                href={`tel:+${CONTACT.phoneDigits}`}
+                href={telHref}
                 className="flex items-center gap-3 p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/70 hover:bg-amber-100/60 transition-colors"
               >
                 <span className="w-10 h-10 rounded-xl bg-maroon-950 text-royal-300 flex items-center justify-center shrink-0">
@@ -150,7 +143,7 @@ export default function ContactPage() {
               </a>
 
               <a
-                href={`mailto:${CONTACT.email}`}
+                href={mailtoHref}
                 className="flex items-center gap-3 p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/70 hover:bg-amber-100/60 transition-colors"
               >
                 <span className="w-10 h-10 rounded-xl bg-royal-100 text-royal-800 flex items-center justify-center shrink-0">
