@@ -18,12 +18,14 @@ import { getWhatsAppClickLink } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
 import { VerificationQueue } from '@/components/verification/VerificationQueue';
 import { CancellationDesk } from '@/components/protection/CancellationDesk';
+import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
+  { id: 'analytics', label: 'Reports', icon: TrendingUp },
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
   { id: 'rentals', label: 'Rentals', icon: CalendarRange },
   { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
@@ -1286,6 +1288,14 @@ export default function AdminPanelPage() {
                             )}
                           </td>
                           <td className="p-4">
+                            <a
+                              href={`/documents/booking/${rental.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-[10px] font-bold text-royal-700 hover:underline mb-1.5"
+                            >
+                              Confirmation ↗
+                            </a>
                             <StatusSelect
                               value={rental.status}
                               options={RENTAL_STATUSES}
@@ -1365,6 +1375,9 @@ export default function AdminPanelPage() {
 
             {/* ---- BOOKING PROTECTION ---- */}
             {activeTab === 'protection' && <CancellationDesk />}
+
+            {/* ---- ANALYTICS ---- */}
+            {activeTab === 'analytics' && <AnalyticsPanel />}
 
             {/* ---- USERS ---- */}
             {activeTab === 'users' && (
