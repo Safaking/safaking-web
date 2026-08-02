@@ -20,10 +20,11 @@ import { VerificationQueue } from '@/components/verification/VerificationQueue';
 import { CancellationDesk } from '@/components/protection/CancellationDesk';
 import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
+import { TrainingManager } from '@/components/admin/TrainingManager';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'liveops', label: 'Live Ops', icon: Siren },
@@ -37,7 +38,8 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'products', label: 'Products', icon: Package },
   { id: 'pincodes', label: 'Pincodes', icon: MapPin },
   { id: 'suppliers', label: 'Suppliers', icon: Briefcase },
-  { id: 'academy', label: 'Academy', icon: GraduationCap },
+  { id: 'academy', label: 'Academy Leads', icon: GraduationCap },
+  { id: 'training', label: 'Training & Certificates', icon: GraduationCap },
   { id: 'careers', label: 'Job Applications', icon: Users },
   { id: 'users', label: 'Users & Roles', icon: Users },
   { id: 'settings', label: 'Pricing Settings', icon: SlidersHorizontal },
@@ -1383,6 +1385,9 @@ export default function AdminPanelPage() {
 
             {/* ---- LIVE OPS ---- */}
             {activeTab === 'liveops' && <LiveOpsBoard />}
+
+            {/* ---- TRAINING ACADEMY ---- */}
+            {activeTab === 'training' && <TrainingManager />}
 
             {/* ---- USERS ---- */}
             {activeTab === 'users' && (

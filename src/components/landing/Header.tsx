@@ -15,7 +15,7 @@ interface HeaderProps {
 const NAV_LINKS = [
   { href: '#home', label: 'Home' },
   { href: '#artists', label: 'Safa Artists' },
-  { href: '#training', label: 'Training' },
+  { href: '/academy', label: 'My Training' },
   { href: '#suppliers', label: 'Suppliers' },
   { href: '/shop', label: 'Shop' },
   { href: '/rent', label: 'Rent Safa' },
