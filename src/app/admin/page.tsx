@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
-  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert,
+  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -19,12 +19,14 @@ import { STATIC_PINCODES } from '@/lib/pincodes';
 import { VerificationQueue } from '@/components/verification/VerificationQueue';
 import { CancellationDesk } from '@/components/protection/CancellationDesk';
 import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
+import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
+  { id: 'liveops', label: 'Live Ops', icon: Siren },
   { id: 'analytics', label: 'Reports', icon: TrendingUp },
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
   { id: 'rentals', label: 'Rentals', icon: CalendarRange },
@@ -1378,6 +1380,9 @@ export default function AdminPanelPage() {
 
             {/* ---- ANALYTICS ---- */}
             {activeTab === 'analytics' && <AnalyticsPanel />}
+
+            {/* ---- LIVE OPS ---- */}
+            {activeTab === 'liveops' && <LiveOpsBoard />}
 
             {/* ---- USERS ---- */}
             {activeTab === 'users' && (
