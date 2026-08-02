@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
   Crown, Search, Heart, ShoppingBag, Menu, X, User, ShieldCheck, LogOut,
   ChevronDown, CalendarRange, Sparkles, MessageSquare, Users, GraduationCap,
-  Package, Briefcase, Info, Store,
+  Briefcase, Info, Store, Phone,
 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +36,7 @@ interface NavGroup {
 const DIRECT_LINKS: NavItem[] = [
   { href: '/', label: 'Home' },
   { href: '/shop', label: 'Shop' },
+  { href: '/#suppliers', label: 'Suppliers' },
 ];
 
 const NAV_GROUPS: NavGroup[] = [
@@ -65,9 +66,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'More',
     items: [
-      { href: '/#suppliers', label: 'Suppliers', hint: 'Partner with us', icon: Package },
       { href: '/about', label: 'About', hint: 'Who we are', icon: Info },
       { href: '/careers', label: 'Careers', hint: 'Work with SafaKing', icon: Briefcase },
+      { href: '/contact', label: 'Contact Us', hint: 'Talk to our team', icon: Phone },
     ],
   },
 ];

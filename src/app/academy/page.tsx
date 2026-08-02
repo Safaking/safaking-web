@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { BUSINESS, telHref } from '@/lib/business';
 
 interface MyTraining {
   student_id: string;
@@ -282,8 +283,8 @@ export default function StudentDashboardPage() {
 
         <p className="text-center text-[11px] text-gray-500 pt-2">
           Questions about your training? Call{' '}
-          <a href="tel:+919001347143" className="font-bold text-maroon-800 hover:underline">
-            +91 90013 47143
+          <a href={telHref} className="font-bold text-maroon-800 hover:underline">
+            {BUSINESS.phone}
           </a>
         </p>
       </main>

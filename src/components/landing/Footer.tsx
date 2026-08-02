@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Crown, Share2, MessageCircle, Mail, Phone, MapPin } from 'lucide-react';
+import { BUSINESS, telHref, mailtoHref } from '@/lib/business';
 
 export function Footer() {
   return (
@@ -89,17 +90,21 @@ export function Footer() {
           <div>
             <h4 className="font-display font-bold text-royal-100 text-sm mb-4 uppercase tracking-wider">Contact</h4>
             <ul className="space-y-3 text-xs">
-              <li className="flex items-center gap-2">
-                <Phone size={14} className="text-royal-400 shrink-0" />
-                +91 98765 43210
+              <li>
+                <a href={telHref} className="flex items-center gap-2 hover:text-royal-300 transition-colors">
+                  <Phone size={14} className="text-royal-400 shrink-0" />
+                  {BUSINESS.phone}
+                </a>
               </li>
-              <li className="flex items-center gap-2">
-                <Mail size={14} className="text-royal-400 shrink-0" />
-                hello@safaking.com
+              <li>
+                <a href={mailtoHref} className="flex items-center gap-2 hover:text-royal-300 transition-colors">
+                  <Mail size={14} className="text-royal-400 shrink-0" />
+                  {BUSINESS.email}
+                </a>
               </li>
               <li className="flex items-start gap-2">
                 <MapPin size={14} className="text-royal-400 shrink-0 mt-0.5" />
-                MI Road, Jaipur, Rajasthan 302001
+                {BUSINESS.address}
               </li>
             </ul>
           </div>
