@@ -11,19 +11,44 @@ will tell you so instead of pretending to succeed.
 
 Open **Supabase Dashboard → SQL Editor → New query**, then run these in order:
 
-| File | What it does |
-| --- | --- |
-| `supabase/schema.sql` | Tables, enums, signup trigger, RLS policies. Safe to re-run. |
-| `supabase/seed.sql` | The 10-product catalogue. Safe to re-run. |
+| Order | File | What it does |
+| --- | --- | --- |
+| 1 | `supabase/002_production_hardening.sql` | **Run this first.** Adds missing columns/tables and turns RLS on. Without it, anyone can read and edit your orders. |
+| 2 | `supabase/003_payments.sql` | Razorpay columns, payment ledger, atomic stock, and removes the client's ability to insert orders. |
+
+`supabase/schema.sql` and `seed.sql` describe a greenfield install and do **not**
+match the live database — see `002` for the reconciliation. Verify with:
+
+```bash
+./scripts/verify-security.sh
+```
+
+Every line must read PASS before taking real orders.
 
 ### 2. Configure environment
 
-`.env.local` needs:
+Copy `.env.example` to `.env.local` and fill it in. Checkout will not work
+without `SUPABASE_SERVICE_ROLE_KEY`, `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`
+— it returns "Payments are not configured yet" until they are set.
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
-```
+## How money is handled
+
+Prices are **never** taken from the browser. The cart posts only product ids and
+quantities to `/api/checkout/create-order`, which:
+
+1. looks each product up in the `products` table and prices it there,
+2. checks stock and the delivery pincode,
+3. computes the total and the 50% advance,
+4. creates a Razorpay order for the advance and a `pending` SafaKing order.
+
+`/api/checkout/verify` then checks Razorpay's HMAC signature before marking
+anything paid, and only then applies stock via the `apply_order_stock()`
+function, which is atomic and runs at most once per order. A replayed or forged
+confirmation is rejected; a signature mismatch marks the payment `failed`.
+
+`003_payments.sql` drops the INSERT policy on `orders` and `order_items`, so the
+service-role route is the only thing that can create an order. That is what
+stops a customer paying ₹1 for a ₹5,000 safa.
 
 ### 3. Create the first admin
 

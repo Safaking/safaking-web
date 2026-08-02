@@ -5,15 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ShoppingBag, Trash2, Plus, Minus, CheckCircle2, ArrowRight, AlertCircle, Loader2,
 } from 'lucide-react';
-import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
-
+import { createOrder, loadRazorpayScript, payAndVerify, payableFromOrder } from '@/lib/checkout';
 import { checkPincode, PincodeCheckResult } from '@/lib/pincodes';
 
 export function CartDrawer() {
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const { items, subtotal, isOpen, closeCart, removeItem, setQuantity, clear } = useCart();
 
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
@@ -28,6 +27,12 @@ export function CartDrawer() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderRef, setOrderRef] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [advanceRate, setAdvanceRate] = useState(0.2);
+
+  // Items added before the catalogue moved into the database have no productId
+  // and can no longer be priced by the server.
+  const unpriceable = items.filter((item) => !item.productId);
 
   // Prefill from the signed-in profile once it arrives.
   useEffect(() => {
@@ -47,92 +52,58 @@ export function CartDrawer() {
   };
 
   const total = subtotal; // Shipping is free pan-India.
-  const advanceAmount = Math.round(total * 0.5);
+  // Indicative only — the server recomputes both from app_settings at checkout.
+  const advanceAmount = Math.round(total * advanceRate);
   const balanceAmount = total - advanceAmount;
+  const advancePct = Math.round(advanceRate * 100);
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setWarning(null);
 
     if (pincodeResult && !pincodeResult.deliverable) {
       setError('Delivery is currently unavailable for this pincode. Please enter a deliverable pincode.');
       return;
     }
-    setSubmitting(true);
-
-    const orderPayload: any = {
-      customer_id: user?.id ?? null,
-      customer_name: name.trim(),
-      customer_phone: phone.trim(),
-      shipping_address: `${address.trim()} (Pincode: ${pincode})`,
-      total_amount: total,
-      advance_amount: advanceAmount,
-      balance_amount: balanceAmount,
-      payment_status: 'advance_paid',
-      status: 'pending',
-    };
-    if (user?.email) {
-      orderPayload.customer_email = user.email;
-    }
-
-    let { data: order, error: orderErr } = await supabase
-      .from('orders')
-      .insert(orderPayload)
-      .select('id')
-      .single();
-
-    // Auto fallback if customer_email / advance_amount / balance_amount columns do not exist in Supabase table
-    if (orderErr && (orderErr.message?.includes('customer_email') || orderErr.message?.includes('advance_amount') || orderErr.message?.includes('balance_amount') || orderErr.code === 'PGRST204')) {
-      delete orderPayload.customer_email;
-      delete orderPayload.advance_amount;
-      delete orderPayload.balance_amount;
-      delete orderPayload.payment_status;
-      const retry = await supabase
-        .from('orders')
-        .insert(orderPayload)
-        .select('id')
-        .single();
-      order = retry.data;
-      orderErr = retry.error;
-    }
-
-    if (orderErr || !order) {
-      setSubmitting(false);
-      setError(friendlyError(orderErr));
-      return;
-    }
-
-    const { error: itemsErr } = await supabase.from('order_items').insert(
-      items.map((item) => ({
-        order_id: order.id,
-        product_id: item.productId ?? null,
-        product_name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-      }))
-    );
-
-    setSubmitting(false);
-
-    if (itemsErr) {
+    if (unpriceable.length > 0) {
       setError(
-        `Order ${order.id.slice(0, 8)} was created but its items failed to save: ${friendlyError(itemsErr)}`
+        'Your bag holds items from an older version of the catalogue. Please empty it and add them again.'
       );
       return;
     }
 
-    // Trigger WhatsApp notification for new order
-    sendWhatsAppNotification('order', {
-      orderId: order.id,
-      customerName: name.trim(),
-      customerPhone: phone.trim(),
-      totalAmount: total,
-      shippingAddress: address.trim(),
-    });
+    setSubmitting(true);
+    const customer = { name: name.trim(), phone: phone.trim(), address: address.trim(), pincode };
 
-    setOrderRef(order.id);
-    setStep('success');
-    clear();
+    try {
+      // The server prices the order from the products table and opens a
+      // Razorpay order for the advance.
+      const created = await createOrder(items, customer);
+      setAdvanceRate(created.advanceRate);
+
+      const ready = await loadRazorpayScript();
+      if (!ready) throw new Error('Could not reach the payment provider. Check your connection.');
+
+      const outcome = await payAndVerify(payableFromOrder(created), customer);
+
+      sendWhatsAppNotification('order', {
+        orderId: outcome.orderId ?? created.orderId,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        totalAmount: created.totalAmount,
+        shippingAddress: customer.address,
+      });
+
+      setOrderRef(outcome.orderId ?? created.orderId);
+      setWarning(outcome.warning ?? null);
+      setStep('success');
+      clear();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Checkout failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -197,8 +168,15 @@ export function CartDrawer() {
                   </p>
                 )}
                 <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
-                  Thank you for placing your order with SafaKing. Your order is pending admin confirmation. Our team will review your details and confirm your delivery.
+                  Your advance has been received. The order is now pending admin confirmation —
+                  our team will review the details and confirm your delivery.
                 </p>
+                {warning && (
+                  <div className="mx-auto max-w-xs flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-left">
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">{warning}</p>
+                  </div>
+                )}
                 <button
                   onClick={handleClose}
                   className="mt-2 px-6 py-3 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest transition-colors"
@@ -215,22 +193,36 @@ export function CartDrawer() {
                   </div>
                 )}
 
+                {unpriceable.length > 0 && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      {unpriceable.length} item{unpriceable.length === 1 ? '' : 's'} in your bag
+                      came from an older catalogue and can no longer be priced. Please empty the bag
+                      and add them again.
+                    </p>
+                  </div>
+                )}
+
                 <div className="bg-royal-50 p-4 rounded-2xl border border-royal-200 space-y-2">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-maroon-900 mb-1">
-                    50% Split Payment Summary
+                    Split Payment Summary
                   </h4>
                   <div className="flex justify-between text-xs font-semibold text-gray-700">
                     <span>Total Order Amount</span>
                     <span className="font-bold text-maroon-950">₹{total.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-emerald-800 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                    <span>⚡ 50% Advance Today</span>
+                    <span>⚡ {advancePct}% Advance Today</span>
                     <span>₹{advanceAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                    <span>📦 50% Balance on Delivery</span>
+                    <span>📦 Balance on Delivery</span>
                     <span>₹{balanceAmount.toLocaleString()}</span>
                   </div>
+                  <p className="text-[10px] text-gray-500 leading-relaxed pt-0.5">
+                    Prices are confirmed against our catalogue when you continue to payment.
+                  </p>
                 </div>
 
                 <div className="space-y-3">
@@ -302,16 +294,21 @@ export function CartDrawer() {
 
                 <button
                   type="submit"
-                  disabled={submitting || items.length === 0 || (!!pincodeResult && !pincodeResult.deliverable)}
+                  disabled={
+                    submitting ||
+                    items.length === 0 ||
+                    unpriceable.length > 0 ||
+                    (!!pincodeResult && !pincodeResult.deliverable)
+                  }
                   className="w-full py-4 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 disabled:cursor-not-allowed text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-all mt-4"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" /> Submitting Order…
+                      <Loader2 size={16} className="animate-spin" /> Opening secure payment…
                     </>
                   ) : (
                     <>
-                      Pay 50% Advance (₹{advanceAmount.toLocaleString()}) & Submit Order <ArrowRight size={16} />
+                      Pay {advancePct}% Advance (₹{advanceAmount.toLocaleString()}) <ArrowRight size={16} />
                     </>
                   )}
                 </button>

@@ -111,3 +111,30 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #6B0F1A;
 }
+
+/* ---------------------------------------------------------------------------
+   Print / Save-as-PDF
+   Documents under /documents rely on the browser's own PDF export, so the page
+   must lose its screen chrome and colour washes when printed.
+   --------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  /* Keep a table row or a total block from splitting across two pages. */
+  table, tr, td, th, figure {
+    break-inside: avoid;
+  }
+
+  /* Force backgrounds and rules to actually render on paper. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

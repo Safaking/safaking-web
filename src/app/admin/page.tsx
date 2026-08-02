@@ -6,40 +6,61 @@ import { motion } from 'framer-motion';
 import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
+  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
   supabase, friendlyError,
   DBOrder, DBArtistBooking, DBArtistApplication, DBDeliverablePincode, DBSupplierApplication, DBAcademyEnrollment,
-  DBJobApplication, DBProduct, UserProfile, UserRole,
+  DBJobApplication, DBProduct, DBRentalBooking, DBAppSetting, UserProfile, UserRole,
 } from '@/lib/supabase';
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
+import { VerificationQueue } from '@/components/verification/VerificationQueue';
+import { CancellationDesk } from '@/components/protection/CancellationDesk';
+import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
+import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
+import { TrainingManager } from '@/components/admin/TrainingManager';
+import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 
-type Tab = 'orders' | 'bookings' | 'artist_apps' | 'products' | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users';
+type Tab =
+  | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
+  { id: 'liveops', label: 'Live Ops', icon: Siren },
+  { id: 'analytics', label: 'Reports', icon: TrendingUp },
   { id: 'orders', label: 'Orders', icon: ShoppingBag },
+  { id: 'rentals', label: 'Rentals', icon: CalendarRange },
   { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
   { id: 'artist_apps', label: 'Artist Applications', icon: Crown },
+  { id: 'verification', label: 'Verification', icon: ShieldCheck },
+  { id: 'protection', label: 'Cancellations', icon: ShieldAlert },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'pincodes', label: 'Pincodes', icon: MapPin },
   { id: 'suppliers', label: 'Suppliers', icon: Briefcase },
-  { id: 'academy', label: 'Academy', icon: GraduationCap },
+  { id: 'academy', label: 'Academy Leads', icon: GraduationCap },
+  { id: 'training', label: 'Training & Certificates', icon: GraduationCap },
   { id: 'careers', label: 'Job Applications', icon: Users },
   { id: 'users', label: 'Users & Roles', icon: Users },
+  { id: 'settings', label: 'Pricing Settings', icon: SlidersHorizontal },
 ];
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
 const APPLICATION_STATUSES = ['pending', 'approved', 'rejected'] as const;
 const ENROLLMENT_STATUSES = ['pending', 'contacted', 'enrolled'] as const;
 const JOB_STATUSES = ['pending', 'shortlisted', 'hired', 'rejected'] as const;
+const RENTAL_STATUSES = [
+  'pending', 'confirmed', 'dispatched', 'active', 'returned', 'completed', 'cancelled',
+] as const;
 const ROLES: UserRole[] = ['customer', 'artist', 'admin'];
 
 const EMPTY_PRODUCT = {
   name: '', code: '', price: '', original_price: '', category: '', color: '',
   fabric: '', style: '', occasion: '', image: '', description: '', stock: '',
   is_bestseller: false, is_new: false, featured: false, active: true,
+  // Rental pricing — admin controlled, per safa.
+  is_rentable: false, rent_price_per_day: '', rent_deposit: '',
 };
 type ProductForm = typeof EMPTY_PRODUCT;
 
@@ -140,6 +161,9 @@ export default function AdminPanelPage() {
   const [enrollments, setEnrollments] = useState<DBAcademyEnrollment[]>([]);
   const [jobApps, setJobApps] = useState<DBJobApplication[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [rentals, setRentals] = useState<DBRentalBooking[]>([]);
+  const [settings, setSettings] = useState<DBAppSetting[]>([]);
+  const [savingSetting, setSavingSetting] = useState<string | null>(null);
 
   const [newPinCode, setNewPinCode] = useState('');
   const [newPinCity, setNewPinCity] = useState('');
@@ -151,6 +175,7 @@ export default function AdminPanelPage() {
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [teamFor, setTeamFor] = useState<string | null>(null);
 
   const artists = useMemo(() => users.filter((u) => u.role === 'artist'), [users]);
 
@@ -158,7 +183,7 @@ export default function AdminPanelPage() {
     setLoading(true);
     setError(null);
 
-    const [o, b, aa, p, pin, s, e, j, u] = await Promise.all([
+    const [o, b, aa, p, pin, s, e, j, u, r, cfg] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
@@ -168,12 +193,15 @@ export default function AdminPanelPage() {
       supabase.from('academy_enrollments').select('*').order('created_at', { ascending: false }),
       supabase.from('job_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('rental_bookings').select('*').order('start_date', { ascending: true }),
+      supabase.from('app_settings').select('*').order('key', { ascending: true }),
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
-    const isMissingTable = (err: any) => err?.code === 'PGRST205' || err?.code === '42P01';
+    const isMissingTable = (err: { code?: string } | null) =>
+      err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [aa, pin, s, e, j, u].find((r) => r.error && !isMissingTable(r.error))?.error;
+    const secondaryError = [aa, pin, s, e, j, u, r, cfg].find((x) => x.error && !isMissingTable(x.error))?.error;
     
     if (coreError || secondaryError) {
       setError(friendlyError(coreError || secondaryError));
@@ -190,6 +218,8 @@ export default function AdminPanelPage() {
     setEnrollments((e.data as DBAcademyEnrollment[]) ?? []);
     setJobApps((j.data as DBJobApplication[]) ?? []);
     setUsers((u.data as UserProfile[]) ?? []);
+    setRentals((r.data as DBRentalBooking[]) ?? []);
+    setSettings((cfg.data as DBAppSetting[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -197,7 +227,8 @@ export default function AdminPanelPage() {
 
   const playChime = () => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
@@ -209,8 +240,8 @@ export default function AdminPanelPage() {
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.5);
-    } catch (e) {
-      // Audio context fallback
+    } catch {
+      // Browser blocked autoplay audio; the visual alert still fires.
     }
   };
 
@@ -282,6 +313,36 @@ export default function AdminPanelPage() {
     );
   };
 
+  const saveSetting = async (key: string, raw: string) => {
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) {
+      setError('Setting value must be a non-negative number.');
+      return;
+    }
+    setSavingSetting(key);
+    setError(null);
+
+    const { error: updateErr } = await supabase
+      .from('app_settings')
+      .update({ value, updated_at: new Date().toISOString() })
+      .eq('key', key);
+
+    if (updateErr) setError(friendlyError(updateErr));
+    else setSettings((prev) => prev.map((s) => (s.key === key ? { ...s, value } : s)));
+
+    setSavingSetting(null);
+  };
+
+  const assignRentalArtist = async (rentalId: string, artistId: string) => {
+    const artist = artists.find((a) => a.id === artistId);
+    await patchRow<DBRentalBooking>(
+      'rental_bookings',
+      rentalId,
+      { artist_id: artistId || null, artist_name: artist?.full_name ?? null },
+      setRentals
+    );
+  };
+
   // ---- Products CRUD -------------------------------------------------------
   const openProductEditor = (product?: DBProduct) => {
     if (product) {
@@ -303,6 +364,13 @@ export default function AdminPanelPage() {
         is_new: !!product.is_new,
         featured: !!(product as DBProduct & { featured?: boolean }).featured,
         active: product.active !== false,
+        is_rentable: !!(product as DBProduct & { is_rentable?: boolean }).is_rentable,
+        rent_price_per_day: String(
+          (product as DBProduct & { rent_price_per_day?: number }).rent_price_per_day ?? ''
+        ),
+        rent_deposit: String(
+          (product as DBProduct & { rent_deposit?: number }).rent_deposit ?? ''
+        ),
       });
     } else {
       setEditingProduct('new');
@@ -332,6 +400,11 @@ export default function AdminPanelPage() {
       is_new: productForm.is_new,
       featured: productForm.featured,
       active: productForm.active,
+      is_rentable: productForm.is_rentable,
+      rent_price_per_day: productForm.rent_price_per_day
+        ? Number(productForm.rent_price_per_day)
+        : null,
+      rent_deposit: productForm.rent_deposit ? Number(productForm.rent_deposit) : null,
     };
 
     const query =
@@ -559,7 +632,7 @@ export default function AdminPanelPage() {
                         <th className={TH}>Customer</th>
                         <th className={TH}>Phone</th>
                         <th className={TH}>Shipping Address</th>
-                        <th className={TH}>Payment (50% Split)</th>
+                        <th className={TH}>Payment (Split)</th>
                         <th className={TH}>Status</th>
                         <th className={TH}>Action</th>
                       </tr>
@@ -578,9 +651,9 @@ export default function AdminPanelPage() {
                             <td className="p-4">
                               <span className="font-bold text-maroon-950">Total: ₹{order.total_amount.toLocaleString()}</span>
                               <div className="text-[10px] space-y-0.5 mt-0.5">
-                                <span className="block text-emerald-700 font-bold">⚡ 50% Adv: ₹{adv.toLocaleString()} (Paid)</span>
+                                <span className="block text-emerald-700 font-bold">⚡ Advance: ₹{adv.toLocaleString()} (Paid)</span>
                                 <span className={`block font-bold ${isFullyPaid ? 'text-emerald-700' : 'text-amber-800'}`}>
-                                  📦 50% Bal: ₹{bal.toLocaleString()} ({isFullyPaid ? 'Collected ✓' : 'Due on Delivery'})
+                                  📦 Balance: ₹{bal.toLocaleString()} ({isFullyPaid ? 'Collected ✓' : 'Due on Delivery'})
                                 </span>
                               </div>
                             </td>
@@ -622,7 +695,7 @@ export default function AdminPanelPage() {
                                     }
                                     className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider text-center transition-colors"
                                   >
-                                    Mark 50% Bal Paid ✓
+                                    Mark Balance Paid ✓
                                   </button>
                                 )}
                               </div>
@@ -1130,6 +1203,203 @@ export default function AdminPanelPage() {
               </Panel>
             )}
 
+            {/* ---- RENTALS ---- */}
+            {activeTab === 'rentals' && (
+              <Panel
+                title="Rental Bookings"
+                subtitle={`${rentals.filter((r) => r.status === 'pending').length} awaiting confirmation`}
+              >
+                {rentals.length === 0 ? (
+                  <Empty label="No rentals yet." />
+                ) : (
+                  <table className="w-full text-left">
+                    <thead className={THEAD}>
+                      <tr>
+                        <th className={TH}>Customer</th>
+                        <th className={TH}>Dates</th>
+                        <th className={TH}>Venue</th>
+                        <th className={TH}>Safas</th>
+                        <th className={TH}>Money</th>
+                        <th className={TH}>Artist</th>
+                        <th className={TH}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-100 text-xs">
+                      {rentals.map((rental) => (
+                        <tr key={rental.id} className="hover:bg-amber-50/30 transition-colors align-top">
+                          <td className="p-4 font-bold text-maroon-950">
+                            {rental.customer_name}
+                            <a
+                              href={getWhatsAppClickLink(
+                                rental.customer_phone,
+                                `Namaste ${rental.customer_name}, regarding your SafaKing rental ${rental.id.slice(0, 8).toUpperCase()}`
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-[10px] text-emerald-700 font-bold hover:underline mt-0.5"
+                            >
+                              {rental.customer_phone} · WhatsApp
+                            </a>
+                          </td>
+                          <td className="p-4 text-gray-700">
+                            {rental.start_date}
+                            <span className="block text-[10px] text-gray-400">
+                              to {rental.end_date} · {rental.rental_days}d
+                            </span>
+                          </td>
+                          <td className="p-4 text-gray-700 max-w-[16rem]">
+                            {rental.venue_address}
+                            <span className="block text-[10px] text-gray-400">{rental.pincode}</span>
+                          </td>
+                          <td className="p-4 font-black text-maroon-900">{rental.safa_count}</td>
+                          <td className="p-4">
+                            <span className="font-black text-gradient-gold">
+                              ₹{rental.total_amount.toLocaleString()}
+                            </span>
+                            <span className="block text-[10px] text-gray-500 mt-0.5">
+                              rent ₹{rental.rent_amount.toLocaleString()} · dep ₹
+                              {rental.deposit_amount.toLocaleString()}
+                            </span>
+                            <span className="block text-[10px] text-gray-500">
+                              adv ₹{rental.advance_amount.toLocaleString()} · bal ₹
+                              {rental.balance_amount.toLocaleString()}
+                            </span>
+                            <span
+                              className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                                rental.payment_status === 'advance_paid'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {rental.payment_status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            {rental.needs_artist ? (
+                              <>
+                                <select
+                                  value={rental.artist_id ?? ''}
+                                  onChange={(e) => assignRentalArtist(rental.id, e.target.value)}
+                                  disabled={artists.length === 0}
+                                  className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] disabled:opacity-50"
+                                >
+                                  <option value="">Unassigned</option>
+                                  {artists.map((artist) => (
+                                    <option key={artist.id} value={artist.id}>
+                                      {artist.full_name || artist.email}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => setTeamFor(rental.id)}
+                                  className="block mt-1.5 px-2.5 py-1 rounded-lg bg-maroon-950 text-royal-300 text-[10px] font-bold uppercase tracking-wider"
+                                  title="Build a crew for a large event"
+                                >
+                                  Team ({rental.safa_count})
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 font-bold">Not required</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <a
+                              href={`/documents/booking/${rental.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-[10px] font-bold text-royal-700 hover:underline mb-1.5"
+                            >
+                              Confirmation ↗
+                            </a>
+                            <StatusSelect
+                              value={rental.status}
+                              options={RENTAL_STATUSES}
+                              onChange={(status) =>
+                                patchRow<DBRentalBooking>(
+                                  'rental_bookings', rental.id, { status }, setRentals
+                                )
+                              }
+                            />
+                            {rental.notes && (
+                              <span className="block text-[10px] text-rose-600 font-bold mt-1 max-w-[12rem]">
+                                {rental.notes}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Panel>
+            )}
+
+            {/* ---- PRICING SETTINGS ---- */}
+            {activeTab === 'settings' && (
+              <Panel
+                title="Pricing Settings"
+                subtitle="Applied to every new rental and booking immediately"
+              >
+                {settings.length === 0 ? (
+                  <Empty label="Settings table not found — run supabase/004_rentals.sql." />
+                ) : (
+                  <div className="divide-y divide-amber-100">
+                    {settings.map((setting) => (
+                      <div
+                        key={setting.key}
+                        className="p-6 flex flex-col sm:flex-row sm:items-center gap-4"
+                      >
+                        <div className="flex-1">
+                          <p className="font-bold text-sm text-maroon-950">{setting.label}</p>
+                          {setting.description && (
+                            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                              {setting.description}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-gray-400 font-mono mt-1">{setting.key}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="number"
+                            step="any"
+                            defaultValue={setting.value}
+                            onBlur={(e) => {
+                              if (Number(e.target.value) !== setting.value) {
+                                saveSetting(setting.key, e.target.value);
+                              }
+                            }}
+                            className="w-32 px-3 py-2 rounded-xl border border-gray-200 text-sm font-bold focus:ring-2 focus:ring-maroon-950/20"
+                          />
+                          {savingSetting === setting.key && (
+                            <Loader2 size={15} className="animate-spin text-amber-600" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <p className="p-6 text-xs text-gray-500 leading-relaxed">
+                      Changes save when you click away from a field. Existing rentals keep the
+                      prices they were booked at — rental_items stores a snapshot per line.
+                    </p>
+                  </div>
+                )}
+              </Panel>
+            )}
+
+            {/* ---- VERIFICATION ---- */}
+            {activeTab === 'verification' && <VerificationQueue />}
+
+            {/* ---- BOOKING PROTECTION ---- */}
+            {activeTab === 'protection' && <CancellationDesk />}
+
+            {/* ---- ANALYTICS ---- */}
+            {activeTab === 'analytics' && <AnalyticsPanel />}
+
+            {/* ---- LIVE OPS ---- */}
+            {activeTab === 'liveops' && <LiveOpsBoard />}
+
+            {/* ---- TRAINING ACADEMY ---- */}
+            {activeTab === 'training' && <TrainingManager />}
+
             {/* ---- USERS ---- */}
             {activeTab === 'users' && (
               <Panel
@@ -1184,6 +1454,14 @@ export default function AdminPanelPage() {
         )}
       </main>
 
+      {teamFor && (
+        <TeamBuilder
+          rentalId={teamFor}
+          onClose={() => setTeamFor(null)}
+          onAssigned={fetchAll}
+        />
+      )}
+
       {/* Product editor */}
       {editingProduct && (
         <div className="fixed inset-0 z-50 bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1220,6 +1498,8 @@ export default function AdminPanelPage() {
                     ['fabric', 'Fabric', 'text', false],
                     ['style', 'Style', 'text', false],
                     ['occasion', 'Occasion', 'text', false],
+                    ['rent_price_per_day', 'Rent per day (₹)', 'number', false],
+                    ['rent_deposit', 'Refundable deposit (₹)', 'number', false],
                     ['image', 'Image path (e.g. /product-pink-chanderi.jpg)', 'text', false],
                   ] as const
                 ).map(([key, label, type, required]) => (
@@ -1258,6 +1538,7 @@ export default function AdminPanelPage() {
                 {(
                   [
                     ['active', 'Active (visible in shop)'],
+                    ['is_rentable', 'Available to rent'],
                     ['featured', 'Featured on landing page'],
                     ['is_bestseller', 'Bestseller'],
                     ['is_new', 'New arrival'],

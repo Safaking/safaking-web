@@ -21,8 +21,6 @@ export interface WhatsAppBookingNotification {
   safaStyle: string;
 }
 
-const ADMIN_WHATSAPP_PHONE = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_PHONE || '919829012345';
-
 /**
  * Formats a message for WhatsApp
  */

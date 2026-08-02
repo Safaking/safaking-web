@@ -51,9 +51,11 @@ export async function POST(req: Request) {
       message: 'WhatsApp notification payload formatted successfully.',
       formattedText: message,
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'WhatsApp notification failed';
     return NextResponse.json(
-      { success: false, error: error.message || 'WhatsApp notification failed' },
+      { success: false, error: message },
       { status: 500 }
     );
   }

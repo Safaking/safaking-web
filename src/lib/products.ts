@@ -163,25 +163,35 @@ export interface ProductsResult {
   error: string | null;
 }
 
-/** Loads the live catalogue, falling back to the static list on any failure. */
+/**
+ * Loads the live catalogue.
+ *
+ * The database is the single source of truth. An EMPTY products table now
+ * returns an empty list rather than the demo catalogue — previously an admin
+ * could delete every product and still see ten items on the storefront, i.e.
+ * the shop and the admin panel were showing two different catalogues.
+ *
+ * STATIC_PRODUCTS is kept only for a hard connection/permission failure, so a
+ * transient outage doesn't render a blank shop. `fromDatabase` tells the caller
+ * which one it got.
+ */
 export async function fetchProducts(): Promise<ProductsResult> {
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from('products')
     .select('*')
+    .eq('active', true)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false });
 
   if (error) {
-    const retry = await supabase.from('products').select('*');
-    data = retry.data;
-    error = retry.error;
-  }
-
-  if (error) {
+    console.error(
+      '[products] Falling back to the demo catalogue — the storefront is NOT showing your database. ' +
+        'Apply supabase/002_production_hardening.sql. Cause:',
+      error.message
+    );
     return { products: STATIC_PRODUCTS, fromDatabase: false, error: error.message };
   }
-  if (!data || data.length === 0) {
-    return { products: STATIC_PRODUCTS, fromDatabase: false, error: null };
-  }
+
   return {
     products: (data as DBProduct[]).map(mapDBProduct),
     fromDatabase: true,

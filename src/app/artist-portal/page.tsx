@@ -9,6 +9,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError, DBArtistBooking } from '@/lib/supabase';
+import { VerificationPanel } from '@/components/verification/VerificationPanel';
+import { PortfolioManager } from '@/components/reviews/PortfolioManager';
+import { ArtistCheckin } from '@/components/liveops/ArtistCheckin';
+import { ArtistLeadBoard } from '@/components/marketplace/ArtistLeadBoard';
 
 export default function ArtistPortalPage() {
   const { profile, user, logout } = useAuth();
@@ -179,6 +183,15 @@ export default function ArtistPortalPage() {
             ))}
           </div>
         </div>
+
+        {user && (
+          <div className="mb-8 space-y-6">
+            <ArtistCheckin artistId={user.id} />
+            <ArtistLeadBoard artistId={user.id} />
+            <VerificationPanel ownerId={user.id} subjectType="artist" />
+            <PortfolioManager artistId={user.id} />
+          </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 p-4 mb-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">

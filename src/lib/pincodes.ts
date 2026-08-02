@@ -43,7 +43,7 @@ export async function checkPincode(pincode: string): Promise<PincodeCheckResult>
   }
 
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('deliverable_pincodes')
       .select('*')
       .eq('pincode', cleanCode)
