@@ -251,15 +251,35 @@ left join public.artist_profiles leader on leader.id = t.leader_id;
 alter table public.booking_teams        enable row level security;
 alter table public.booking_team_members enable row level security;
 
+-- These lookups go through SECURITY DEFINER helpers rather than inline
+-- sub-selects. A policy on booking_teams that reads booking_team_members, whose
+-- own policy reads booking_teams, is mutual recursion and Postgres aborts with
+-- 42P17. A definer function runs as its owner and does not re-enter RLS.
+create or replace function public.is_team_member(p_team_id uuid, p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $fn$
+  select exists (select 1 from public.booking_team_members m
+                 where m.team_id = p_team_id and m.artist_id = p_user);
+$fn$;
+
+create or replace function public.is_team_leader(p_team_id uuid, p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $fn$
+  select exists (select 1 from public.booking_teams t
+                 where t.id = p_team_id and t.leader_id = p_user);
+$fn$;
+
+create or replace function public.owns_rental(p_rental_id uuid, p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $fn$
+  select exists (select 1 from public.rental_bookings r
+                 where r.id = p_rental_id and r.customer_id = p_user);
+$fn$;
+
 drop policy if exists teams_select on public.booking_teams;
 create policy teams_select on public.booking_teams
   for select using (
     public.is_admin()
     or leader_id = auth.uid()
-    or exists (select 1 from public.booking_team_members m
-               where m.team_id = id and m.artist_id = auth.uid())
-    or exists (select 1 from public.rental_bookings r
-               where r.id = rental_id and r.customer_id = auth.uid())
+    or public.is_team_member(id, auth.uid())
+    or (rental_id is not null and public.owns_rental(rental_id, auth.uid()))
   );
 
 drop policy if exists teams_write on public.booking_teams;
@@ -271,8 +291,7 @@ create policy team_members_select on public.booking_team_members
   for select using (
     public.is_admin()
     or artist_id = auth.uid()
-    or exists (select 1 from public.booking_teams t
-               where t.id = team_id and t.leader_id = auth.uid())
+    or public.is_team_leader(team_id, auth.uid())
   );
 
 -- Admins build the crew. An artist may only answer their own invitation, which

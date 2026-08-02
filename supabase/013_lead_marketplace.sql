@@ -241,13 +241,26 @@ create policy leads_insert on public.leads
 
 -- The customer sees their own. Artists reach leads through leads_for_artist(),
 -- which is SECURITY DEFINER, so they do not need blanket read on this table.
+-- Cross-table checks use SECURITY DEFINER helpers: a policy on leads that reads
+-- lead_quotes, whose own policy reads leads, is mutual recursion (42P17).
+create or replace function public.owns_lead(p_lead_id uuid, p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $fn$
+  select exists (select 1 from public.leads l
+                 where l.id = p_lead_id and l.customer_id = p_user);
+$fn$;
+
+create or replace function public.has_quoted_on(p_lead_id uuid, p_user uuid)
+returns boolean language sql stable security definer set search_path = public as $fn$
+  select exists (select 1 from public.lead_quotes q
+                 where q.lead_id = p_lead_id and q.artist_id = p_user);
+$fn$;
+
 drop policy if exists leads_select on public.leads;
 create policy leads_select on public.leads
   for select using (
     public.is_admin()
     or customer_id = auth.uid()
-    or exists (select 1 from public.lead_quotes q
-               where q.lead_id = id and q.artist_id = auth.uid())
+    or public.has_quoted_on(id, auth.uid())
   );
 
 drop policy if exists leads_update on public.leads;
@@ -267,8 +280,7 @@ create policy quotes_select on public.lead_quotes
   for select using (
     public.is_admin()
     or artist_id = auth.uid()
-    or exists (select 1 from public.leads l
-               where l.id = lead_id and l.customer_id = auth.uid())
+    or public.owns_lead(lead_id, auth.uid())
   );
 
 -- An artist may withdraw their own quote; awarding is done by accept_quote().
