@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Crown, Phone, Mail, MapPin, Clock, MessageCircle, Send, CheckCircle2, AlertCircle, Loader2, Sparkles
+  Crown, Phone, Mail, MapPin, Clock, MessageCircle, Send, CheckCircle2, AlertCircle, Loader2,
 } from 'lucide-react';
 import { TopBanner } from '@/components/landing/TopBanner';
 import { Header } from '@/components/landing/Header';

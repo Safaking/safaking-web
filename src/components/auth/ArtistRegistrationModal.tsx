@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown, User, Phone, MapPin, Briefcase, Users, IndianRupee, Link as LinkIcon,
-  X, CheckCircle2, AlertCircle, Loader2, Sparkles
+  X, CheckCircle2, AlertCircle, Loader2, Sparkles, MessageCircle, Wallet,
+  Navigation, Camera, ScrollText,
 } from 'lucide-react';
 import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { getActiveContract, recordContractAcceptance, Contract } from '@/lib/client-update';
 
 interface ArtistRegistrationModalProps {
   isOpen: boolean;
@@ -23,20 +25,38 @@ const SAFA_SPECIALTIES = [
   'Mewari Rajwadi Style',
 ];
 
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
 export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationModalProps) {
   const { user } = useAuth();
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneAlt, setPhoneAlt] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [city, setCity] = useState('');
+  const [maxTravelKm, setMaxTravelKm] = useState('50');
   const [experienceYears, setExperienceYears] = useState('5');
   const [specialties, setSpecialties] = useState<string[]>(['Jodhpuri Silk Safa', 'Royal Groom Turban']);
   const [teamSize, setTeamSize] = useState('1');
   const [perSafaRate, setPerSafaRate] = useState('50');
   const [portfolioLink, setPortfolioLink] = useState('');
 
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  const [contract, setContract] = useState<Contract | null>(null);
+  const [contractAccepted, setContractAccepted] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) getActiveContract('artist').then(setContract);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -46,33 +66,92 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
     );
   };
 
+  const handlePhotoPick = (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError('Photo is larger than 5 MB — please choose a smaller one.');
+      return;
+    }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!phoneAlt.trim()) {
+      setError('A second mobile number is required, in case your primary number is unreachable.');
+      return;
+    }
+    if (contract && !contractAccepted) {
+      setError('Please read and accept the artist agreement to continue.');
+      return;
+    }
+
     setSubmitting(true);
 
-    const { error: insertErr } = await supabase.from('artist_applications').insert({
-      user_id: user?.id ?? null,
-      full_name: fullName.trim(),
-      phone: phone.trim(),
-      city: city.trim(),
-      experience_years: Number(experienceYears) || 1,
-      specialties,
-      team_size: Number(teamSize) || 1,
-      per_safa_rate: Number(perSafaRate) || 50,
-      portfolio_link: portfolioLink.trim() || null,
-      status: 'pending',
-    });
+    // Photo is uploaded first: if it fails, the applicant knows before their
+    // application text is lost, and they can retry without re-typing everything.
+    let photoUrl: string | null = null;
+    if (photoFile && user) {
+      const ext = photoFile.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const path = `${user.id}/application-photo-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('portfolio')
+        .upload(path, photoFile, { contentType: photoFile.type });
 
-    setSubmitting(false);
+      if (uploadErr) {
+        setSubmitting(false);
+        setError(`Could not upload your photo: ${uploadErr.message}`);
+        return;
+      }
+      photoUrl = supabase.storage.from('portfolio').getPublicUrl(path).data.publicUrl;
+    }
+
+    const { data: application, error: insertErr } = await supabase
+      .from('artist_applications')
+      .insert({
+        user_id: user?.id ?? null,
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        phone_alt: phoneAlt.trim(),
+        whatsapp_number: whatsappNumber.trim() || phone.trim(),
+        upi_id: upiId.trim() || null,
+        city: city.trim(),
+        max_travel_km: Number(maxTravelKm) || 50,
+        experience_years: Number(experienceYears) || 1,
+        specialties,
+        team_size: Number(teamSize) || 1,
+        per_safa_rate: Number(perSafaRate) || 50,
+        portfolio_link: portfolioLink.trim() || null,
+        photo_url: photoUrl,
+        status: 'pending',
+      })
+      .select('id')
+      .single();
 
     // Never report success on a failed insert. A missing table used to be
     // swallowed here, which silently discarded every artist application.
-    if (insertErr) {
+    if (insertErr || !application) {
+      setSubmitting(false);
       setError(friendlyError(insertErr));
       return;
     }
 
+    if (contract) {
+      try {
+        await recordContractAcceptance({ contractId: contract.id, userId: user?.id ?? null });
+      } catch (err) {
+        // The application itself is already saved; a missing acceptance
+        // record is a lesser problem than losing the whole submission, so we
+        // surface it as a warning rather than failing the form.
+        console.warn('Could not record contract acceptance:', err);
+      }
+    }
+
+    setSubmitting(false);
     setSubmitted(true);
     setTimeout(() => {
       setSubmitted(false);
@@ -138,6 +217,43 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
                   </div>
                 )}
 
+                {/* Photo */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                    Your Photo <span className="text-rose-500">*</span>
+                  </label>
+                  {user ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => photoInputRef.current?.click()}
+                        className="w-16 h-16 rounded-2xl border-2 border-dashed border-gray-300 hover:border-maroon-400 flex items-center justify-center overflow-hidden shrink-0 bg-gray-50"
+                      >
+                        {photoPreview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={photoPreview} alt="Your photo" className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera size={20} className="text-gray-400" />
+                        )}
+                      </button>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(e) => handlePhotoPick(e.target.files?.[0])}
+                      />
+                      <p className="text-[11px] text-gray-500">
+                        A clear face photo — shown to our team, not published publicly.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+                      Sign in first to attach a photo. You can still submit without one and add it later.
+                    </p>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="relative">
                     <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -151,20 +267,6 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
                     />
                   </div>
                   <div className="relative">
-                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      required
-                      type="tel"
-                      placeholder="WhatsApp Number"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="relative">
                     <MapPin size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       required
@@ -172,6 +274,73 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
                       placeholder="Base City (e.g. Jaipur)"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                </div>
+
+                {/* Two required mobile numbers */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="relative">
+                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      required
+                      type="tel"
+                      placeholder="Mobile Number 1 *"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      required
+                      type="tel"
+                      placeholder="Mobile Number 2 *"
+                      value={phoneAlt}
+                      onChange={(e) => setPhoneAlt(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 -mt-2.5">
+                  * Both numbers are required, in case one is unreachable on the wedding day.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="relative">
+                    <MessageCircle size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="tel"
+                      placeholder="WhatsApp Number (if different)"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Wallet size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="UPI ID for payment (e.g. name@upi)"
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="relative">
+                    <Navigation size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      required
+                      type="number"
+                      min={1}
+                      placeholder="Max Travel Distance (km)"
+                      value={maxTravelKm}
+                      onChange={(e) => setMaxTravelKm(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
                     />
                   </div>
@@ -248,6 +417,34 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
                     className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
                   />
                 </div>
+
+                {/* Contract */}
+                {contract && (
+                  <div className="rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-1.5">
+                      <ScrollText size={13} className="text-gray-500" />
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600">
+                        {contract.title}
+                      </p>
+                    </div>
+                    <p className="p-3 text-[11px] text-gray-600 leading-relaxed max-h-28 overflow-y-auto custom-scrollbar">
+                      {contract.body}
+                    </p>
+                    <label className="flex items-start gap-2 p-3 border-t border-gray-200 cursor-pointer bg-white">
+                      <input
+                        type="checkbox"
+                        checked={contractAccepted}
+                        onChange={(e) => setContractAccepted(e.target.checked)}
+                        className="mt-0.5 accent-maroon-900"
+                      />
+                      <span className="text-[11px] text-gray-700">
+                        I have read and accept this agreement, including arriving on time, wearing a
+                        helmet, carrying insurance, and never accepting payment directly from a
+                        customer.
+                      </span>
+                    </label>
+                  </div>
+                )}
 
                 <div className="flex gap-2.5 pt-2">
                   <button

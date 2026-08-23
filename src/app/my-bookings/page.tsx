@@ -11,6 +11,7 @@ import {
   listReviewableBookings, submitReview, ReviewableBooking,
 } from '@/lib/reviews';
 import { Stars } from '@/components/reviews/Stars';
+import { ActiveBookingTracker } from '@/components/tracking/ActiveBookingTracker';
 
 /**
  * Post-event review prompt.
@@ -108,7 +109,9 @@ export default function MyBookingsPage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-4">
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+        {user && <ActiveBookingTracker userId={user.id} />}
+
         {error && (
           <div className="flex items-start gap-2 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />
