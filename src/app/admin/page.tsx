@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
-  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail,
+  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -23,10 +23,11 @@ import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 import { TrainingManager } from '@/components/admin/TrainingManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
+import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'liveops', label: 'Live Ops', icon: Siren },
@@ -43,6 +44,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'academy', label: 'Academy Leads', icon: GraduationCap },
   { id: 'training', label: 'Training & Certificates', icon: GraduationCap },
   { id: 'careers', label: 'Job Applications', icon: Users },
+  { id: 'payouts', label: 'Payment Release', icon: Wallet },
   { id: 'messages', label: 'Messages', icon: Mail },
   { id: 'users', label: 'Users & Roles', icon: Users },
   { id: 'settings', label: 'Pricing Settings', icon: SlidersHorizontal },
@@ -1401,6 +1403,9 @@ export default function AdminPanelPage() {
 
             {/* ---- TRAINING ACADEMY ---- */}
             {activeTab === 'training' && <TrainingManager />}
+
+            {/* ---- CONTACT INBOX ---- */}
+            {activeTab === 'payouts' && <PaymentReleaseQueue />}
 
             {/* ---- CONTACT INBOX ---- */}
             {activeTab === 'messages' && <ContactInbox />}

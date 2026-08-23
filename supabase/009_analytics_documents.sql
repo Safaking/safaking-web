@@ -137,27 +137,35 @@ full outer join rented r on r.product_id = s.product_id
 order by total_units desc;
 
 -- "कौन सा आर्टिस्ट सबसे ज्यादा बुक हुआ"
+--
+-- The counts are computed in an inner select and ordered in an outer one.
+-- Postgres accepts a bare output alias in ORDER BY but rejects one used inside
+-- an expression, so `order by tying_bookings + rental_bookings` is invalid —
+-- hence the wrapper rather than repeating both subqueries.
 create or replace view public.analytics_top_artists
 with (security_invoker = true)
 as
-select
-  a.id            as artist_id,
-  a.display_name,
-  a.base_city,
-  a.verified,
-  a.rating,
-  a.total_events,
-  (select count(*) from public.artist_bookings b
-    where b.artist_id = a.id and b.status <> 'cancelled')       as tying_bookings,
-  (select count(*) from public.rental_bookings r
-    where r.artist_id = a.id and r.status <> 'cancelled')       as rental_bookings,
-  (select coalesce(sum(r.artist_amount), 0) from public.rental_bookings r
-    where r.artist_id = a.id and r.status not in ('cancelled')) as artist_earnings,
-  (select count(*) from public.reviews rv
-    where rv.subject_type = 'artist' and rv.subject_id = a.id and rv.visible) as review_count
-from public.artist_profiles a
-where a.active
-order by tying_bookings + rental_bookings desc, a.rating desc nulls last;
+select *
+from (
+  select
+    a.id            as artist_id,
+    a.display_name,
+    a.base_city,
+    a.verified,
+    a.rating,
+    a.total_events,
+    (select count(*) from public.artist_bookings b
+      where b.artist_id = a.id and b.status <> 'cancelled')       as tying_bookings,
+    (select count(*) from public.rental_bookings r
+      where r.artist_id = a.id and r.status <> 'cancelled')       as rental_bookings,
+    (select coalesce(sum(r.artist_amount), 0) from public.rental_bookings r
+      where r.artist_id = a.id and r.status <> 'cancelled')       as artist_earnings,
+    (select count(*) from public.reviews rv
+      where rv.subject_type = 'artist' and rv.subject_id = a.id and rv.visible) as review_count
+  from public.artist_profiles a
+  where a.active
+) ranked
+order by (tying_bookings + rental_bookings) desc, rating desc nulls last;
 
 -- Revenue Reports (spec STEP 10). Deposits are excluded from rental revenue —
 -- a refundable deposit is a liability held on the customer's behalf, not income.

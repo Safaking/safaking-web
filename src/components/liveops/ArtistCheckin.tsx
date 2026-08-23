@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { MapPin, CheckCircle2, Loader2, AlertCircle, Navigation } from 'lucide-react';
+import { MapPin, CheckCircle2, Loader2, AlertCircle, Navigation, KeyRound } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { checkIn, CheckinStage, STAGE_FLOW } from '@/lib/liveops';
+import { verifyArrivalCode, verifyCompletionCode, pingArtistLocation, getBrowserCoords } from '@/lib/client-update';
 
 interface TodayJob {
   rentalId: string | null;
@@ -28,6 +29,7 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shareLocation, setShareLocation] = useState(true);
+  const [codes, setCodes] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,6 +104,39 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
     load();
   }, [load]);
 
+  // Live location (N9/N11): once a job is en route or under way, ping the
+  // artist's position periodically so the customer's tracker stays current.
+  // A single missed ping is harmless — the customer sees "last seen" rather
+  // than a hard requirement — so failures here are swallowed rather than
+  // surfaced as an error banner.
+  useEffect(() => {
+    if (!shareLocation) return;
+    const active = jobs.filter((j) => j.stage === 'en_route' || j.stage === 'started');
+    if (active.length === 0) return;
+
+    const ping = async () => {
+      const coords = await getBrowserCoords();
+      if (!coords) return;
+      for (const job of active) {
+        try {
+          await pingArtistLocation({
+            artistId,
+            rentalId: job.rentalId,
+            bookingId: job.bookingId,
+            lat: coords.lat,
+            lng: coords.lng,
+          });
+        } catch {
+          // Best-effort; the next tick tries again.
+        }
+      }
+    };
+
+    ping();
+    const timer = setInterval(ping, 90_000);
+    return () => clearInterval(timer);
+  }, [jobs, shareLocation, artistId]);
+
   const mark = async (job: TodayJob, stage: CheckinStage) => {
     const key = job.rentalId ?? job.bookingId ?? '';
     setBusy(key);
@@ -118,6 +153,44 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Check-in failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * 'arrived' and 'completed' are gated behind a code the customer relays out
+   * loud (Point N8) rather than a plain button — verifying goes through a
+   * SECURITY DEFINER RPC so this screen never reads the stored code, only
+   * whether the attempt matched.
+   */
+  const verifyStage = async (job: TodayJob, stage: 'arrived' | 'completed') => {
+    const key = job.rentalId ?? job.bookingId ?? '';
+    const code = (codes[key] ?? '').trim();
+    if (code.length !== 6) {
+      setError('Enter the 6-digit code the customer gives you.');
+      return;
+    }
+
+    setBusy(key);
+    setError(null);
+
+    try {
+      const kind = job.rentalId ? 'rental' : 'booking';
+      const id = job.rentalId ?? job.bookingId!;
+      const ok =
+        stage === 'arrived'
+          ? await verifyArrivalCode(kind, id, code)
+          : await verifyCompletionCode(kind, id, code);
+
+      if (!ok) {
+        setError('That code did not match. Ask the customer to read it again.');
+        return;
+      }
+      setCodes((prev) => ({ ...prev, [key]: '' }));
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not verify that code.');
     } finally {
       setBusy(null);
     }
@@ -191,7 +264,41 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
                 )}
               </div>
 
-              {next ? (
+              {next && (next.stage === 'arrived' || next.stage === 'completed') ? (
+                <div className="mt-3 space-y-2">
+                  <label className="flex items-center gap-2">
+                    <KeyRound size={13} className="text-amber-600 shrink-0" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder={
+                        next.stage === 'arrived' ? 'Arrival code from customer' : 'Completion code from customer'
+                      }
+                      value={codes[key] ?? ''}
+                      onChange={(e) =>
+                        setCodes((prev) => ({ ...prev, [key]: e.target.value.replace(/\D/g, '').slice(0, 6) }))
+                      }
+                      className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm tracking-widest font-bold outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                  </label>
+                  <button
+                    onClick={() => verifyStage(job, next.stage as 'arrived' | 'completed')}
+                    disabled={busy === key}
+                    className="w-full py-3 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                  >
+                    {busy === key ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" /> Verifying…
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={14} /> Confirm {next.label}
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : next ? (
                 <button
                   onClick={() => mark(job, next.stage)}
                   disabled={busy === key}

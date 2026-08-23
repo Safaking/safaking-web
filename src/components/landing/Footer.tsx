@@ -60,6 +60,8 @@ export function Footer() {
             <ul className="space-y-2.5 text-xs">
               {[
                 { href: '/shop', label: 'Shop All Safas' },
+                { href: '/about', label: 'About Us' },
+                { href: '/contact', label: 'Contact Us' },
                 { href: '#artists', label: 'Book Safa Artist' },
                 { href: '#training', label: 'Training Academy' },
                 { href: '#suppliers', label: 'Supplier Registration' },

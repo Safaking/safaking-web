@@ -14,6 +14,7 @@ import {
   quoteRental, createRental, loadRazorpayScript, payAndVerify, payableFromRental,
   RentalQuote,
 } from '@/lib/checkout';
+import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
 
 interface RentableSafa {
   id: string;
@@ -59,6 +60,7 @@ export default function RentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookedRef, setBookedRef] = useState<string | null>(null);
+  const [contractAccepted, setContractAccepted] = useState(false);
 
   useEffect(() => {
     if (profile?.full_name) setName((prev) => prev || profile.full_name);
@@ -154,6 +156,10 @@ export default function RentPage() {
     }
     if (pincodeResult && !pincodeResult.deliverable) {
       setError('We do not serve that pincode yet. Contact us to arrange travel.');
+      return;
+    }
+    if (!contractAccepted) {
+      setError('Please accept the booking terms to continue.');
       return;
     }
 
@@ -521,6 +527,10 @@ export default function RentPage() {
                   </div>
                 </div>
               </>
+            )}
+
+            {quote && (
+              <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="light" />
             )}
 
             {error && (

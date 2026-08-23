@@ -53,6 +53,7 @@ import { useAuth } from '@/context/AuthContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
 import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
+import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
 
 interface ArtistsSectionProps {
   onOpenArtistRegister?: () => void;
@@ -73,6 +74,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [advanceRate, setAdvanceRate] = useState(0.2);
+  const [contractAccepted, setContractAccepted] = useState(false);
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -114,6 +116,10 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
 
     if (pincodeResult && !pincodeResult.deliverable) {
       setError('Safa Artist service is currently unavailable for this pincode. Please contact us for custom travel.');
+      return;
+    }
+    if (!contractAccepted) {
+      setError('Please accept the booking terms to continue.');
       return;
     }
 
@@ -158,6 +164,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
     });
 
     setCustomerName('');
+    setContractAccepted(false);
     setCustomerPhone('');
     setEventDate('');
     setCityVenue('');
@@ -555,6 +562,8 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                           <span>₹{balanceAmount.toLocaleString()}</span>
                         </div>
                       </div>
+
+                      <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="dark" />
 
                       <motion.button
                         whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}

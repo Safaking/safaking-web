@@ -26,6 +26,11 @@ export function TrainingSection() {
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [center, setCenter] = useState('jaipur');
+  const [gender, setGender] = useState('');
+  const [qualification, setQualification] = useState('');
+  const [currentOccupation, setCurrentOccupation] = useState('');
+  const [wantsToJoinPlatform, setWantsToJoinPlatform] = useState(true);
+  const [nearestHqCity, setNearestHqCity] = useState('');
 
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +43,11 @@ export function TrainingSection() {
       phone: phone.trim(),
       city: city.trim() || null,
       center,
+      gender: gender || null,
+      qualification: qualification.trim() || null,
+      current_occupation: currentOccupation.trim() || null,
+      wants_to_join_platform: wantsToJoinPlatform,
+      nearest_hq_city: nearestHqCity.trim() || null,
       status: 'pending',
     });
 
@@ -51,6 +61,10 @@ export function TrainingSection() {
     setFullName('');
     setPhone('');
     setCity('');
+    setGender('');
+    setQualification('');
+    setCurrentOccupation('');
+    setNearestHqCity('');
     setEnrolled(true);
     setTimeout(() => setEnrolled(false), 5000);
   };
@@ -219,6 +233,34 @@ export function TrainingSection() {
                     className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                   />
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                    >
+                      <option value="" className="text-maroon-900 bg-white">Gender (optional)</option>
+                      <option value="male" className="text-maroon-900 bg-white">Male</option>
+                      <option value="female" className="text-maroon-900 bg-white">Female</option>
+                      <option value="other" className="text-maroon-900 bg-white">Other</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Qualification"
+                      value={qualification}
+                      onChange={(e) => setQualification(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                    />
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="What do you currently do?"
+                    value={currentOccupation}
+                    onChange={(e) => setCurrentOccupation(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                  />
+
                   <select
                     className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                     value={center}
@@ -227,6 +269,26 @@ export function TrainingSection() {
                     <option value="jaipur" className="text-maroon-900 bg-white">Jaipur — Chomu House</option>
                     <option value="delhi" className="text-maroon-900 bg-white">Delhi — Karol Bagh</option>
                   </select>
+
+                  <input
+                    type="text"
+                    placeholder="Nearest city to our HQ, if not Jaipur/Delhi"
+                    value={nearestHqCity}
+                    onChange={(e) => setNearestHqCity(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                  />
+
+                  <label className="flex items-start gap-2 px-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={wantsToJoinPlatform}
+                      onChange={(e) => setWantsToJoinPlatform(e.target.checked)}
+                      className="mt-0.5 accent-royal-400"
+                    />
+                    <span className="text-xs text-royal-100/80">
+                      After training, I would like to work as a Safa Artist with SafaKing.
+                    </span>
+                  </label>
 
                   <motion.button
                     whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
