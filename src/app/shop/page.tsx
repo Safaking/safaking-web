@@ -42,6 +42,7 @@ function ShopContent() {
   const [sortBy, setSortBy] = useState<string>('featured');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [quickViewProduct, setQuickViewProduct] = useState<StoreProduct | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   // Loaded in batches as the user scrolls, rather than rendering the whole
   // catalogue (60+ cards, each with an image) on first paint.
@@ -361,8 +362,8 @@ function ShopContent() {
                       >
                         <Heart size={16} className={wishlist.includes(product.id) ? 'fill-[#8B1E2F] text-[#8B1E2F]' : ''} />
                       </button>
-                      <button 
-                        onClick={() => setQuickViewProduct(product)}
+                      <button
+                        onClick={() => { setQuickViewProduct(product); setActiveImageIndex(0); }}
                         className="absolute bottom-3 left-3 right-3 bg-white/95 text-slate-800 text-xs font-bold py-2 rounded-xl backdrop-blur-xs flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md"
                       >
                         <Eye size={14} /> Quick View
@@ -433,13 +434,32 @@ function ShopContent() {
             </button>
 
             <div className="grid grid-cols-1 md:grid-cols-2">
-              <div className="relative aspect-[3/4] min-h-[280px] bg-slate-100">
-                <Image
-                  src={quickViewProduct.image}
-                  alt={quickViewProduct.name}
-                  fill
-                  className="object-contain p-4"
-                />
+              <div>
+                <div className="relative aspect-[3/4] min-h-[280px] bg-slate-100">
+                  <Image
+                    src={quickViewProduct.images[activeImageIndex] ?? quickViewProduct.image}
+                    alt={quickViewProduct.name}
+                    fill
+                    className="object-contain p-4"
+                  />
+                </div>
+                {quickViewProduct.images.length > 1 && (
+                  <div className="flex gap-2 p-3 overflow-x-auto">
+                    {quickViewProduct.images.map((src, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setActiveImageIndex(i)}
+                        className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                          i === activeImageIndex ? 'border-[#8B1E2F]' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                        aria-label={`View photo ${i + 1}`}
+                      >
+                        <Image src={src} alt="" fill className="object-contain p-1 bg-slate-50" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="p-6 flex flex-col justify-between">

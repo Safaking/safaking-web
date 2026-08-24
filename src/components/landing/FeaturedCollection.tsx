@@ -35,6 +35,7 @@ function ProductCardSkeleton() {
 export function FeaturedCollection({ products, loading, wishlist, onToggleWishlist }: FeaturedCollectionProps) {
   const { addItem } = useCart();
   const [quickViewProduct, setQuickViewProduct] = useState<StoreProduct | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
 
   const handleAddToCart = (product: StoreProduct) => {
@@ -154,7 +155,7 @@ export function FeaturedCollection({ products, loading, wishlist, onToggleWishli
                   <motion.button
                     initial={{ opacity: 0, y: 10 }}
                     whileHover={{ opacity: 1, y: 0 }}
-                    onClick={() => setQuickViewProduct(product)}
+                    onClick={() => { setQuickViewProduct(product); setActiveImageIndex(0); }}
                     className="absolute bottom-3 left-3 right-3 bg-white/95 text-maroon-900 text-xs font-bold py-2.5 rounded-xl backdrop-blur-sm flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md"
                   >
                     <Eye size={14} /> Quick View
@@ -238,13 +239,32 @@ export function FeaturedCollection({ products, loading, wishlist, onToggleWishli
                 <X size={18} />
               </motion.button>
               <div className="grid grid-cols-1 md:grid-cols-2">
-                <div className="relative aspect-[3/4] md:aspect-auto min-h-[300px] bg-royal-50">
-                  <Image
-                    src={quickViewProduct.image}
-                    alt={quickViewProduct.name}
-                    fill
-                    className="object-contain p-4"
-                  />
+                <div>
+                  <div className="relative aspect-[3/4] md:aspect-auto min-h-[300px] bg-royal-50">
+                    <Image
+                      src={quickViewProduct.images[activeImageIndex] ?? quickViewProduct.image}
+                      alt={quickViewProduct.name}
+                      fill
+                      className="object-contain p-4"
+                    />
+                  </div>
+                  {quickViewProduct.images.length > 1 && (
+                    <div className="flex gap-2 p-3 overflow-x-auto">
+                      {quickViewProduct.images.map((src, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveImageIndex(i)}
+                          className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                            i === activeImageIndex ? 'border-maroon-700' : 'border-royal-200 hover:border-royal-300'
+                          }`}
+                          aria-label={`View photo ${i + 1}`}
+                        >
+                          <Image src={src} alt="" fill className="object-contain p-1 bg-royal-50" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="p-7 flex flex-col justify-between">
                   <div>

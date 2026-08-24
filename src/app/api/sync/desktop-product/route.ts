@@ -20,6 +20,8 @@ interface DesktopProductPayload {
   description?: string | null;
   category?: string | null;
   image?: string | null;
+  /** Additional photos beyond the main one — shown in the product gallery. */
+  alternateImages?: string[];
   desktopPrice?: number;
   isRentable?: boolean;
   rentPricePerDay?: number | null;
@@ -60,6 +62,9 @@ export async function POST(request: Request) {
 
   const { data: existing } = await admin.from('products').select('id').eq('code', sku).maybeSingle();
 
+  let productId: string;
+  let action: 'updated' | 'created';
+
   if (existing) {
     const { error } = await admin
       .from('products')
@@ -77,28 +82,51 @@ export async function POST(request: Request) {
       console.error('[sync/desktop-product]', error.message);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, action: 'updated' });
+    productId = existing.id;
+    action = 'updated';
+  } else {
+    const { data: inserted, error } = await admin
+      .from('products')
+      .insert({
+        code: sku,
+        name,
+        description: body.description ?? null,
+        category: body.category ?? null,
+        image: body.image ?? null,
+        price: desktopPrice, // sensible starting default only — admin can change before approving
+        stock: 0, // web keeps its own baseline; starts at 0 until admin stocks it
+        is_rentable: !!body.isRentable,
+        rent_price_per_day: body.rentPricePerDay ?? null,
+        active: false, // invisible until an admin reviews and saves it
+        synced_from_desktop: true,
+        pending_sync: true,
+        desktop_price: desktopPrice,
+      })
+      .select('id')
+      .single();
+
+    if (error || !inserted) {
+      console.error('[sync/desktop-product]', error?.message);
+      return NextResponse.json({ error: error?.message ?? 'insert failed' }, { status: 500 });
+    }
+    productId = inserted.id;
+    action = 'created';
   }
 
-  const { error } = await admin.from('products').insert({
-    code: sku,
-    name,
-    description: body.description ?? null,
-    category: body.category ?? null,
-    image: body.image ?? null,
-    price: desktopPrice, // sensible starting default only — admin can change before approving
-    stock: 0, // web keeps its own baseline; starts at 0 until admin stocks it
-    is_rentable: !!body.isRentable,
-    rent_price_per_day: body.rentPricePerDay ?? null,
-    active: false, // invisible until an admin reviews and saves it
-    synced_from_desktop: true,
-    pending_sync: true,
-    desktop_price: desktopPrice,
-  });
-
-  if (error) {
-    console.error('[sync/desktop-product]', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // Replace-all: deleting an alternate photo on desktop should remove it
+  // here too, so this always reflects exactly what desktop currently has
+  // rather than accumulating stale rows across pushes.
+  const alternates = (body.alternateImages ?? []).filter(Boolean);
+  await admin.from('product_images').delete().eq('product_id', productId);
+  if (alternates.length > 0) {
+    const { error: imagesError } = await admin.from('product_images').insert(
+      alternates.map((url, i) => ({ product_id: productId, url, sort_order: i }))
+    );
+    if (imagesError) {
+      // Non-fatal — the product listing itself already saved successfully.
+      console.error('[sync/desktop-product] alternate images:', imagesError.message);
+    }
   }
-  return NextResponse.json({ ok: true, action: 'created' });
+
+  return NextResponse.json({ ok: true, action });
 }
