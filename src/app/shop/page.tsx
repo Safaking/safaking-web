@@ -339,11 +339,16 @@ function ShopContent() {
                     className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 group flex flex-col justify-between"
                   >
                     <div className="relative aspect-[3/4] bg-slate-100 overflow-hidden">
-                      <Image 
-                        src={product.image} 
+                      <Image
+                        src={product.image}
                         alt={product.name}
                         fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        // object-contain — these are raw uploaded product photos of
+                        // very different proportions (some close-up, some wide);
+                        // object-cover cropped/zoomed each by a different amount,
+                        // so cards looked randomly "one big one small" next to
+                        // each other. Contain always shows the full photo instead.
+                        className="object-contain p-3 group-hover:scale-105 transition-transform duration-500"
                       />
                       {product.isBestseller && (
                         <span className="absolute top-3 left-3 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-sm">
@@ -433,7 +438,7 @@ function ShopContent() {
                   src={quickViewProduct.image}
                   alt={quickViewProduct.name}
                   fill
-                  className="object-cover object-top"
+                  className="object-contain p-4"
                 />
               </div>
 
