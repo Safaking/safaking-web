@@ -108,7 +108,10 @@ export function FeaturedCollection({ products, loading, wishlist, onToggleWishli
                     src={product.image}
                     alt={product.name}
                     fill
-                    className={`object-cover ${product.imagePosition || 'object-center'} group-hover:scale-110 transition-transform duration-700`}
+                    // object-contain — raw uploaded product photos vary wildly in
+                    // proportion; cover cropped each by a different amount, so
+                    // cards looked randomly "one big one small" side by side.
+                    className="object-contain p-3 group-hover:scale-110 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
@@ -240,7 +243,7 @@ export function FeaturedCollection({ products, loading, wishlist, onToggleWishli
                     src={quickViewProduct.image}
                     alt={quickViewProduct.name}
                     fill
-                    className={`object-cover ${quickViewProduct.imagePosition || 'object-center'}`}
+                    className="object-contain p-4"
                   />
                 </div>
                 <div className="p-7 flex flex-col justify-between">

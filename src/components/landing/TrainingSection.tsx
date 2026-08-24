@@ -2,18 +2,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Users, Clock, Award, BookOpen, MapPin, CheckCircle2, Phone, AlertCircle, Loader2 } from 'lucide-react';
+import { GraduationCap, CheckCircle2, Phone, AlertCircle, Loader2 } from 'lucide-react';
 import { AnimatedSection } from './AnimatedSection';
-
-const HIGHLIGHTS = [
-  { icon: Users,        label: 'Small Batches',      sub: 'Max 12 per batch' },
-  { icon: BookOpen,     label: 'Hands-On Daily',     sub: 'Practice every session' },
-  { icon: Award,        label: 'Certificate',        sub: 'Industry recognised' },
-  { icon: Clock,        label: 'Flexible Timings',   sub: 'Weekday & weekend' },
-  { icon: MapPin,       label: '2 Centers',          sub: 'Jaipur & Delhi' },
-  { icon: GraduationCap, label: '240+ Trained',      sub: 'Alumni across India' },
-];
-
 import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 
@@ -313,24 +303,6 @@ export function TrainingSection() {
                 </motion.form>
               )}
             </AnimatePresence>
-
-            {/* Highlight pills — below form */}
-            <div className="grid grid-cols-3 gap-3 mt-4">
-              {HIGHLIGHTS.map((h, i) => (
-                <motion.div
-                  key={h.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08 }}
-                  className="flex flex-col items-center text-center bg-white/5 border border-royal-400/15 rounded-2xl px-3 py-4 hover:bg-white/10 transition-colors"
-                >
-                  <h.icon size={20} className="text-royal-400 mb-2" />
-                  <p className="text-xs font-bold text-royal-100">{h.label}</p>
-                  <p className="text-[10px] text-royal-300/50 mt-0.5">{h.sub}</p>
-                </motion.div>
-              ))}
-            </div>
           </AnimatedSection>
         </div>
       </div>
