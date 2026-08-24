@@ -44,12 +44,30 @@ export interface DBProduct {
   image?: string | null;
   rating?: number | null;
   reviews_count?: number | null;
+  /** This project's own baseline — kept separate from JoshiSafaHouse's desktop stock. */
   stock: number;
   is_new?: boolean;
   is_bestseller?: boolean;
   active?: boolean;
   sort_order?: number;
   created_at?: string;
+  /** True once this row has arrived (or been touched) via desktop product sync at least once. */
+  synced_from_desktop?: boolean;
+  /** True only until an admin first reviews a brand-new desktop-synced product. See supabase/018_desktop_product_sync.sql. */
+  pending_sync?: boolean;
+  /** Reference only — what JoshiSafaHouse currently charges. Never auto-applied to `price`. */
+  desktop_price?: number | null;
+}
+
+/**
+ * `products` joined with the desktop POS's synced commitment (see
+ * public.products_with_availability, supabase/017_desktop_inventory_sync.sql).
+ * `available_quantity` = this project's own `stock` minus what JoshiSafaHouse
+ * has sold/rented against the matching SKU — use this for anything that
+ * decides whether a safa can still be bought, not raw `stock`.
+ */
+export interface DBProductWithAvailability extends DBProduct {
+  available_quantity: number;
 }
 
 export interface DBOrder {

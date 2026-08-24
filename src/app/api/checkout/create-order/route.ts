@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { createRazorpayOrder, publicKeyId, toPaise } from '@/lib/razorpay';
+import { pushWebCommittedForSkus } from '@/lib/desktop-sync';
 
 export const runtime = 'nodejs';
 
@@ -103,28 +104,33 @@ export async function POST(request: Request) {
   if (!pin) return bad(`We do not deliver to ${cleanPincode} yet.`);
 
   // ---- Authoritative pricing ---------------------------------------------
+  // `available_quantity` already accounts for what JoshiSafaHouse's desktop
+  // POS has sold/rented against this SKU — see
+  // supabase/017_desktop_inventory_sync.sql — not just this project's own
+  // `stock` column, so a safa sold in the shop can't be oversold here.
   const { data: products, error: productErr } = await admin
-    .from('products')
-    .select('id, name, price, stock, active')
+    .from('products_with_availability')
+    .select('id, name, code, price, available_quantity, active')
     .in('id', lines.map((l) => l.productId));
 
   if (productErr) return bad(`Could not price this order: ${productErr.message}`, 500);
 
   const byId = new Map((products ?? []).map((p) => [p.id, p]));
-  const priced: { productId: string; name: string; price: number; quantity: number }[] = [];
+  const priced: { productId: string; code: string | null; name: string; price: number; quantity: number }[] = [];
 
   for (const line of lines) {
     const product = byId.get(line.productId);
     if (!product || !product.active) {
       return bad('One of the safas in your bag is no longer available. Please review your bag.');
     }
-    if (product.stock < line.quantity) {
+    if (product.available_quantity < line.quantity) {
       return bad(
-        `Only ${product.stock} left of "${product.name}". Please reduce the quantity.`
+        `Only ${product.available_quantity} left of "${product.name}". Please reduce the quantity.`
       );
     }
     priced.push({
       productId: product.id,
+      code: product.code,
       name: product.name,
       price: product.price, // <- from the database, never from the request
       quantity: line.quantity,
@@ -183,6 +189,12 @@ export async function POST(request: Request) {
     await admin.from('orders').delete().eq('id', order.id); // don't leave a half order
     return bad(`Could not save the order items: ${itemsErr.message}`, 500);
   }
+
+  // Tell the desktop POS these safas are now committed on the web, so its
+  // own availability figure reflects it. Best-effort (never throws) — but
+  // awaited, since a serverless function can be frozen the instant it
+  // returns a response, before a genuinely fire-and-forget call completes.
+  await pushWebCommittedForSkus(admin, priced.map((l) => l.code).filter((c): c is string => !!c));
 
   // ---- Razorpay -----------------------------------------------------------
   try {
