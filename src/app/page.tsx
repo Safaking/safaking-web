@@ -7,6 +7,7 @@ import { TopBanner } from '@/components/landing/TopBanner';
 import { Header } from '@/components/landing/Header';
 import { Hero } from '@/components/landing/Hero';
 import { TrustBar } from '@/components/landing/TrustBar';
+import { IntroVideo } from '@/components/landing/IntroVideo';
 import { ArtistsSection } from '@/components/landing/ArtistsSection';
 import { FeaturedCollection } from '@/components/landing/FeaturedCollection';
 import { TrainingSection } from '@/components/landing/TrainingSection';
@@ -16,7 +17,7 @@ import { Preloader } from '@/components/landing/Preloader';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { ArtistRegistrationModal } from '@/components/auth/ArtistRegistrationModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
-import { fetchProducts, StoreProduct, STATIC_PRODUCTS } from '@/lib/products';
+import { fetchProducts, StoreProduct } from '@/lib/products';
 import { useWishlist } from '@/hooks/useWishlist';
 
 function LandingContent() {
@@ -26,7 +27,12 @@ function LandingContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
   const [artistRegisterOpen, setArtistRegisterOpen] = useState(false);
-  const [products, setProducts] = useState<StoreProduct[]>(STATIC_PRODUCTS);
+  // Starts empty rather than STATIC_PRODUCTS — showing demo products while
+  // the real catalogue is still loading, with nothing to say so, read as
+  // "the site is broken" the moment the fetch took longer than the
+  // preloader's fixed 2200ms. productsLoading drives a real skeleton instead.
+  const [products, setProducts] = useState<StoreProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [denied, setDenied] = useState<string | null>(null);
   const { wishlist, toggle: toggleWishlist } = useWishlist();
 
@@ -38,7 +44,10 @@ function LandingContent() {
   useEffect(() => {
     let active = true;
     fetchProducts().then((result) => {
-      if (active) setProducts(result.products);
+      if (active) {
+        setProducts(result.products);
+        setProductsLoading(false);
+      }
     });
     return () => {
       active = false;
@@ -79,9 +88,11 @@ function LandingContent() {
         <Header onOpenAuth={() => setAuthOpen(true)} wishlistCount={wishlist.length} />
         <Hero />
         <TrustBar />
+        <IntroVideo />
         <ArtistsSection onOpenArtistRegister={() => setArtistRegisterOpen(true)} />
         <FeaturedCollection
           products={featured.length > 0 ? featured : products.slice(0, 4)}
+          loading={productsLoading}
           wishlist={wishlist}
           onToggleWishlist={toggleWishlist}
         />

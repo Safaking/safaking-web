@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Crown, Share2, MessageCircle, Mail, Phone, MapPin } from 'lucide-react';
 import { BUSINESS, telHref, mailtoHref } from '@/lib/business';
 
@@ -31,8 +32,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-royal-gradient flex items-center justify-center">
-                <Crown size={20} className="text-royal-300" />
+              <div className="w-10 h-10 shrink-0">
+                <Image src="/logo.png" alt="SafaKing" width={40} height={40} className="w-full h-full object-contain" />
               </div>
               <div>
                 <p className="font-display font-black text-royal-100 text-lg tracking-widest uppercase">SafaKing</p>

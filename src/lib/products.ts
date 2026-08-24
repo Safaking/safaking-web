@@ -166,6 +166,18 @@ export interface ProductsResult {
 }
 
 /**
+ * Every page that shows the catalogue (home, shop) calls fetchProducts() on
+ * mount, so navigating between them re-ran the same query every time —
+ * fine for correctness, wasteful for a catalogue that changes rarely.
+ * Cached in memory for a short window; a hard page reload always gets a
+ * fresh copy since this resets with the JS module.
+ */
+let cachedResult: ProductsResult | null = null;
+let cachedAt = 0;
+const CACHE_TTL_MS = 60_000;
+let inFlight: Promise<ProductsResult> | null = null;
+
+/**
  * Loads the live catalogue.
  *
  * The database is the single source of truth. An EMPTY products table now
@@ -178,25 +190,51 @@ export interface ProductsResult {
  * which one it got.
  */
 export async function fetchProducts(): Promise<ProductsResult> {
-  const { data, error } = await supabase
-    .from('products_with_availability')
-    .select('*')
-    .eq('active', true)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error(
-      '[products] Falling back to the demo catalogue — the storefront is NOT showing your database. ' +
-        'Apply supabase/002_production_hardening.sql and supabase/017_desktop_inventory_sync.sql. Cause:',
-      error.message
-    );
-    return { products: STATIC_PRODUCTS, fromDatabase: false, error: error.message };
+  if (cachedResult && Date.now() - cachedAt < CACHE_TTL_MS) {
+    return cachedResult;
   }
+  // Two components mounting in the same tick (e.g. home page + a modal)
+  // would otherwise both fire the same query — share the one in-flight call.
+  if (inFlight) return inFlight;
 
-  return {
-    products: (data as DBProductWithAvailability[]).map(mapDBProduct),
-    fromDatabase: true,
-    error: null,
-  };
+  inFlight = (async () => {
+    const { data, error } = await supabase
+      .from('products_with_availability')
+      .select('*')
+      .eq('active', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error(
+        '[products] Falling back to the demo catalogue — the storefront is NOT showing your database. ' +
+          'Apply supabase/002_production_hardening.sql and supabase/017_desktop_inventory_sync.sql. Cause:',
+        error.message
+      );
+      // Not cached — a transient outage should retry on the next call, not
+      // keep serving the demo catalogue for a full minute once the DB recovers.
+      return { products: STATIC_PRODUCTS, fromDatabase: false, error: error.message };
+    }
+
+    const result: ProductsResult = {
+      products: (data as DBProductWithAvailability[]).map(mapDBProduct),
+      fromDatabase: true,
+      error: null,
+    };
+    cachedResult = result;
+    cachedAt = Date.now();
+    return result;
+  })();
+
+  try {
+    return await inFlight;
+  } finally {
+    inFlight = null;
+  }
+}
+
+/** Clears the cache — call after an admin write so the next fetch is fresh. */
+export function invalidateProductsCache() {
+  cachedResult = null;
+  cachedAt = 0;
 }

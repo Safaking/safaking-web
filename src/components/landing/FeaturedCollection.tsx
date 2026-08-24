@@ -12,11 +12,27 @@ import { useCart } from '@/context/CartContext';
 interface FeaturedCollectionProps {
   /** Featured slice of the live catalogue, already loaded by the page. */
   products: StoreProduct[];
+  /** True while the catalogue fetch is still in flight — shows skeleton cards instead of an empty/stale grid. */
+  loading?: boolean;
   wishlist: string[];
   onToggleWishlist: (id: string) => void;
 }
 
-export function FeaturedCollection({ products, wishlist, onToggleWishlist }: FeaturedCollectionProps) {
+function ProductCardSkeleton() {
+  return (
+    <div className="bg-white rounded-3xl border border-royal-200/60 overflow-hidden shadow-sm animate-pulse">
+      <div className="aspect-[3/4] bg-royal-100" />
+      <div className="p-5 space-y-3">
+        <div className="h-3 w-1/2 bg-royal-100 rounded-full" />
+        <div className="h-4 w-3/4 bg-royal-100 rounded-full" />
+        <div className="h-4 w-1/3 bg-royal-100 rounded-full" />
+        <div className="h-10 w-full bg-royal-100 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+export function FeaturedCollection({ products, loading, wishlist, onToggleWishlist }: FeaturedCollectionProps) {
   const { addItem } = useCart();
   const [quickViewProduct, setQuickViewProduct] = useState<StoreProduct | null>(null);
   const [addedToCart, setAddedToCart] = useState<string | null>(null);
@@ -72,7 +88,9 @@ export function FeaturedCollection({ products, wishlist, onToggleWishlist }: Fea
         </AnimatedSection>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.map((product, i) => (
+          {loading
+            ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
+            : products.map((product, i) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 50 }}
