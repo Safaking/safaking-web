@@ -73,8 +73,11 @@ export default function RentPage() {
     setLoadingSafas(true);
     setCatalogueError(null);
 
-    supabase
-      .rpc('available_rentals', { p_start: startDate, p_end: endDate })
+    // Wrapped in Promise.resolve() — the query builder is thenable but not a
+    // full Promise (no .catch()), and a dropped connection needs one.
+    Promise.resolve(
+      supabase.rpc('available_rentals', { p_start: startDate, p_end: endDate })
+    )
       .then(({ data, error: rpcErr }) => {
         if (!active) return;
         if (rpcErr) {
@@ -87,6 +90,15 @@ export default function RentPage() {
         } else {
           setSafas((data as RentableSafa[]) ?? []);
         }
+        setLoadingSafas(false);
+      })
+      // A dropped connection surfaces here as a raw `TypeError: Failed to
+      // fetch` rather than the { error } shape above — same fix as
+      // src/lib/checkout.ts's postJson().
+      .catch(() => {
+        if (!active) return;
+        setCatalogueError('Could not reach our servers. Please check your connection and try again.');
+        setSafas([]);
         setLoadingSafas(false);
       });
 

@@ -11,14 +11,16 @@ import { supabase } from '@/lib/supabase';
 // ---------------------------------------------------------------------------
 // Contracts
 // ---------------------------------------------------------------------------
+export type ContractAudience = 'artist' | 'customer' | 'groom_safa';
+
 export interface Contract {
   id: string;
-  audience: 'artist' | 'customer';
+  audience: ContractAudience;
   title: string;
   body: string;
 }
 
-export async function getActiveContract(audience: 'artist' | 'customer'): Promise<Contract | null> {
+export async function getActiveContract(audience: ContractAudience): Promise<Contract | null> {
   const { data, error } = await supabase
     .from('contracts')
     .select('id, audience, title, body')

@@ -31,7 +31,7 @@ const SAFA_STYLES = [
     popular: true,
     color: 'from-maroon-900 to-red-950',
     tag: 'Most Booked',
-    features: ['Gold zari brocade fabric', 'Kalgi & pearl brooch included', 'Flared Marwari pleats'],
+    features: ['Gold zari brocade fabric', 'Kalgi & brooch available separately', 'Flared Marwari pleats'],
   },
   {
     name: 'Barati Safa',
@@ -78,12 +78,28 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerPhoneAlt, setCustomerPhoneAlt] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [eventTime, setEventTime] = useState('');
+  const [bookingStartTime, setBookingStartTime] = useState('');
+  const [bookingEndTime, setBookingEndTime] = useState('');
   const [cityVenue, setCityVenue] = useState('');
+  const [venueAddress, setVenueAddress] = useState('');
+
+  // A second function (Haldi, Sangeet, etc.) on a different date/time/venue.
+  const [hasSecondEvent, setHasSecondEvent] = useState(false);
+  const [secondEventName, setSecondEventName] = useState('');
+  const [secondEventDate, setSecondEventDate] = useState('');
+  const [secondEventTime, setSecondEventTime] = useState('');
+  const [secondEventVenue, setSecondEventVenue] = useState('');
 
   const currentStyleObj = SAFA_STYLES.find((s) => s.name === selectedStyle) || SAFA_STYLES[0];
   const unitPrice = currentStyleObj.price || 50;
-  const totalBookingAmount = safaCount * unitPrice;
+  // Bulk count only makes sense for Barati Safa (a group of baraat members) —
+  // Rounded/Jodhpuri are the groom's own single safa.
+  const isBulkStyle = selectedStyle === 'Barati Safa';
+  const effectiveSafaCount = isBulkStyle ? safaCount : 1;
+  const totalBookingAmount = effectiveSafaCount * unitPrice;
   const advanceAmount = Math.round(totalBookingAmount * advanceRate);
   const balanceAmount = totalBookingAmount - advanceAmount;
 
@@ -129,9 +145,18 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
       customer_id: user?.id ?? null,
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
+      customer_phone_alt: customerPhoneAlt.trim() || null,
       event_date: eventDate,
-      city_venue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${safaCount} Safas)`,
-      safa_style: `${selectedStyle} x ${safaCount}`,
+      event_time: eventTime || null,
+      booking_start_time: bookingStartTime || null,
+      booking_end_time: bookingEndTime || null,
+      city_venue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${effectiveSafaCount} Safas)`,
+      venue_address: venueAddress.trim() || null,
+      safa_style: `${selectedStyle} x ${effectiveSafaCount}`,
+      second_event_name: hasSecondEvent ? secondEventName.trim() || null : null,
+      second_event_date: hasSecondEvent ? secondEventDate || null : null,
+      second_event_time: hasSecondEvent ? secondEventTime || null : null,
+      second_event_venue: hasSecondEvent ? secondEventVenue.trim() || null : null,
       amount: totalBookingAmount,
       advance_amount: advanceAmount,
       balance_amount: balanceAmount,
@@ -144,7 +169,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
     // No column-stripping retry here: silently dropping advance_amount /
     // balance_amount / payment_status saved bookings with no payment record
     // while still reporting success. The columns exist as of
-    // supabase/002_production_hardening.sql.
+    // supabase/002_production_hardening.sql and supabase/019_client_feedback_updates.sql.
     const { error: insertErr } = await supabase.from('artist_bookings').insert(bookingPayload);
 
     setSubmitting(false);
@@ -158,16 +183,26 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
       bookingId: 'new',
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
-      cityVenue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${safaCount})`,
+      cityVenue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${effectiveSafaCount})`,
       eventDate,
-      safaStyle: `${selectedStyle} x ${safaCount}`,
+      safaStyle: `${selectedStyle} x ${effectiveSafaCount}`,
     });
 
     setCustomerName('');
     setContractAccepted(false);
     setCustomerPhone('');
+    setCustomerPhoneAlt('');
     setEventDate('');
+    setEventTime('');
+    setBookingStartTime('');
+    setBookingEndTime('');
     setCityVenue('');
+    setVenueAddress('');
+    setHasSecondEvent(false);
+    setSecondEventName('');
+    setSecondEventDate('');
+    setSecondEventTime('');
+    setSecondEventVenue('');
     setBooked(true);
     setTimeout(() => setBooked(false), 5000);
   };
@@ -350,7 +385,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                   {[
                     'On-site safa tying at venue or home',
                     'All safa styles & regional traditions',
-                    'Includes brooch, kalgi & accessory setup',
+                    'Brooch, kalgi & accessories available to purchase separately',
                     'Available across 40+ cities in India',
                   ].map((item, i) => (
                     <motion.li
@@ -423,25 +458,71 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="relative">
-                          <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
-                          <input
-                            required
-                            type="date"
-                            value={eventDate}
-                            onChange={(e) => setEventDate(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                          />
-                        </div>
+                        <input
+                          type="tel"
+                          placeholder="Alternate Phone (optional)"
+                          value={customerPhoneAlt}
+                          onChange={(e) => setCustomerPhoneAlt(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                        />
                         <div className="relative">
                           <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
                           <input
                             required
                             type="text"
-                            placeholder="City / Venue Address"
+                            placeholder="City"
                             value={cityVenue}
                             onChange={(e) => setCityVenue(e.target.value)}
                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Wedding date & time */}
+                      <div>
+                        <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-1.5">
+                          Wedding Date &amp; Time
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="relative">
+                            <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
+                            <input
+                              required
+                              type="date"
+                              value={eventDate}
+                              onChange={(e) => setEventDate(e.target.value)}
+                              className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                            />
+                          </div>
+                          <input
+                            required
+                            type="time"
+                            value={eventTime}
+                            onChange={(e) => setEventTime(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* How long the artist is booked for */}
+                      <div>
+                        <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-1.5">
+                          Artist Booked From – To
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input
+                            required
+                            type="time"
+                            value={bookingStartTime}
+                            onChange={(e) => setBookingStartTime(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                          />
+                          <input
+                            required
+                            type="time"
+                            value={bookingEndTime}
+                            onChange={(e) => setBookingEndTime(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                           />
                         </div>
                       </div>
@@ -475,38 +556,107 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                         )}
                       </div>
 
-                      {/* Safa Count Selector */}
+                      {/* Full venue address — separate from the City field above */}
                       <div>
-                        <div className="flex justify-between items-center mb-1.5">
-                          <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest">
-                            Number of Safas to Tie (Count)
-                          </p>
-                          <span className="text-xs font-black text-royal-300">{safaCount} Safas</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {[10, 25, 50, 100].map((count) => (
-                            <button
-                              key={count}
-                              type="button"
-                              onClick={() => setSafaCount(count)}
-                              className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
-                                safaCount === count
-                                  ? 'bg-royal-500 text-maroon-950 border-royal-400 shadow-md font-black'
-                                  : 'bg-white/10 text-white border-royal-400/20 hover:bg-white/20'
-                              }`}
-                            >
-                              {count}
-                            </button>
-                          ))}
-                          <input
-                            type="number"
-                            min={1}
-                            value={safaCount}
-                            onChange={(e) => setSafaCount(Math.max(1, Number(e.target.value) || 1))}
-                            className="w-16 py-2.5 px-2 text-center rounded-xl border border-royal-400/20 bg-white/10 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-royal-400/30"
-                          />
-                        </div>
+                        <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-1.5">
+                          Full Venue Address
+                        </p>
+                        <textarea
+                          required
+                          rows={2}
+                          placeholder="House/venue name, street, area, landmark"
+                          value={venueAddress}
+                          onChange={(e) => setVenueAddress(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                        />
                       </div>
+
+                      {/* Second function — Haldi, Sangeet, etc. */}
+                      <div className="rounded-xl border border-royal-400/20 bg-white/5 p-3">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={hasSecondEvent}
+                            onChange={(e) => setHasSecondEvent(e.target.checked)}
+                            className="accent-royal-400"
+                          />
+                          <span className="text-xs font-bold text-royal-100">
+                            Also need the artist for a second function? (Haldi, Sangeet, etc.)
+                          </span>
+                        </label>
+                        {hasSecondEvent && (
+                          <div className="mt-3 space-y-2">
+                            <input
+                              required
+                              type="text"
+                              placeholder="Function name (e.g. Haldi)"
+                              value={secondEventName}
+                              onChange={(e) => setSecondEventName(e.target.value)}
+                              className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                required
+                                type="date"
+                                value={secondEventDate}
+                                onChange={(e) => setSecondEventDate(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                              />
+                              <input
+                                required
+                                type="time"
+                                value={secondEventTime}
+                                onChange={(e) => setSecondEventTime(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                              />
+                            </div>
+                            <input
+                              required
+                              type="text"
+                              placeholder="Venue for this function"
+                              value={secondEventVenue}
+                              onChange={(e) => setSecondEventVenue(e.target.value)}
+                              className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Safa Count Selector — Barati Safa only; Rounded/Jodhpuri are the groom's single safa */}
+                      {isBulkStyle && (
+                        <div>
+                          <div className="flex justify-between items-center mb-1.5">
+                            <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest">
+                              Number of Safas to Tie (Count)
+                            </p>
+                            <span className="text-xs font-black text-royal-300">{safaCount} Safas</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {[10, 25, 50, 100].map((count) => (
+                              <button
+                                key={count}
+                                type="button"
+                                onClick={() => setSafaCount(count)}
+                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                                  safaCount === count
+                                    ? 'bg-royal-500 text-maroon-950 border-royal-400 shadow-md font-black'
+                                    : 'bg-white/10 text-white border-royal-400/20 hover:bg-white/20'
+                                }`}
+                              >
+                                {count}
+                              </button>
+                            ))}
+                            <input
+                              type="number"
+                              min={1}
+                              value={safaCount}
+                              onChange={(e) => setSafaCount(Math.max(1, Number(e.target.value) || 1))}
+                              placeholder="Custom"
+                              className="w-16 py-2.5 px-2 text-center rounded-xl border border-royal-400/20 bg-white/10 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-royal-400/30"
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {/* Pill-style style selector */}
                       <div>
@@ -550,7 +700,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                       {/* Split Payment Summary Card */}
                       <div className="p-3.5 rounded-2xl bg-maroon-950/80 border border-royal-400/30 space-y-1.5 text-xs">
                         <div className="flex justify-between font-bold text-royal-200/80">
-                          <span>Total Booking Fee ({safaCount} Safas @ ₹{unitPrice})</span>
+                          <span>Total Booking Fee ({effectiveSafaCount} Safa{effectiveSafaCount === 1 ? '' : 's'} @ ₹{unitPrice})</span>
                           <span className="text-white font-black">₹{totalBookingAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between font-bold text-emerald-300 bg-emerald-950/60 p-2 rounded-xl border border-emerald-500/30">
@@ -578,7 +728,7 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                           </>
                         ) : (
                           <>
-                            <Phone size={16} /> Pay {Math.round(advanceRate * 100)}% Advance (₹{advanceAmount.toLocaleString()}) & Lock Date for {safaCount} Safas
+                            <Phone size={16} /> Pay {Math.round(advanceRate * 100)}% Advance (₹{advanceAmount.toLocaleString()}) & Lock Date for {effectiveSafaCount} Safa{effectiveSafaCount === 1 ? '' : 's'}
                           </>
                         )}
                       </motion.button>

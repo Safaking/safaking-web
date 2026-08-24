@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ScrollText } from 'lucide-react';
-import { getActiveContract, Contract } from '@/lib/client-update';
+import { getActiveContract, Contract, ContractAudience } from '@/lib/client-update';
 
 /**
  * "बुकिंग के समय कस्टमर के लिए अक्सेप्त करने के लिए कंपनी का अनुबंध बनाना
@@ -13,18 +13,20 @@ import { getActiveContract, Contract } from '@/lib/client-update';
  * degrades to "no extra step" rather than a broken-looking blank box.
  */
 export function ContractCheckbox({
-  accepted, onChange, theme = 'dark',
+  accepted, onChange, theme = 'dark', audience = 'customer',
 }: {
   accepted: boolean;
   onChange: (accepted: boolean) => void;
   /** 'dark' matches the maroon booking panels (home page); 'light' matches white cards (/rent). */
   theme?: 'dark' | 'light';
+  /** Which contract to show — 'customer' (artist booking / rental), or 'groom_safa' (shop checkout). */
+  audience?: Extract<ContractAudience, 'customer' | 'groom_safa'>;
 }) {
   const [contract, setContract] = useState<Contract | null>(null);
 
   useEffect(() => {
-    getActiveContract('customer').then(setContract);
-  }, []);
+    getActiveContract(audience).then(setContract);
+  }, [audience]);
 
   if (!contract) return null;
 
