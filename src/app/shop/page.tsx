@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -20,7 +20,7 @@ import {
   Crown 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchProducts, StoreProduct, STATIC_PRODUCTS } from '@/lib/products';
+import { fetchProducts, StoreProduct } from '@/lib/products';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/hooks/useWishlist';
 import { CartDrawer } from '@/components/cart/CartDrawer';
@@ -32,7 +32,10 @@ function ShopContent() {
   const { addItem, count: cartCount, openCart } = useCart();
   const { wishlist, toggle: toggleWishlist } = useWishlist();
 
-  const [products, setProducts] = useState<StoreProduct[]>(STATIC_PRODUCTS);
+  // Starts empty, not the demo catalogue — see the matching note on the
+  // home page. productsLoading drives skeleton cards instead.
+  const [products, setProducts] = useState<StoreProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedColor, setSelectedColor] = useState<string>('All');
   const [selectedFabric, setSelectedFabric] = useState<string>('All');
@@ -40,11 +43,19 @@ function ShopContent() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [quickViewProduct, setQuickViewProduct] = useState<StoreProduct | null>(null);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  // Loaded in batches as the user scrolls, rather than rendering the whole
+  // catalogue (60+ cards, each with an image) on first paint.
+  const PAGE_SIZE = 12;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let active = true;
     fetchProducts().then((result) => {
-      if (active) setProducts(result.products);
+      if (active) {
+        setProducts(result.products);
+        setProductsLoading(false);
+      }
     });
     return () => {
       active = false;
@@ -85,6 +96,30 @@ function ShopContent() {
     if (sortBy === 'rating') return b.rating - a.rating;
     return 0;
   });
+
+  const visibleProducts = filteredProducts.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredProducts.length;
+
+  // A new search/filter/sort is a different result set — start back at one page.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery, selectedColor, selectedFabric, selectedCategory, sortBy]);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filteredProducts.length));
+        }
+      },
+      { rootMargin: '400px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, filteredProducts.length]);
 
   const addToCart = (product: StoreProduct) => {
     addItem({
@@ -184,7 +219,8 @@ function ShopContent() {
               <SlidersHorizontal size={14} /> Filters
             </button>
             <p className="text-xs font-semibold text-slate-500">
-              Showing <span className="text-slate-900 font-bold">{filteredProducts.length}</span> handcrafted safas
+              Showing <span className="text-slate-900 font-bold">{Math.min(visibleCount, filteredProducts.length)}</span> of{' '}
+              <span className="text-slate-900 font-bold">{filteredProducts.length}</span> handcrafted safas
             </p>
           </div>
 
@@ -279,8 +315,20 @@ function ShopContent() {
           {/* Product Grid */}
           <main className="lg:col-span-3">
             <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {productsLoading &&
+                Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs animate-pulse">
+                    <div className="aspect-[3/4] bg-slate-100" />
+                    <div className="p-5 space-y-3">
+                      <div className="h-3 w-1/2 bg-slate-100 rounded-full" />
+                      <div className="h-4 w-3/4 bg-slate-100 rounded-full" />
+                      <div className="h-4 w-1/3 bg-slate-100 rounded-full" />
+                      <div className="h-9 w-full bg-slate-100 rounded-xl" />
+                    </div>
+                  </div>
+                ))}
               <AnimatePresence>
-                {filteredProducts.map(product => (
+                {!productsLoading && visibleProducts.map(product => (
                   <motion.div 
                     key={product.id}
                     layout
@@ -352,6 +400,18 @@ function ShopContent() {
                 ))}
               </AnimatePresence>
             </motion.div>
+
+            {!productsLoading && hasMore && (
+              <div ref={loadMoreRef} className="flex justify-center py-10">
+                <div className="w-8 h-8 border-2 border-[#8B1E2F] border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {!productsLoading && filteredProducts.length === 0 && (
+              <div className="text-center py-20 text-sm text-slate-500">
+                No safas match these filters — try clearing a filter or a different search.
+              </div>
+            )}
           </main>
         </div>
       </main>

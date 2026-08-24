@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Crown, Search, Heart, ShoppingBag, Menu, X, User, ShieldCheck, LogOut,
   ChevronDown, CalendarRange, Sparkles, MessageSquare, Users, GraduationCap,
@@ -219,10 +220,10 @@ export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
         <div className="flex items-center justify-between h-20 gap-4">
           <Link href="/" className="flex items-center gap-3 group shrink-0">
             <motion.div
-              whileHover={{ rotate: 12, scale: 1.05 }}
-              className="w-11 h-11 rounded-full bg-royal-gradient flex items-center justify-center shadow-lg shadow-maroon-800/30"
+              whileHover={{ rotate: 8, scale: 1.05 }}
+              className="w-12 h-12 shrink-0"
             >
-              <Crown size={22} className="text-royal-300" />
+              <Image src="/logo.png" alt="SafaKing" width={48} height={48} className="w-full h-full object-contain" priority />
             </motion.div>
             <div className="flex flex-col">
               <span className="text-xl xl:text-2xl font-display font-black text-maroon-800 tracking-widest uppercase leading-none">
