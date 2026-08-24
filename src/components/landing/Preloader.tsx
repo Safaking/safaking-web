@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Crown } from 'lucide-react';
+import Image from 'next/image';
 
 export function Preloader() {
   return (
@@ -54,16 +54,16 @@ export function Preloader() {
             className="absolute -inset-4 rounded-full border border-royal-500/20"
           />
 
-          {/* Glowing Crown Icon */}
+          {/* Glowing Logo */}
           <motion.div
-            animate={{ 
+            animate={{
               scale: [1, 1.1, 1],
               filter: ["drop-shadow(0 0 8px rgba(201, 162, 39, 0.4))", "drop-shadow(0 0 20px rgba(201, 162, 39, 0.8))", "drop-shadow(0 0 8px rgba(201, 162, 39, 0.4))"]
             }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="w-14 h-14 rounded-full bg-royal-gradient flex items-center justify-center shadow-lg shadow-royal-500/20"
+            className="w-16 h-16"
           >
-            <Crown size={28} className="text-maroon-950 stroke-[2.5]" />
+            <Image src="/logo.png" alt="SafaKing" width={64} height={64} className="w-full h-full object-contain" priority />
           </motion.div>
         </div>
 

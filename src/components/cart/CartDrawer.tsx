@@ -10,6 +10,7 @@ import { useCart } from '@/context/CartContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
 import { createOrder, loadRazorpayScript, payAndVerify, payableFromOrder } from '@/lib/checkout';
 import { checkPincode, PincodeCheckResult } from '@/lib/pincodes';
+import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
 
 export function CartDrawer() {
   const { profile } = useAuth();
@@ -29,6 +30,7 @@ export function CartDrawer() {
   const [orderRef, setOrderRef] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [advanceRate, setAdvanceRate] = useState(0.2);
+  const [contractAccepted, setContractAccepted] = useState(false);
 
   // Items added before the catalogue moved into the database have no productId
   // and can no longer be priced by the server.
@@ -72,6 +74,10 @@ export function CartDrawer() {
       );
       return;
     }
+    if (!contractAccepted) {
+      setError('Please accept the purchase terms to continue.');
+      return;
+    }
 
     setSubmitting(true);
     const customer = { name: name.trim(), phone: phone.trim(), address: address.trim(), pincode };
@@ -97,6 +103,7 @@ export function CartDrawer() {
 
       setOrderRef(outcome.orderId ?? created.orderId);
       setWarning(outcome.warning ?? null);
+      setContractAccepted(false);
       setStep('success');
       clear();
     } catch (err) {
@@ -291,6 +298,8 @@ export function CartDrawer() {
                     />
                   </div>
                 </div>
+
+                <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="light" audience="groom_safa" />
 
                 <button
                   type="submit"

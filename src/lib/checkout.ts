@@ -48,6 +48,38 @@ declare global {
 
 const CHECKOUT_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js';
 
+/**
+ * A dropped connection or a mid-deploy server restart surfaces to `fetch()`
+ * as a raw `TypeError: Failed to fetch` — accurate, but meaningless to a
+ * customer mid-checkout. Every server call in this file goes through here so
+ * they see "try again" instead of a JS error class name.
+ */
+async function postJson<T>(url: string, body: unknown, fallbackError: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('Could not reach our servers. Please check your connection and try again.');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = await response.json();
+  } catch {
+    throw new Error(fallbackError);
+  }
+
+  if (!response.ok) {
+    const message = (parsed as { error?: string } | null)?.error ?? fallbackError;
+    throw new Error(message);
+  }
+  return parsed as T;
+}
+
 /** Loads Razorpay's widget once, resolving if it is already present. */
 export function loadRazorpayScript(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -74,22 +106,18 @@ export async function createOrder(
   items: CartItem[],
   customer: CheckoutCustomer
 ): Promise<CreatedOrder> {
-  const response = await fetch('/api/checkout/create-order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  return postJson<CreatedOrder>(
+    '/api/checkout/create-order',
+    {
       // Only identity and quantity travel. No prices.
       items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
       customerName: customer.name,
       customerPhone: customer.phone,
       shippingAddress: customer.address,
       pincode: customer.pincode,
-    }),
-  });
-
-  const body = await response.json();
-  if (!response.ok) throw new Error(body?.error ?? 'Could not start checkout.');
-  return body as CreatedOrder;
+    },
+    'Could not start checkout.'
+  );
 }
 
 export interface PaymentOutcome {
@@ -162,35 +190,25 @@ export interface CreatedRental {
 
 /** Live price + availability preview. Writes nothing. */
 export async function quoteRental(selection: RentalSelection): Promise<RentalQuote> {
-  const response = await fetch('/api/rentals/quote', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(selection),
-  });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body?.error ?? 'Could not price this rental.');
-  return body as RentalQuote;
+  return postJson<RentalQuote>('/api/rentals/quote', selection, 'Could not price this rental.');
 }
 
 export async function createRental(
   selection: RentalSelection,
   customer: RentalCustomer
 ): Promise<CreatedRental> {
-  const response = await fetch('/api/rentals/create-order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  return postJson<CreatedRental>(
+    '/api/rentals/create-order',
+    {
       ...selection,
       customerName: customer.name,
       customerPhone: customer.phone,
       venueAddress: customer.venueAddress,
       city: customer.city,
       pincode: customer.pincode,
-    }),
-  });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body?.error ?? 'Could not start the rental booking.');
-  return body as CreatedRental;
+    },
+    'Could not start the rental booking.'
+  );
 }
 
 /**

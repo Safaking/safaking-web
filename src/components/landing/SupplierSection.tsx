@@ -29,6 +29,8 @@ const BENEFITS = [
 ];
 
 const SUPPLIER_TYPES = [
+  'Silk Safa Supplier / Manufacturer',
+  'Cotton Safa Supplier',
   'Silk & Brocade Weavers',
   'Bandhani & Leheriya Artisans',
   'Zari & Embroidery Houses',

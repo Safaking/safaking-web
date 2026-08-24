@@ -395,15 +395,26 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
                       className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
                     />
                   </div>
-                  <div className="relative">
-                    <IndianRupee size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="number"
-                      placeholder="Expected Rate / Safa (₹)"
-                      value={perSafaRate}
-                      onChange={(e) => setPerSafaRate(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
-                    />
+                  <div>
+                    <div className="relative">
+                      <IndianRupee size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="number"
+                        placeholder="Expected Rate / Safa (₹)"
+                        value={perSafaRate}
+                        onChange={(e) => setPerSafaRate(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                      />
+                    </div>
+                    {Number(perSafaRate) > 0 && (
+                      <p className="text-[10px] text-gray-500 mt-1 leading-snug">
+                        After SafaKing&apos;s 20% platform charge, you&apos;ll receive{' '}
+                        <span className="font-bold text-emerald-700">
+                          ₹{Math.round(Number(perSafaRate) * 0.8).toLocaleString()}
+                        </span>{' '}
+                        per safa.
+                      </p>
+                    )}
                   </div>
                 </div>
 
