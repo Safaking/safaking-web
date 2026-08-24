@@ -180,6 +180,8 @@ export default function AdminPanelPage() {
   const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT);
   const [savingProduct, setSavingProduct] = useState(false);
   const [teamFor, setTeamFor] = useState<string | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [bulkApproving, setBulkApproving] = useState(false);
 
   const artists = useMemo(() => users.filter((u) => u.role === 'artist'), [users]);
 
@@ -452,6 +454,53 @@ export default function AdminPanelPage() {
         : prev.map((p) => (p.id === saved.id ? saved : p))
     );
     setEditingProduct(null);
+  };
+
+  const toggleProductSelected = (id: string) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const pendingProducts = products.filter((p) => p.pending_sync);
+
+  const toggleSelectAllPending = () => {
+    setSelectedProductIds((prev) =>
+      prev.size === pendingProducts.length ? new Set() : new Set(pendingProducts.map((p) => p.id))
+    );
+  };
+
+  /**
+   * Publishes every selected product as-is (whatever price/stock is already
+   * on the row — desktop's price by default, 0 stock, from the sync
+   * backfill). Admins who want to adjust a specific one first should edit it
+   * individually before selecting it here.
+   */
+  const bulkApproveSelected = async () => {
+    if (selectedProductIds.size === 0) return;
+    setBulkApproving(true);
+    setError(null);
+
+    const ids = [...selectedProductIds];
+    const { error: updateErr } = await supabase
+      .from('products')
+      .update({ active: true, pending_sync: false })
+      .in('id', ids);
+
+    setBulkApproving(false);
+
+    if (updateErr) {
+      setError(friendlyError(updateErr));
+      return;
+    }
+
+    setProducts((prev) =>
+      prev.map((p) => (selectedProductIds.has(p.id) ? { ...p, active: true, pending_sync: false } : p))
+    );
+    setSelectedProductIds(new Set());
   };
 
   const deleteProduct = async (id: string, name: string) => {
@@ -999,7 +1048,37 @@ export default function AdminPanelPage() {
             {/* ---- PRODUCTS ---- */}
             {activeTab === 'products' && (
               <div className="space-y-6">
-                <div className="flex justify-end">
+                <div className="flex justify-between items-center gap-3 flex-wrap">
+                  {selectedProductIds.size > 0 ? (
+                    <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200">
+                      <span className="text-xs font-bold text-maroon-950">
+                        {selectedProductIds.size} selected
+                      </span>
+                      <button
+                        onClick={bulkApproveSelected}
+                        disabled={bulkApproving}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold rounded-xl text-[11px] uppercase tracking-wider transition-colors"
+                      >
+                        {bulkApproving ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" /> Approving…
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck size={13} /> Approve &amp; Publish Selected
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setSelectedProductIds(new Set())}
+                        className="text-[11px] font-bold text-gray-500 hover:text-gray-700"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  ) : (
+                    <div />
+                  )}
                   <button
                     onClick={() => openProductEditor()}
                     className="flex items-center gap-2 px-5 py-3 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-2xl text-xs uppercase tracking-widest shadow-lg transition-colors"
@@ -1022,6 +1101,17 @@ export default function AdminPanelPage() {
                     <table className="w-full text-left">
                       <thead className={THEAD}>
                         <tr>
+                          <th className={TH}>
+                            {pendingProducts.length > 0 && (
+                              <input
+                                type="checkbox"
+                                checked={selectedProductIds.size === pendingProducts.length}
+                                onChange={toggleSelectAllPending}
+                                className="accent-maroon-900"
+                                aria-label="Select all pending review"
+                              />
+                            )}
+                          </th>
                           <th className={TH}>Product</th>
                           <th className={TH}>Code</th>
                           <th className={TH}>Price</th>
@@ -1033,6 +1123,15 @@ export default function AdminPanelPage() {
                       <tbody className="divide-y divide-amber-100 text-xs">
                         {products.map((product) => (
                           <tr key={product.id} className="hover:bg-amber-50/30 transition-colors">
+                            <td className="p-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedProductIds.has(product.id)}
+                                onChange={() => toggleProductSelected(product.id)}
+                                className="accent-maroon-900"
+                                aria-label={`Select ${product.name}`}
+                              />
+                            </td>
                             <td className="p-4 font-bold text-maroon-950 max-w-xs">
                               {product.pending_sync && (
                                 <span className="inline-block mb-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider">
