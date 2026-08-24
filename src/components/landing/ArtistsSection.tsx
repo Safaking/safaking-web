@@ -385,7 +385,6 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                   {[
                     'On-site safa tying at venue or home',
                     'All safa styles & regional traditions',
-                    'Brooch, kalgi & accessories available to purchase separately',
                     'Available across 40+ cities in India',
                   ].map((item, i) => (
                     <motion.li

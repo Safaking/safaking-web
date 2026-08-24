@@ -17,6 +17,8 @@ export interface StoreProduct {
   occasion: string;
   image: string;
   imagePosition?: string;
+  /** All gallery photos including the main one, in display order — `[image, ...alternates]`. */
+  images: string[];
   rating: number;
   reviewsCount: number;
   inStock: boolean;
@@ -29,7 +31,7 @@ export interface StoreProduct {
  * Rendered before the DB responds, and whenever the products table is empty or
  * unreachable, so the storefront is never a blank grid.
  */
-export const STATIC_PRODUCTS: StoreProduct[] = [
+const STATIC_PRODUCTS_RAW: Omit<StoreProduct, 'images'>[] = [
   {
     id: 'SFA-PRL-801', productId: null, code: 'SFA-PRL-801',
     name: 'Imperial Pearl Pink Chanderi Silk Safa',
@@ -132,6 +134,11 @@ export const STATIC_PRODUCTS: StoreProduct[] = [
   },
 ];
 
+export const STATIC_PRODUCTS: StoreProduct[] = STATIC_PRODUCTS_RAW.map((p) => ({
+  ...p,
+  images: [p.image],
+}));
+
 export function mapDBProduct(row: DBProductWithAvailability): StoreProduct {
   return {
     id: row.id,
@@ -147,6 +154,7 @@ export function mapDBProduct(row: DBProductWithAvailability): StoreProduct {
     style: row.style ?? '',
     occasion: row.occasion ?? '',
     image: row.image ?? '/product-maroon-brocade.jpg',
+    images: [row.image ?? '/product-maroon-brocade.jpg', ...(row.gallery_images ?? [])],
     rating: Number(row.rating ?? 4.8),
     reviewsCount: row.reviews_count ?? 0,
     // Own stock minus what the desktop POS has committed against this SKU —

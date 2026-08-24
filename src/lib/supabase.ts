@@ -68,6 +68,8 @@ export interface DBProduct {
  */
 export interface DBProductWithAvailability extends DBProduct {
   available_quantity: number;
+  /** Additional photos beyond `image` — see supabase/020_product_gallery.sql. */
+  gallery_images: string[];
 }
 
 export interface DBOrder {
