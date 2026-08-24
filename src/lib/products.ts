@@ -1,4 +1,4 @@
-import { supabase, DBProduct } from '@/lib/supabase';
+import { supabase, DBProductWithAvailability } from '@/lib/supabase';
 
 /** The shape every product-rendering component in the app consumes. */
 export interface StoreProduct {
@@ -132,7 +132,7 @@ export const STATIC_PRODUCTS: StoreProduct[] = [
   },
 ];
 
-export function mapDBProduct(row: DBProduct): StoreProduct {
+export function mapDBProduct(row: DBProductWithAvailability): StoreProduct {
   return {
     id: row.id,
     productId: row.id,
@@ -149,10 +149,12 @@ export function mapDBProduct(row: DBProduct): StoreProduct {
     image: row.image ?? '/product-maroon-brocade.jpg',
     rating: Number(row.rating ?? 4.8),
     reviewsCount: row.reviews_count ?? 0,
-    inStock: (row.stock ?? 0) > 0,
+    // Own stock minus what the desktop POS has committed against this SKU —
+    // see public.products_with_availability.
+    inStock: (row.available_quantity ?? row.stock ?? 0) > 0,
     isNew: !!row.is_new,
     isBestseller: !!row.is_bestseller,
-    featured: !!(row as DBProduct & { featured?: boolean }).featured,
+    featured: !!(row as DBProductWithAvailability & { featured?: boolean }).featured,
   };
 }
 
@@ -177,7 +179,7 @@ export interface ProductsResult {
  */
 export async function fetchProducts(): Promise<ProductsResult> {
   const { data, error } = await supabase
-    .from('products')
+    .from('products_with_availability')
     .select('*')
     .eq('active', true)
     .order('sort_order', { ascending: true })
@@ -186,14 +188,14 @@ export async function fetchProducts(): Promise<ProductsResult> {
   if (error) {
     console.error(
       '[products] Falling back to the demo catalogue — the storefront is NOT showing your database. ' +
-        'Apply supabase/002_production_hardening.sql. Cause:',
+        'Apply supabase/002_production_hardening.sql and supabase/017_desktop_inventory_sync.sql. Cause:',
       error.message
     );
     return { products: STATIC_PRODUCTS, fromDatabase: false, error: error.message };
   }
 
   return {
-    products: (data as DBProduct[]).map(mapDBProduct),
+    products: (data as DBProductWithAvailability[]).map(mapDBProduct),
     fromDatabase: true,
     error: null,
   };

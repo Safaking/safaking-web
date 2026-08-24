@@ -306,6 +306,23 @@ export default function AdminPanelPage() {
     }
   }
 
+  /**
+   * Order status changes affect how many of a SKU the web has "committed" —
+   * cancelling one frees stock back up. Fires a best-effort push to the
+   * desktop POS afterward (see /api/sync/resync-order) so its own
+   * availability figure doesn't stay stale after an admin cancels an order.
+   */
+  const updateOrderStatus = async (orderId: string, status: DBOrder['status']) => {
+    await patchRow<DBOrder>('orders', orderId, { status }, setOrders);
+    fetch('/api/sync/resync-order', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ orderId }),
+    }).catch(() => {
+      /* best-effort — the order status change itself already succeeded */
+    });
+  };
+
   const assignArtist = async (bookingId: string, artistId: string) => {
     if (!artistId) return;
     const artist = artists.find((a) => a.id === artistId);
@@ -409,6 +426,10 @@ export default function AdminPanelPage() {
         ? Number(productForm.rent_price_per_day)
         : null,
       rent_deposit: productForm.rent_deposit ? Number(productForm.rent_deposit) : null,
+      // Any manual save counts as the admin having reviewed it — clears the
+      // "new from desktop, needs review" flag whether or not this row came
+      // from a sync (a no-op for ordinary products).
+      pending_sync: false,
     };
 
     const query =
@@ -670,9 +691,7 @@ export default function AdminPanelPage() {
                                   <StatusSelect
                                     value={order.status}
                                     options={ORDER_STATUSES}
-                                    onChange={(status) =>
-                                      patchRow<DBOrder>('orders', order.id, { status }, setOrders)
-                                    }
+                                    onChange={(status) => updateOrderStatus(order.id, status)}
                                   />
                                   <a
                                     href={getWhatsAppClickLink(
@@ -989,7 +1008,14 @@ export default function AdminPanelPage() {
                   </button>
                 </div>
 
-                <Panel title="Catalogue" subtitle={`${products.length} products`}>
+                <Panel
+                  title="Catalogue"
+                  subtitle={
+                    products.some((p) => p.pending_sync)
+                      ? `${products.length} products · ${products.filter((p) => p.pending_sync).length} new from desktop, needs review`
+                      : `${products.length} products`
+                  }
+                >
                   {products.length === 0 ? (
                     <Empty label="No products yet — add one, or run supabase/seed.sql." />
                   ) : (
@@ -1008,6 +1034,11 @@ export default function AdminPanelPage() {
                         {products.map((product) => (
                           <tr key={product.id} className="hover:bg-amber-50/30 transition-colors">
                             <td className="p-4 font-bold text-maroon-950 max-w-xs">
+                              {product.pending_sync && (
+                                <span className="inline-block mb-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider">
+                                  New from Desktop — Review
+                                </span>
+                              )}
                               {product.name}
                               <span className="block text-[10px] text-gray-400 font-normal">
                                 {product.category} · {product.fabric}
@@ -1016,6 +1047,11 @@ export default function AdminPanelPage() {
                             <td className="p-4 text-gray-500 font-mono text-[11px]">{product.code}</td>
                             <td className="p-4 font-black text-gradient-gold">
                               ₹{product.price.toLocaleString()}
+                              {product.desktop_price != null && product.desktop_price !== product.price && (
+                                <span className="block text-[10px] font-bold text-amber-700 normal-case">
+                                  Desktop: ₹{product.desktop_price.toLocaleString()}
+                                </span>
+                              )}
                             </td>
                             <td className="p-4">
                               <span
