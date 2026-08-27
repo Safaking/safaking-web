@@ -1,6 +1,7 @@
 'use client';
 
 import type { CartItem } from '@/context/CartContext';
+import { Capacitor } from '@capacitor/core';
 
 /**
  * Client half of the Razorpay flow.
@@ -80,10 +81,11 @@ async function postJson<T>(url: string, body: unknown, fallbackError: string): P
   return parsed as T;
 }
 
-/** Loads Razorpay's widget once, resolving if it is already present. */
+/** Loads Razorpay's widget once, resolving if it is already present. Not needed on native — that path uses the native SDK instead. */
 export function loadRazorpayScript(): Promise<boolean> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined') return resolve(false);
+    if (Capacitor.isNativePlatform()) return resolve(true);
     if (window.Razorpay) return resolve(true);
 
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${CHECKOUT_SCRIPT}"]`);
@@ -211,6 +213,73 @@ export async function createRental(
   );
 }
 
+/** POSTs the payment response to our server and resolves/rejects on the same terms as the web handler. */
+async function verifyAndResolve(response: RazorpayResponse): Promise<PaymentOutcome> {
+  try {
+    const verifyRes = await fetch('/api/checkout/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(response),
+    });
+    const verifyBody = await verifyRes.json();
+
+    if (!verifyRes.ok || !verifyBody.success) {
+      throw new Error(
+        verifyBody?.error ??
+          'We could not verify your payment. Do not retry — contact us with your payment id.'
+      );
+    }
+    return {
+      orderId: verifyBody.orderId ?? null,
+      rentalId: verifyBody.rentalId ?? null,
+      warning: verifyBody.warning,
+    };
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('could not verify')) throw err;
+    throw new Error(
+      'Payment went through but confirmation failed. Please contact us before paying again.'
+    );
+  }
+}
+
+/**
+ * Opens Razorpay's native Android checkout (via the `capacitor-razorpay` bridge
+ * to Razorpay's Standard Checkout SDK) and resolves once the server has
+ * verified the signature. `checkout.js`'s browser-only bits — UPI app hand-off,
+ * OTP popups — don't reliably work inside a bare WebView, so the Android build
+ * goes through Razorpay's native SDK instead; the server-side verification is
+ * identical either way.
+ */
+async function payAndVerifyNative(
+  order: PayableOrder,
+  customer: { name: string; phone: string }
+): Promise<PaymentOutcome> {
+  const { Checkout } = await import('capacitor-razorpay');
+  try {
+    // The plugin's TS definitions only declare {key, amount}, but its native
+    // side (and README) accept the full Razorpay Standard Checkout option set —
+    // passed via a variable, not an inline literal, so TS's excess-property
+    // check doesn't reject the extra fields it structurally still accepts.
+    const options = {
+      key: order.keyId,
+      amount: String(order.amount),
+      currency: order.currency,
+      order_id: order.razorpayOrderId,
+      name: 'SafaKing',
+      description: order.description,
+      prefill: { contact: customer.phone, email: '' },
+      theme: { color: '#4A0E1A' },
+    };
+    const result = await Checkout.open(options);
+    const response = result.response as unknown as RazorpayResponse;
+    return await verifyAndResolve(response);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('confirmation failed')) throw err;
+    if (err instanceof Error && err.message.includes('could not verify')) throw err;
+    throw new Error('Payment cancelled. Your bag has been kept — you can try again.');
+  }
+}
+
 /**
  * Opens the Razorpay widget and resolves once the server has verified the
  * signature. Rejects if the customer dismisses the widget or verification fails.
@@ -219,6 +288,10 @@ export function payAndVerify(
   order: PayableOrder,
   customer: { name: string; phone: string }
 ): Promise<PaymentOutcome> {
+  if (Capacitor.isNativePlatform()) {
+    return payAndVerifyNative(order, customer);
+  }
+
   return new Promise((resolve, reject) => {
     if (!window.Razorpay) {
       return reject(new Error('Payment widget failed to load. Check your connection and retry.'));
@@ -240,32 +313,9 @@ export function payAndVerify(
       },
       handler: async (response: RazorpayResponse) => {
         try {
-          const verifyRes = await fetch('/api/checkout/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(response),
-          });
-          const verifyBody = await verifyRes.json();
-
-          if (!verifyRes.ok || !verifyBody.success) {
-            return reject(
-              new Error(
-                verifyBody?.error ??
-                  'We could not verify your payment. Do not retry — contact us with your payment id.'
-              )
-            );
-          }
-          resolve({
-            orderId: verifyBody.orderId ?? null,
-            rentalId: verifyBody.rentalId ?? null,
-            warning: verifyBody.warning,
-          });
-        } catch {
-          reject(
-            new Error(
-              'Payment went through but confirmation failed. Please contact us before paying again.'
-            )
-          );
+          resolve(await verifyAndResolve(response));
+        } catch (err) {
+          reject(err);
         }
       },
     });

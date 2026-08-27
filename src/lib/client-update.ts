@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { getDeviceCoords } from '@/lib/native-geo';
 
 /**
  * Support code for the November 2026 client requirements update
@@ -146,14 +147,8 @@ export async function getLatestArtistLocation(
   return data as LatestLocation | null;
 }
 
-/** One-shot browser geolocation read. Resolves null rather than throwing. */
-export function getBrowserCoords(timeoutMs = 8000): Promise<{ lat: number; lng: number } | null> {
-  return new Promise((resolve) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 30_000 }
-    );
-  });
+/** One-shot device geolocation read. Resolves null rather than throwing. */
+export async function getBrowserCoords(timeoutMs = 8000): Promise<{ lat: number; lng: number } | null> {
+  const coords = await getDeviceCoords(timeoutMs);
+  return coords ? { lat: coords.latitude, lng: coords.longitude } : null;
 }

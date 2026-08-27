@@ -12,12 +12,25 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Kill the browser's rubber-band/pull-to-refresh feel — a native app's
+     screen doesn't bounce or refresh when you drag past its edge. */
+  overscroll-behavior-y: none;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-dm-sans), system-ui, sans-serif;
+  overscroll-behavior-y: none;
+  /* Removes the grey/blue flash Android/iOS browsers paint on every tap —
+     the single most "web page" -looking artifact on a touch device. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a {
+  touch-action: manipulation;
 }
 
 ::selection {

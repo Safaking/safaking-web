@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { getDeviceCoords, type SimpleCoords } from '@/lib/native-geo';
 
 export type CheckinStage = 'en_route' | 'arrived' | 'started' | 'completed' | 'no_show';
 
@@ -60,20 +61,13 @@ function describe(error: unknown): string {
 }
 
 /**
- * Best-effort browser location.
+ * Best-effort device location.
  *
  * Never blocks the check-in: many artists decline the permission or are on a
  * poor signal, and a check-in without coordinates is far better than none.
  */
-function currentPosition(timeoutMs = 6000): Promise<GeolocationPosition | null> {
-  return new Promise((resolve) => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve(position),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60_000 }
-    );
-  });
+function currentPosition(timeoutMs = 6000): Promise<SimpleCoords | null> {
+  return getDeviceCoords(timeoutMs);
 }
 
 export async function checkIn(params: {
@@ -91,8 +85,8 @@ export async function checkIn(params: {
     rental_id: params.rentalId ?? null,
     booking_id: params.bookingId ?? null,
     stage: params.stage,
-    latitude: position?.coords.latitude ?? null,
-    longitude: position?.coords.longitude ?? null,
+    latitude: position?.latitude ?? null,
+    longitude: position?.longitude ?? null,
     note: params.note?.trim() || null,
   });
 
