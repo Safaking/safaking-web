@@ -41,3 +41,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Capacitor / Android native project — keep the source, drop machine-specific
+# config and generated build output.
+android/local.properties
+android/.gradle/
+android/.idea/
+android/captures/
+android/*.iml
+android/app/build/
+android/app/release/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/.kotlin/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
