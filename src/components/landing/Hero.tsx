@@ -19,7 +19,10 @@ const floatAnimationDelayed = {
 export function Hero() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 120]);
+  // Was 120px — on the tighter mobile hero height there isn't enough buffer
+  // below the image for that much downward drift before it clips against the
+  // section's overflow-hidden bottom edge.
+  const y = useTransform(scrollYProgress, [0, 1], [0, 30]);
   const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
 
   return (
@@ -55,11 +58,11 @@ export function Hero() {
 
       <motion.div
         style={{ y, opacity }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32 relative z-10 w-full"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 lg:py-32 relative z-10 w-full"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-8 sm:gap-12 lg:gap-16">
           {/* Left content */}
-          <div className="space-y-8 text-center lg:text-left">
+          <div className="space-y-5 sm:space-y-7 lg:space-y-8 text-center lg:text-left">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -157,7 +160,7 @@ export function Hero() {
           </div>
 
           {/* Right — hero image stack */}
-          <div className="relative flex items-center justify-center h-[480px] sm:h-[580px]">
+          <div className="relative flex items-center justify-center h-[340px] sm:h-[440px] lg:h-[580px]">
             {/* Main hero image */}
             <motion.div
               initial={{ opacity: 0, scale: 0.82, rotate: -3 }}
@@ -170,7 +173,7 @@ export function Hero() {
                 transition={{ duration: 3, repeat: Infinity }}
                 className="absolute -inset-3 rounded-[2.5rem] blur-xl"
               />
-              <div className="relative w-64 sm:w-72 h-80 sm:h-96 rounded-[2.5rem] overflow-hidden border-2 border-royal-400/50 shadow-2xl shadow-black/50">
+              <div className="relative w-52 sm:w-64 lg:w-72 h-64 sm:h-80 lg:h-96 rounded-[2.5rem] overflow-hidden border-2 border-royal-400/50 shadow-2xl shadow-black/50">
                 <Image
                   src="/hero-groom-maroon.jpg"
                   alt="Royal Indian Groom in Maroon Safa"
@@ -195,9 +198,9 @@ export function Hero() {
               initial={{ opacity: 0, x: -40 }}
               animate={{ opacity: 1, x: 0, ...floatAnimation }}
               transition={{ duration: 0.8, delay: 0.5 }}
-              className="absolute top-6 -left-4 sm:left-0 z-20 w-40 sm:w-48 glass-card p-2 rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
+              className="absolute top-0 -left-2 sm:left-0 z-20 w-28 sm:w-40 lg:w-48 glass-card p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
             >
-              <div className="relative w-full h-28 rounded-xl overflow-hidden">
+              <div className="relative w-full h-16 sm:h-24 lg:h-28 rounded-lg sm:rounded-xl overflow-hidden">
                 <Image
                   src="/product-pink-chanderi.jpg"
                   alt="Imperial Pink Silk Safa"
@@ -216,9 +219,9 @@ export function Hero() {
               initial={{ opacity: 0, x: 40 }}
               animate={{ opacity: 1, x: 0, ...floatAnimationDelayed }}
               transition={{ duration: 0.8, delay: 0.7 }}
-              className="absolute bottom-10 -right-4 sm:right-0 z-20 w-40 sm:w-48 glass-card p-2 rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
+              className="absolute bottom-0 -right-2 sm:right-0 z-20 w-28 sm:w-40 lg:w-48 glass-card p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
             >
-              <div className="relative w-full h-28 rounded-xl overflow-hidden">
+              <div className="relative w-full h-16 sm:h-24 lg:h-28 rounded-lg sm:rounded-xl overflow-hidden">
                 <Image
                   src="/artist-jodhpuri-blue.jpg"
                   alt="Royal Blue Jodhpuri Safa"
@@ -238,14 +241,14 @@ export function Hero() {
               transition={{ duration: 35, repeat: Infinity, ease: 'linear' }}
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
             >
-              <div className="w-[380px] h-[380px] sm:w-[450px] sm:h-[450px] rounded-full border border-dashed border-royal-400/20" />
+              <div className="w-[260px] h-[260px] sm:w-[380px] sm:h-[380px] lg:w-[450px] lg:h-[450px] rounded-full border border-dashed border-royal-400/20" />
             </motion.div>
             <motion.div
               animate={{ rotate: -360 }}
               transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
             >
-              <div className="w-[300px] h-[300px] sm:w-[360px] sm:h-[360px] rounded-full border border-dotted border-royal-300/10" />
+              <div className="w-[200px] h-[200px] sm:w-[300px] sm:h-[300px] lg:w-[360px] lg:h-[360px] rounded-full border border-dotted border-royal-300/10" />
             </motion.div>
           </div>
         </div>
