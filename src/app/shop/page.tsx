@@ -79,8 +79,8 @@ function ShopContent() {
     }
   }, [searchParams]);
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredProducts = useMemo(() => products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           product.fabric.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesColor = selectedColor === 'All' || product.color === selectedColor;
@@ -96,7 +96,7 @@ function ShopContent() {
     if (sortBy === 'price-high') return b.price - a.price;
     if (sortBy === 'rating') return b.rating - a.rating;
     return 0;
-  });
+  }), [products, searchQuery, selectedColor, selectedFabric, selectedCategory, sortBy]);
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
   const hasMore = visibleCount < filteredProducts.length;
