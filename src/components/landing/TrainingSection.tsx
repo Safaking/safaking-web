@@ -15,7 +15,7 @@ export function TrainingSection() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  const [center, setCenter] = useState('jaipur');
+  const [center, setCenter] = useState('partapur');
   const [gender, setGender] = useState('');
   const [qualification, setQualification] = useState('');
   const [currentOccupation, setCurrentOccupation] = useState('');
@@ -88,7 +88,7 @@ export function TrainingSection() {
             <span className="text-gradient-gold italic">Training</span> Facilities
           </h2>
           <p className="text-royal-100/55 max-w-2xl mx-auto text-base leading-relaxed">
-            Learn the sacred art of safa tying from heritage masters at our training centers in Jaipur and Delhi.
+            Learn the sacred art of safa tying from heritage masters at our training centers in Partapur and Chitri Sagawara Store.
           </p>
         </AnimatedSection>
 
@@ -256,13 +256,13 @@ export function TrainingSection() {
                     value={center}
                     onChange={(e) => setCenter(e.target.value)}
                   >
-                    <option value="jaipur" className="text-maroon-900 bg-white">Jaipur — Chomu House</option>
-                    <option value="delhi" className="text-maroon-900 bg-white">Delhi — Karol Bagh</option>
+                    <option value="partapur" className="text-maroon-900 bg-white">Partapur</option>
+                    <option value="chitri-sagawara" className="text-maroon-900 bg-white">Chitri Sagawara Store</option>
                   </select>
 
                   <input
                     type="text"
-                    placeholder="Nearest city to our HQ, if not Jaipur/Delhi"
+                    placeholder="Nearest city to our HQ, if not Partapur/Sagawara"
                     value={nearestHqCity}
                     onChange={(e) => setNearestHqCity(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"

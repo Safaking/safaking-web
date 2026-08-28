@@ -126,7 +126,7 @@ const JOBS = [
 const PERKS = [
   { icon: Crown,         title: 'Premium Brand',       desc: 'Work with India\'s top safa house' },
   { icon: MapPin,        title: 'Travel India',         desc: 'Artists travel to top wedding venues' },
-  { icon: GraduationCap, title: 'Free Training',        desc: 'Academy courses at no cost' },
+  { icon: GraduationCap, title: 'Affordable Training',  desc: 'Academy courses at a nominal charge' },
   { icon: Heart,         title: 'Growth Path',          desc: 'Clear career progression' },
   { icon: Users,         title: 'Great Team',           desc: 'Heritage-trained colleagues' },
   { icon: Sparkles,      title: 'Premium Weddings',     desc: 'Work at elite events' },

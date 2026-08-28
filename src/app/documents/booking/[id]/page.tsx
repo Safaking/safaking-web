@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { DocumentShell } from '@/components/documents/DocumentShell';
+import { BUSINESS } from '@/lib/business';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +53,7 @@ export default async function BookingConfirmationPage({
     supabase.from('business_profile').select('*').maybeSingle(),
   ]);
 
-  const biz = business ?? { legal_name: 'SafaKing Turban House', phone: '', address: '' };
+  const biz = business ?? { legal_name: 'SafaKing Turban House', phone: BUSINESS.phone, address: BUSINESS.address };
   const lines = items ?? [];
 
   return (

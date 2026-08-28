@@ -18,8 +18,10 @@ export const BUSINESS = {
   /** Digits only, for tel: and wa.me links. */
   phoneDigits: '919001347143',
 
-  email: 'hello@safaking.com',
-  address: 'MI Road, Jaipur, Rajasthan 302001',
+  email: 'safakingn111@gmail.com',
+  address: 'Near Pandya Memorial School, Char Khamba, Partapur, Dist. Banswara, Rajasthan 327024',
+  /** Secondary contact number. */
+  phoneAlt: '+91 76918 56577',
   hours: 'Monday to Saturday, 10 AM – 8 PM',
 } as const;
 
