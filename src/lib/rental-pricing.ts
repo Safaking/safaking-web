@@ -139,6 +139,24 @@ export async function priceRental(
   if (productErr) throw new Error(`Could not price the rental: ${productErr.message}`);
 
   const byId = new Map((products ?? []).map((p) => [p.id, p]));
+
+  // Physical stock check for this exact window, per product. Each check is
+  // independent of the others, so run them concurrently — this used to be a
+  // sequential `await` inside the loop below, turning every extra safa style
+  // in the cart into one more full network round trip to Postgres.
+  const availabilityEntries = await Promise.all(
+    [...merged.keys()].map(async (productId) => {
+      const { data, error } = await admin.rpc('rental_availability', {
+        p_product_id: productId,
+        p_start: input.startDate,
+        p_end: input.endDate,
+        p_exclude: input.excludeRentalId ?? null,
+      });
+      return [productId, { data, error }] as const;
+    })
+  );
+  const availabilityById = new Map(availabilityEntries);
+
   const lines: PricedLine[] = [];
 
   for (const [productId, quantity] of merged) {
@@ -153,17 +171,10 @@ export async function priceRental(
       );
     }
 
-    // Physical stock check for this exact window.
-    const { data: available, error: availErr } = await admin.rpc('rental_availability', {
-      p_product_id: productId,
-      p_start: input.startDate,
-      p_end: input.endDate,
-      p_exclude: input.excludeRentalId ?? null,
-    });
+    const availResult = availabilityById.get(productId);
+    if (availResult?.error) throw new Error(`Could not check availability: ${availResult.error.message}`);
 
-    if (availErr) throw new Error(`Could not check availability: ${availErr.message}`);
-
-    const free = Number(available ?? 0);
+    const free = Number(availResult?.data ?? 0);
     if (free < quantity) {
       throw new RentalPricingError(
         free === 0
