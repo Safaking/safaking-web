@@ -39,7 +39,7 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
   const [city, setCity] = useState('');
   const [maxTravelKm, setMaxTravelKm] = useState('');
   const [experienceYears, setExperienceYears] = useState('');
-  const [specialties, setSpecialties] = useState<string[]>(['Jodhpuri Silk Safa', 'Royal Groom Turban']);
+  const [specialties, setSpecialties] = useState<string[]>([]);
   const [teamSize, setTeamSize] = useState('');
   const [perSafaRate, setPerSafaRate] = useState('');
   const [portfolioLink, setPortfolioLink] = useState('');
