@@ -8,6 +8,32 @@ const PROTECTED: { prefix: string; roles: string[] }[] = [
 ];
 
 export async function middleware(request: NextRequest) {
+  const guard = PROTECTED.find(({ prefix }) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  );
+
+  // Supabase's auth cookie is named `sb-<project-ref>-auth-token` (optionally
+  // chunked as `...-auth-token.0`, `.1`, ... for large sessions). An anonymous
+  // visitor has none of these, meaning there is no session to refresh and no
+  // way they could pass a role guard either — so skip the live Supabase
+  // network round-trip entirely rather than paying it on every single page
+  // view. This was the single biggest contributor to slow page loads across
+  // the site, since most storefront traffic browses signed out.
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'));
+
+  if (!hasAuthCookie) {
+    if (guard) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/';
+      url.searchParams.set('auth', 'login');
+      url.searchParams.set('next', request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,14 +55,11 @@ export async function middleware(request: NextRequest) {
   );
 
   // Refreshes the auth token and keeps the cookie in sync. Must run on every
-  // request, not just protected ones, or sessions expire mid-browse.
+  // request from a signed-in visitor, not just protected ones, or sessions
+  // expire mid-browse.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const guard = PROTECTED.find(({ prefix }) =>
-    request.nextUrl.pathname.startsWith(prefix)
-  );
 
   if (guard) {
     if (!user) {
