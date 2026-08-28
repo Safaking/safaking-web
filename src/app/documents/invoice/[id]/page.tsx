@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { DocumentShell } from '@/components/documents/DocumentShell';
+import { BUSINESS } from '@/lib/business';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,8 +62,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   const biz = (business as Business) ?? {
     legal_name: 'SafaKing Turban House',
-    address: 'Jaipur, Rajasthan, India',
-    phone: '',
+    address: BUSINESS.address,
+    phone: BUSINESS.phone,
     email: null,
     gst_number: null,
     invoice_footer: null,

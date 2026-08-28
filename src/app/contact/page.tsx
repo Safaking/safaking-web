@@ -11,6 +11,7 @@ import { Footer } from '@/components/landing/Footer';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
+import { BUSINESS, telHref, mailtoHref } from '@/lib/business';
 
 export default function ContactPage() {
   const [authOpen, setAuthOpen] = useState(false);
@@ -78,7 +79,7 @@ export default function ContactPage() {
 
               <div className="space-y-5 text-xs font-medium">
                 <a
-                  href="tel:+919829012345"
+                  href={telHref}
                   className="flex items-start gap-4 p-3.5 rounded-2xl hover:bg-amber-50/60 transition-colors group"
                 >
                   <div className="w-10 h-10 rounded-xl bg-royal-100 text-maroon-950 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
@@ -86,13 +87,13 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="font-bold text-maroon-950 text-sm">Phone / WhatsApp</p>
-                    <p className="text-gray-600 mt-0.5">+91 98290 12345</p>
+                    <p className="text-gray-600 mt-0.5">{BUSINESS.phone} · {BUSINESS.phoneAlt}</p>
                     <p className="text-[10px] text-emerald-700 font-bold mt-1">Instant WhatsApp Support</p>
                   </div>
                 </a>
 
                 <a
-                  href="mailto:support@safaking.com"
+                  href={mailtoHref}
                   className="flex items-start gap-4 p-3.5 rounded-2xl hover:bg-amber-50/60 transition-colors group"
                 >
                   <div className="w-10 h-10 rounded-xl bg-royal-100 text-maroon-950 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
@@ -100,7 +101,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="font-bold text-maroon-950 text-sm">Email Support</p>
-                    <p className="text-gray-600 mt-0.5">support@safaking.com</p>
+                    <p className="text-gray-600 mt-0.5">{BUSINESS.email}</p>
                     <p className="text-[10px] text-gray-400 mt-1">Response within 2 hours</p>
                   </div>
                 </a>
@@ -112,7 +113,7 @@ export default function ContactPage() {
                   <div>
                     <p className="font-bold text-maroon-950 text-sm">Flagship Royal Studio</p>
                     <p className="text-gray-600 mt-0.5 leading-relaxed">
-                      SafaKing Royal Studio, M.I. Road, Opposite Raj Mandir Cinema, Jaipur, Rajasthan - 302001
+                      {BUSINESS.address}
                     </p>
                   </div>
                 </div>
@@ -130,7 +131,7 @@ export default function ContactPage() {
 
               {/* Direct WhatsApp Action Button */}
               <a
-                href={getWhatsAppClickLink('919829012345', whatsappMessage)}
+                href={getWhatsAppClickLink(BUSINESS.phoneDigits, whatsappMessage)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-colors"

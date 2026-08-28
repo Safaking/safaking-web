@@ -12,6 +12,7 @@ import { Footer } from '@/components/landing/Footer';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { useState } from 'react';
+import { BUSINESS } from '@/lib/business';
 
 export default function AboutPage() {
   const [authOpen, setAuthOpen] = useState(false);
@@ -121,7 +122,7 @@ export default function AboutPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/80 via-transparent to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 p-6 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-white">
               <p className="font-display font-bold text-lg text-royal-100">SafaKing Flagship Studio</p>
-              <p className="text-xs text-royal-200/80 mt-1">M.I. Road, Opposite Raj Mandir Cinema, Jaipur, Rajasthan</p>
+              <p className="text-xs text-royal-200/80 mt-1">{BUSINESS.address}</p>
             </div>
           </div>
         </div>

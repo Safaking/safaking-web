@@ -37,11 +37,11 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [upiId, setUpiId] = useState('');
   const [city, setCity] = useState('');
-  const [maxTravelKm, setMaxTravelKm] = useState('50');
-  const [experienceYears, setExperienceYears] = useState('5');
+  const [maxTravelKm, setMaxTravelKm] = useState('');
+  const [experienceYears, setExperienceYears] = useState('');
   const [specialties, setSpecialties] = useState<string[]>(['Jodhpuri Silk Safa', 'Royal Groom Turban']);
-  const [teamSize, setTeamSize] = useState('1');
-  const [perSafaRate, setPerSafaRate] = useState('50');
+  const [teamSize, setTeamSize] = useState('');
+  const [perSafaRate, setPerSafaRate] = useState('');
   const [portfolioLink, setPortfolioLink] = useState('');
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);

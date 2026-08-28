@@ -40,7 +40,7 @@ export function TrainingManager() {
   const [openBatch, setOpenBatch] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
-    course_id: '', centre: 'Jaipur — Chomu House',
+    course_id: '', centre: 'Partapur',
     start_date: '', end_date: '', seats: '15', trainer_name: '',
   });
   const [newStudent, setNewStudent] = useState({ full_name: '', phone: '', city: '' });
