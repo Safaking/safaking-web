@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Truck, Shield, RotateCcw, Award, Sparkles } from 'lucide-react';
+import { Truck, Shield, Award, Sparkles } from 'lucide-react';
 
 const TRUST_ITEMS = [
   {
@@ -17,13 +17,6 @@ const TRUST_ITEMS = [
     sub: 'Certified silk & brocades',
     color: 'text-maroon-600',
     bg: 'bg-maroon-100',
-  },
-  {
-    icon: RotateCcw,
-    title: 'Easy 7-Day Returns',
-    sub: 'Hassle-free exchange',
-    color: 'text-amber-600',
-    bg: 'bg-amber-100',
   },
   {
     icon: Award,
