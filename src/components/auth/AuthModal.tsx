@@ -17,12 +17,15 @@ interface AuthModalProps {
   redirectTo?: string | null;
 }
 
-type SignupRole = Exclude<UserRole, 'admin'>;
-
-const SIGNUP_ROLE_OPTIONS: { id: SignupRole; label: string; hint: string }[] = [
-  { id: 'customer', label: 'Customer', hint: 'Shop safas & book artists' },
-  { id: 'artist', label: 'Safa Artist', hint: 'Receive wedding bookings' },
-];
+/**
+ * Every self-signup becomes a plain customer account. Artist access is never
+ * self-selected here — it's granted only when an admin approves a submitted
+ * artist application (see admin/page.tsx), which flips this same account's
+ * role from 'customer' to 'artist'. Signing up and picking "I'm an artist"
+ * used to grant /artist-portal access immediately, with zero connection to
+ * the actual application review.
+ */
+const SIGNUP_ROLE: Exclude<UserRole, 'admin'> = 'customer';
 
 /** Where each role lands after signing in, when no explicit redirect was given. */
 const HOME_FOR_ROLE: Record<UserRole, string> = {
@@ -41,7 +44,6 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  const [role, setRole] = useState<SignupRole>('customer');
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
             fullName: fullName.trim(),
             phone: phone.trim(),
             city: city.trim() || undefined,
-            role,
+            role: SIGNUP_ROLE,
           });
 
     setBusy(false);
@@ -185,38 +187,11 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
 
               {tab === 'signup' && (
                 <>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-                      Account Role
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {SIGNUP_ROLE_OPTIONS.map((r) => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => setRole(r.id)}
-                          className={`py-2.5 px-2 rounded-xl border transition-all text-left ${
-                            role === r.id
-                              ? 'bg-maroon-950 text-royal-300 border-maroon-950 shadow-md'
-                              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-                          }`}
-                        >
-                          <span className="block text-xs font-bold">{r.label}</span>
-                          <span
-                            className={`block text-[10px] mt-0.5 ${
-                              role === r.id ? 'text-royal-200/70' : 'text-gray-400'
-                            }`}
-                          >
-                            {r.hint}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    <p className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-2 leading-relaxed">
-                      <ShieldCheck size={12} className="shrink-0" />
-                      Admin access is granted by an existing administrator, not chosen here.
-                    </p>
-                  </div>
+                  <p className="flex items-start gap-1.5 text-[10px] text-gray-400 leading-relaxed p-2.5 rounded-xl bg-gray-50 border border-gray-200">
+                    <ShieldCheck size={12} className="shrink-0 mt-0.5" />
+                    Every account starts as a customer. Artist and admin access is granted
+                    separately — for artists, by applying and being approved.
+                  </p>
 
                   <div className="relative">
                     <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
