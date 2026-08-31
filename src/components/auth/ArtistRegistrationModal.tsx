@@ -81,6 +81,13 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
     e.preventDefault();
     setError(null);
 
+    // The application must be linked to a real account — approval later
+    // grants that account artist access, which is impossible for an
+    // anonymous submission with no user_id to grant it to.
+    if (!user) {
+      setError('Please sign in first, then apply — your approval is granted to your account.');
+      return;
+    }
     if (!phoneAlt.trim()) {
       setError('A second mobile number is required, in case your primary number is unreachable.');
       return;
@@ -210,6 +217,15 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {!user && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                    <p className="text-xs leading-relaxed">
+                      Sign in first — your application is tied to your account, and approval
+                      grants portal access to that account.
+                    </p>
+                  </div>
+                )}
                 {error && (
                   <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
                     <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -467,7 +483,7 @@ export function ArtistRegistrationModal({ isOpen, onClose }: ArtistRegistrationM
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !user}
                     className="w-2/3 py-3.5 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg transition-colors flex items-center justify-center gap-2"
                   >
                     {submitting ? (

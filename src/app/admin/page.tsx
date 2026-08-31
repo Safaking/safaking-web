@@ -7,6 +7,7 @@ import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
+  Phone, User, Navigation, MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -180,6 +181,7 @@ export default function AdminPanelPage() {
   const [productForm, setProductForm] = useState<ProductForm>(EMPTY_PRODUCT);
   const [savingProduct, setSavingProduct] = useState(false);
   const [teamFor, setTeamFor] = useState<string | null>(null);
+  const [viewingApplication, setViewingApplication] = useState<DBArtistApplication | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
 
@@ -305,6 +307,34 @@ export default function AdminPanelPage() {
       setError(friendlyError(updateErr));
     } else {
       setError(null);
+    }
+  }
+
+  /**
+   * Approving an artist application is the ONLY thing that should grant
+   * /artist-portal access — signup itself only ever creates a 'customer'
+   * account now (see AuthModal.tsx). So approval here also flips that
+   * applicant's own profiles.role to 'artist'; rejecting or reverting to
+   * pending does not touch it (an already-approved artist keeps portal
+   * access even if a later application is marked rejected/pending, since
+   * that's a separate, deliberate admin action on the role dropdown itself).
+   */
+  async function updateArtistApplicationStatus(
+    application: DBArtistApplication,
+    status: DBArtistApplication['status']
+  ) {
+    if (status === 'approved' && !application.user_id) {
+      setError(
+        `${application.full_name}'s application has no linked account (they applied signed out) — ` +
+          'ask them to sign in and re-apply before approving.'
+      );
+      return;
+    }
+
+    await patchRow<DBArtistApplication>('artist_applications', application.id, { status }, setArtistApps);
+
+    if (status === 'approved' && application.user_id) {
+      await patchRow<UserProfile>('profiles', application.user_id, { role: 'artist' }, setUsers);
     }
   }
 
@@ -918,17 +948,17 @@ export default function AdminPanelPage() {
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setViewingApplication(artist)}
+                                className="px-2 py-1 rounded-xl bg-royal-100 hover:bg-royal-200 text-maroon-900 font-bold text-[10px] transition-colors"
+                              >
+                                Details
+                              </button>
                               <StatusSelect
                                 value={artist.status}
                                 options={['pending', 'approved', 'rejected']}
-                                onChange={(status) =>
-                                  patchRow<DBArtistApplication>(
-                                    'artist_applications',
-                                    artist.id,
-                                    { status },
-                                    setArtistApps
-                                  )
-                                }
+                                onChange={(status) => updateArtistApplicationStatus(artist, status)}
                               />
                               <a
                                 href={getWhatsAppClickLink(
@@ -1729,6 +1759,175 @@ export default function AdminPanelPage() {
               </div>
             </div>
           </motion.form>
+        </div>
+      )}
+
+      {/* Artist application details */}
+      {viewingApplication && (
+        <div className="fixed inset-0 z-50 bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.92, opacity: 0, y: 24 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto"
+          >
+            <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between">
+              <h3 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest">
+                Artist Application
+              </h3>
+              <button
+                type="button"
+                onClick={() => setViewingApplication(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-7 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-2xl border-2 border-gray-200 overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center">
+                  {viewingApplication.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={viewingApplication.photo_url}
+                      alt={viewingApplication.full_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User size={28} className="text-gray-300" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-display font-black text-xl text-maroon-950">
+                    {viewingApplication.full_name}
+                  </p>
+                  <Badge status={viewingApplication.status} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                    <Phone size={11} /> Primary Phone
+                  </p>
+                  <a href={`tel:${viewingApplication.phone}`} className="font-bold text-maroon-950 hover:underline">
+                    {viewingApplication.phone}
+                  </a>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                    <Phone size={11} /> Alternate Phone
+                  </p>
+                  <p className="font-bold text-maroon-950">{viewingApplication.phone_alt || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                    <MessageCircle size={11} /> WhatsApp
+                  </p>
+                  <p className="font-bold text-maroon-950">{viewingApplication.whatsapp_number || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                    <Wallet size={11} /> UPI ID
+                  </p>
+                  <p className="font-bold text-maroon-950">{viewingApplication.upi_id || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                    <MapPin size={11} /> Base City
+                  </p>
+                  <p className="font-bold text-maroon-950">{viewingApplication.city}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                    <Navigation size={11} /> Max Travel
+                  </p>
+                  <p className="font-bold text-maroon-950">
+                    {viewingApplication.max_travel_km ? `${viewingApplication.max_travel_km} km` : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Experience</p>
+                  <p className="font-bold text-maroon-950">{viewingApplication.experience_years} yrs</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Crew Size</p>
+                  <p className="font-bold text-maroon-950">{viewingApplication.team_size}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Rate / Safa</p>
+                  <p className="font-bold text-maroon-950">
+                    {viewingApplication.per_safa_rate ? `₹${viewingApplication.per_safa_rate}` : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Applied</p>
+                  <p className="font-bold text-maroon-950">
+                    {viewingApplication.created_at
+                      ? new Date(viewingApplication.created_at).toLocaleDateString('en-IN')
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">Specialties</p>
+                <div className="flex flex-wrap gap-1">
+                  {(viewingApplication.specialties || []).map((spec) => (
+                    <span
+                      key={spec}
+                      className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-md text-[9px] font-bold uppercase"
+                    >
+                      {spec}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {viewingApplication.portfolio_link && (
+                <a
+                  href={viewingApplication.portfolio_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-xs text-royal-700 underline font-bold"
+                >
+                  View Portfolio ↗
+                </a>
+              )}
+
+              {!viewingApplication.user_id && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed">
+                    No account linked to this application (applied while signed out) — approving
+                    won&apos;t grant portal access until they sign in and re-apply.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <StatusSelect
+                  value={viewingApplication.status}
+                  options={['pending', 'approved', 'rejected']}
+                  onChange={(status) => {
+                    updateArtistApplicationStatus(viewingApplication, status);
+                    setViewingApplication({ ...viewingApplication, status });
+                  }}
+                />
+                <a
+                  href={getWhatsAppClickLink(
+                    viewingApplication.phone,
+                    `Hello ${viewingApplication.full_name}, regarding your SafaKing Safa Artist application:`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-[11px] transition-colors"
+                >
+                  💬 WhatsApp
+                </a>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>

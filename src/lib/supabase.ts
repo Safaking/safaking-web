@@ -120,12 +120,17 @@ export interface DBArtistApplication {
   user_id?: string | null;
   full_name: string;
   phone: string;
+  phone_alt?: string | null;
+  whatsapp_number?: string | null;
+  upi_id?: string | null;
   city: string;
+  max_travel_km?: number | null;
   experience_years: number;
   specialties: string[];
   team_size: number;
   per_safa_rate?: number | null;
   portfolio_link?: string | null;
+  photo_url?: string | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at?: string;
 }
