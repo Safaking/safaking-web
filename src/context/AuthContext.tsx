@@ -21,6 +21,8 @@ interface AuthContextType {
   /** Resolve to null on success, or a human-readable error message. */
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (input: SignUpInput) => Promise<string | null>;
+  /** Sends a password-reset email. Resolves to null on success (regardless of whether the email exists, to avoid leaking that). */
+  resetPassword: (email: string) => Promise<string | null>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -32,6 +34,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signIn: async () => 'Auth not ready',
   signUp: async () => 'Auth not ready',
+  resetPassword: async () => 'Auth not ready',
   logout: async () => {},
   refreshProfile: async () => {},
 });
@@ -125,6 +128,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [loadProfile]
   );
 
+  const resetPassword = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) return error.message;
+    return null;
+  }, []);
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -144,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signIn,
         signUp,
+        resetPassword,
         logout,
         refreshProfile,
       }}

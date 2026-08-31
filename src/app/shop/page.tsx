@@ -11,9 +11,8 @@ import {
   Filter, 
   SlidersHorizontal, 
   Star, 
-  Truck, 
-  RotateCcw, 
-  Shield, 
+  Truck,
+  Shield,
   X, 
   Eye, 
   Sparkles, 
@@ -301,10 +300,6 @@ function ShopContent() {
               <div className="flex items-center gap-3 text-slate-600 text-xs">
                 <Truck size={18} className="text-[#8B1E2F] shrink-0" />
                 <span>Ready to Wear & Custom Tied</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-600 text-xs">
-                <RotateCcw size={18} className="text-[#8B1E2F] shrink-0" />
-                <span>7-Day Easy Returns</span>
               </div>
               <div className="flex items-center gap-3 text-slate-600 text-xs">
                 <Shield size={18} className="text-[#8B1E2F] shrink-0" />

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown, Mail, Lock, User, Phone, MapPin, X, ShieldCheck,
-  CheckCircle2, AlertCircle, Loader2,
+  CheckCircle2, AlertCircle, Loader2, Eye, EyeOff,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@/lib/supabase';
@@ -35,12 +35,13 @@ const HOME_FOR_ROLE: Record<UserRole, string> = {
 };
 
 export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
-  const { signIn, signUp, role: sessionRole } = useAuth();
+  const { signIn, signUp, resetPassword, role: sessionRole } = useAuth();
   const router = useRouter();
 
-  const [tab, setTab] = useState<'login' | 'signup'>('login');
+  const [tab, setTab] = useState<'login' | 'signup' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
@@ -69,6 +70,17 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
     setError(null);
     setNotice(null);
     setBusy(true);
+
+    if (tab === 'forgot') {
+      const resetMessage = await resetPassword(email.trim());
+      setBusy(false);
+      if (resetMessage) {
+        setError(resetMessage);
+        return;
+      }
+      setNotice('If an account exists for that email, a reset link is on its way — check your inbox.');
+      return;
+    }
 
     const message =
       tab === 'login'
@@ -145,6 +157,8 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
             <p className="text-xs text-royal-200/60 mt-1 relative z-10">
               {tab === 'login'
                 ? 'Sign in to access your royal portal'
+                : tab === 'forgot'
+                ? "We'll email you a link to reset it"
                 : "Join India's premier safa network"}
             </p>
           </div>
@@ -154,7 +168,7 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
             <button
               onClick={() => setTab('login')}
               className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition-all rounded-xl ${
-                tab === 'login' ? 'bg-white text-maroon-950 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                tab === 'login' || tab === 'forgot' ? 'bg-white text-maroon-950 shadow-sm' : 'text-gray-400 hover:text-gray-600'
               }`}
             >
               Log In
@@ -241,19 +255,40 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
                 />
               </div>
 
-              <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  required
-                  minLength={6}
-                  type="password"
-                  autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-                  placeholder={tab === 'login' ? 'Password' : 'Password (min. 6 characters)'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
-                />
-              </div>
+              {tab !== 'forgot' && (
+                <div>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      required
+                      minLength={6}
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+                      placeholder={tab === 'login' ? 'Password' : 'Password (min. 6 characters)'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-10 pr-11 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {tab === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => setTab('forgot')}
+                      className="mt-1.5 text-[11px] font-bold text-maroon-800 hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-2.5 pt-1">
                 <button
@@ -269,7 +304,11 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
                   className="w-2/3 py-3.5 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 disabled:cursor-not-allowed text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest shadow-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {busy && <Loader2 size={14} className="animate-spin" />}
-                  {busy
+                  {tab === 'forgot'
+                    ? busy
+                      ? 'Sending Link…'
+                      : 'Send Reset Link'
+                    : busy
                     ? tab === 'login'
                       ? 'Signing In…'
                       : 'Creating Account…'
@@ -289,6 +328,17 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
                       className="font-bold text-maroon-800 hover:underline"
                     >
                       Create an account
+                    </button>
+                  </>
+                ) : tab === 'forgot' ? (
+                  <>
+                    Remembered it?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setTab('login')}
+                      className="font-bold text-maroon-800 hover:underline"
+                    >
+                      Sign in instead
                     </button>
                   </>
                 ) : (
