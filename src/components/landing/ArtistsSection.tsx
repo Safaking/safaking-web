@@ -382,25 +382,6 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                   </h3>
                 </div>
 
-                <ul className="space-y-3 mb-8">
-                  {[
-                    'On-site safa tying at venue or home',
-                    'All safa styles & regional traditions',
-                    'Available across 40+ cities in India',
-                  ].map((item, i) => (
-                    <motion.li
-                      key={item}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: 0.1 * i }}
-                      className="flex items-start gap-3 text-sm text-royal-100/80"
-                    >
-                      <CheckCircle2 size={18} className="text-royal-400 shrink-0 mt-0.5" />
-                      {item}
-                    </motion.li>
-                  ))}
-                </ul>
 
                 <AnimatePresence mode="wait">
                   {booked ? (
