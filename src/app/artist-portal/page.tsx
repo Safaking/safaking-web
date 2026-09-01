@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError, DBArtistBooking } from '@/lib/supabase';
 import { VerificationPanel } from '@/components/verification/VerificationPanel';
+import { DigitalIdCard } from '@/components/verification/DigitalIdCard';
 import { PortfolioManager } from '@/components/reviews/PortfolioManager';
 import { ArtistCheckin } from '@/components/liveops/ArtistCheckin';
 import { ArtistLeadBoard } from '@/components/marketplace/ArtistLeadBoard';
@@ -189,6 +190,7 @@ export default function ArtistPortalPage() {
             <ArtistCheckin artistId={user.id} />
             <ArtistLeadBoard artistId={user.id} />
             <VerificationPanel ownerId={user.id} subjectType="artist" />
+            <DigitalIdCard artistId={user.id} />
             <PortfolioManager artistId={user.id} />
           </div>
         )}

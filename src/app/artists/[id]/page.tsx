@@ -4,21 +4,35 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Crown, ShieldCheck, MapPin, Loader2, AlertCircle, Video, Calendar, Users, ArrowLeft,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   getArtist, listPortfolio, listReviews, portfolioUrl,
-  ArtistPublicProfile, PortfolioItem, Review,
+  listReviewableBookings, submitReview,
+  ArtistPublicProfile, PortfolioItem, Review, ReviewableBooking,
 } from '@/lib/reviews';
 import { Stars, RatingSummary } from '@/components/reviews/Stars';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ArtistProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { user } = useAuth();
 
   const [artist, setArtist] = useState<ArtistPublicProfile | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Reachable by scanning this artist's QR (App module.docx item 24) — a
+  // signed-in customer with an actual completed booking with THIS artist can
+  // rate right here. Anyone else just sees the read-only profile below.
+  const [myBooking, setMyBooking] = useState<ReviewableBooking | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -37,6 +51,46 @@ export default function ArtistProfilePage({ params }: { params: Promise<{ id: st
       active = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!user) {
+      setMyBooking(null);
+      return;
+    }
+    let active = true;
+    listReviewableBookings(user.id)
+      .then((bookings) => {
+        if (active) setMyBooking(bookings.find((b) => b.artistId === id) ?? null);
+      })
+      .catch(() => active && setMyBooking(null));
+    return () => {
+      active = false;
+    };
+  }, [user, id]);
+
+  const handleSubmitReview = async () => {
+    if (!user || !myBooking) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      await submitReview({
+        reviewerId: user.id,
+        subjectType: 'artist',
+        subjectId: id,
+        rentalId: myBooking.rentalId,
+        bookingId: myBooking.bookingId,
+        rating,
+        comment,
+      });
+      setReviewSubmitted(true);
+      setMyBooking(null);
+      setReviews(await listReviews('artist', id));
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : 'Could not save your review.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -181,6 +235,52 @@ export default function ArtistProfilePage({ params }: { params: Promise<{ id: st
             </div>
           )}
         </section>
+
+        {/* Rate this artist — only for a signed-in customer with a real completed booking here */}
+        {myBooking && !reviewSubmitted && (
+          <section className="bg-white rounded-3xl border border-amber-200/60 shadow-sm p-6">
+            <h2 className="font-display font-bold text-lg text-maroon-950 mb-1">
+              Rate Your Experience
+            </h2>
+            <p className="text-xs text-gray-500 mb-4">{myBooking.label}</p>
+            {reviewError && (
+              <div className="flex items-start gap-2 p-3 mb-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+                <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                <p className="text-xs leading-relaxed">{reviewError}</p>
+              </div>
+            )}
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-xs font-bold text-gray-600">Your rating</span>
+              <Stars value={rating} size={22} onChange={setRating} />
+            </div>
+            <textarea
+              rows={3}
+              placeholder="How was the tying, punctuality and behaviour? (optional)"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm resize-none focus:ring-2 focus:ring-maroon-800/20 outline-none"
+            />
+            <button
+              onClick={handleSubmitReview}
+              disabled={reviewSubmitting}
+              className="w-full mt-3 py-3 bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+            >
+              {reviewSubmitting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Saving…
+                </>
+              ) : (
+                'Submit Review'
+              )}
+            </button>
+          </section>
+        )}
+        {reviewSubmitted && (
+          <div className="flex items-center gap-2 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+            <CheckCircle2 size={18} className="shrink-0" />
+            <p className="text-sm font-bold">Thank you for your review!</p>
+          </div>
+        )}
 
         {/* Reviews */}
         <section className="bg-white rounded-3xl border border-amber-200/60 shadow-sm p-6">
