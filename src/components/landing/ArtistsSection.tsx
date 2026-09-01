@@ -85,7 +85,6 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
   const [bookingEndTime, setBookingEndTime] = useState('');
   const [cityVenue, setCityVenue] = useState('');
   const [venueAddress, setVenueAddress] = useState('');
-  const [headSize, setHeadSize] = useState('');
   const [showMeasureGuide, setShowMeasureGuide] = useState(false);
 
   // A second function (Haldi, Sangeet, etc.) on a different date/time/venue.
@@ -154,8 +153,6 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
       booking_end_time: bookingEndTime || null,
       city_venue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${effectiveSafaCount} Safas)`,
       venue_address: venueAddress.trim() || null,
-      // Reference only — the artist re-checks by hand at the venue either way.
-      head_size_inches: headSize.trim() ? Number(headSize) : null,
       safa_style: `${selectedStyle} x ${effectiveSafaCount}`,
       second_event_name: hasSecondEvent ? secondEventName.trim() || null : null,
       second_event_date: hasSecondEvent ? secondEventDate || null : null,
@@ -574,31 +571,14 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
                         />
                       </div>
 
-                      {/* Head size — a reference for the artist, not a hard requirement; they re-check by hand at the venue */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest">
-                            Head Size (inches) — Optional
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setShowMeasureGuide(true)}
-                            className="flex items-center gap-1 text-[10px] font-bold text-royal-400 hover:text-royal-300 underline"
-                          >
-                            <Ruler size={11} /> How to measure?
-                          </button>
-                        </div>
-                        <input
-                          type="number"
-                          step="0.5"
-                          min={15}
-                          max={30}
-                          placeholder="e.g. 22 (helps the artist prepare)"
-                          value={headSize}
-                          onChange={(e) => setHeadSize(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                        />
-                      </div>
+                      {/* Purely informational — no size data is collected here, the artist measures by hand at the venue */}
+                      <button
+                        type="button"
+                        onClick={() => setShowMeasureGuide(true)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-royal-400 hover:text-royal-300 underline"
+                      >
+                        <Ruler size={13} /> Curious how safa head-size measurement works?
+                      </button>
 
                       {/* Second function — Haldi, Sangeet, etc. */}
                       <div className="rounded-xl border border-royal-400/20 bg-white/5 p-3">
