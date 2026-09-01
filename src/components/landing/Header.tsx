@@ -264,6 +264,14 @@ export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
                 Artist Portal
               </Link>
             )}
+            {role !== 'artist' && role !== 'admin' && (
+              <Link
+                href="/artist-portal"
+                className="px-3 py-1.5 ml-1 text-[10px] font-black uppercase tracking-wider text-maroon-900/70 border border-maroon-900/20 rounded-full hover:bg-maroon-900/5 transition-colors whitespace-nowrap"
+              >
+                Are You a Safa Artist?
+              </Link>
+            )}
             {role === 'admin' && (
               <Link
                 href="/admin"
@@ -441,6 +449,15 @@ export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
                     className="px-4 py-3 text-sm font-black tracking-wider uppercase bg-royal-500 text-maroon-950 rounded-xl block"
                   >
                     Artist Portal ➔
+                  </Link>
+                )}
+                {role !== 'artist' && role !== 'admin' && (
+                  <Link
+                    href="/artist-portal"
+                    onClick={closeAll}
+                    className="px-4 py-3 text-sm font-bold tracking-wider uppercase text-maroon-800 border border-maroon-900/20 rounded-xl block"
+                  >
+                    Are You a Safa Artist? ➔
                   </Link>
                 )}
                 {role === 'admin' && (
