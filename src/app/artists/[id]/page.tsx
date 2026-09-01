@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Crown, ShieldCheck, MapPin, Loader2, AlertCircle, Video, Calendar, Users, ArrowLeft,
   CheckCircle2, Camera,
@@ -147,8 +148,8 @@ export default function ArtistProfilePage({ params }: { params: Promise<{ id: st
             <ArrowLeft size={16} />
             <span className="text-xs font-bold uppercase tracking-wider">All artists</span>
           </Link>
-          <Link href="/" className="w-10 h-10 rounded-full bg-royal-gradient flex items-center justify-center">
-            <Crown size={20} className="text-maroon-950" />
+          <Link href="/" className="w-10 h-10 shrink-0">
+            <Image src="/logo.png" alt="SafaKing" width={40} height={40} className="w-full h-full object-contain" />
           </Link>
         </div>
       </header>

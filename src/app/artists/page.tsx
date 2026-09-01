@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Crown, ShieldCheck, MapPin, Loader2, AlertCircle, Images } from 'lucide-react';
 import { listArtists, ArtistPublicProfile } from '@/lib/reviews';
 import { RatingSummary } from '@/components/reviews/Stars';
@@ -27,8 +28,8 @@ export default function ArtistDirectoryPage() {
       <header className="sticky top-0 z-40 bg-maroon-950 text-white shadow-lg">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-20">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-royal-gradient flex items-center justify-center">
-              <Crown size={20} className="text-maroon-950" />
+            <div className="w-10 h-10 shrink-0">
+              <Image src="/logo.png" alt="SafaKing" width={40} height={40} className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest leading-none">

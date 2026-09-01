@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
-  Crown, Calendar, MapPin, Phone, CheckCircle2,
+  Calendar, MapPin, Phone, CheckCircle2,
   User, Sparkles, AlertCircle, LogOut, ArrowLeft, Loader2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -80,8 +81,8 @@ export default function ArtistPortalPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <Link href="/" className="w-10 h-10 rounded-full bg-royal-gradient flex items-center justify-center shadow-md">
-                <Crown size={20} className="text-maroon-950" />
+              <Link href="/" className="w-10 h-10 shrink-0">
+                <Image src="/logo.png" alt="SafaKing" width={40} height={40} className="w-full h-full object-contain" />
               </Link>
               <div>
                 <h1 className="font-display font-black text-xl text-royal-100 uppercase tracking-widest leading-none">

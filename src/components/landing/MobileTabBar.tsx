@@ -29,6 +29,11 @@ export function MobileTabBar() {
         ? '/artist-portal'
         : '/my-bookings';
 
+  // Artist and admin portals are distinct experiences with their own
+  // dedicated header/navigation — this customer shopping tab bar (Shop, Rent,
+  // Bag) doesn't belong there and would overlap their own page content.
+  if (pathname.startsWith('/artist-portal') || pathname.startsWith('/admin')) return null;
+
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   const tabs = [
