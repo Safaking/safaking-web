@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Crown, Loader2, AlertCircle, CheckCircle2, MessageSquare, ArrowLeft,
+  Crown, Loader2, AlertCircle, CheckCircle2, MessageSquare, ArrowLeft, LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -20,7 +20,7 @@ import { ActiveBookingTracker } from '@/components/tracking/ActiveBookingTracker
  * customer is never invited to write one and then rejected by RLS.
  */
 export default function MyBookingsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
 
   const [pending, setPending] = useState<ReviewableBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +106,16 @@ export default function MyBookingsPage() {
           <h1 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest">
             My Bookings
           </h1>
+          {user && (
+            <button
+              onClick={logout}
+              className="flex items-center gap-1.5 text-royal-200/70 hover:text-royal-300"
+              title="Sign out"
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">Logout</span>
+            </button>
+          )}
         </div>
       </header>
 

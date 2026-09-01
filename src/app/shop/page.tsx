@@ -186,9 +186,10 @@ function ShopContent() {
                 )}
               </button>
 
+              {/* Also covered by the bottom tab bar on mobile. */}
               <button
                 onClick={openCart}
-                className="relative text-slate-700 hover:text-[#8B1E2F] transition-colors"
+                className="relative hidden lg:block text-slate-700 hover:text-[#8B1E2F] transition-colors"
                 aria-label="Open shopping bag"
               >
                 <ShoppingBag size={22} />
