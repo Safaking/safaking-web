@@ -335,6 +335,36 @@ export default function AdminPanelPage() {
 
     if (status === 'approved' && application.user_id) {
       await patchRow<UserProfile>('profiles', application.user_id, { role: 'artist' }, setUsers);
+
+      // Mirrors on_artist_application_approved() in supabase/016_client_update.sql —
+      // done here too (not just relying on that DB trigger) so approval works
+      // correctly even on a project where that migration was never applied.
+      // This is exactly what left an already-approved artist (Nakul Joshi)
+      // invisible on /artists: the trigger never ran, so no artist_profiles
+      // row existed for the public listing to show.
+      const { error: profileErr } = await supabase.from('artist_profiles').upsert(
+        {
+          id: application.user_id,
+          display_name: application.full_name,
+          phone: application.phone,
+          phone_alt: application.phone_alt || null,
+          whatsapp_number: application.whatsapp_number || null,
+          upi_id: application.upi_id || null,
+          photo_url: application.photo_url || null,
+          base_city: application.city,
+          safas_per_day: Math.max(1, (application.team_size || 1) * 50),
+          per_safa_rate: application.per_safa_rate ?? 50,
+          team_size: application.team_size || 1,
+          max_travel_km: application.max_travel_km ?? 50,
+          specialties: application.specialties ?? [],
+          experience_years: application.experience_years ?? 1,
+          portfolio_link: application.portfolio_link || null,
+          verified: true,
+          active: true,
+        },
+        { onConflict: 'id' }
+      );
+      if (profileErr) setError(friendlyError(profileErr));
     }
   }
 
