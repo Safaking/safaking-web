@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
   Crown, Search, Heart, ShoppingBag, Menu, X, User, ShieldCheck, LogOut,
   ChevronDown, CalendarRange, Sparkles, MessageSquare, Users, GraduationCap,
-  Briefcase, Info, Store, Phone,
+  Briefcase, Info, Store, Phone, ScrollText,
 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -62,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/#training', label: 'Training Courses', hint: 'Learn safa tying', icon: GraduationCap },
       { href: '/academy', label: 'My Training', hint: 'Your batch and certificate', icon: ShieldCheck },
+      { href: '/knowledge', label: 'Knowledge Center', hint: 'History, colours & technique', icon: ScrollText },
     ],
   },
   {
