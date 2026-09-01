@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Crown, Loader2, AlertCircle, CheckCircle2, ArrowLeft, MessageSquare,
@@ -140,8 +141,11 @@ export default function EnquiryPage() {
             <span className="text-xs font-bold uppercase tracking-wider">Home</span>
           </Link>
           <div className="text-right">
-            <h1 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest leading-none">
+            <h1 className="flex items-center justify-end gap-2 font-display font-black text-lg text-royal-100 uppercase tracking-widest leading-none">
               Get Quotes
+              <span className="w-6 h-6 shrink-0">
+                <Image src="/logo.png" alt="" width={24} height={24} className="w-full h-full object-contain" />
+              </span>
             </h1>
             <p className="text-[10px] text-royal-200/60 uppercase tracking-widest mt-1">
               Artists bid for your event

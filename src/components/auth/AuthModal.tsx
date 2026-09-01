@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Crown, Mail, Lock, User, Phone, MapPin, X, ShieldCheck,
+  Mail, Lock, User, Phone, MapPin, X, ShieldCheck,
   CheckCircle2, AlertCircle, Loader2, Eye, EyeOff,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -145,11 +146,11 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
           <div className="relative bg-maroon-950 text-white p-8 text-center overflow-hidden">
             <div className="absolute inset-0 pattern-diamond opacity-20" />
             <motion.div
-              animate={{ scale: [1, 1.1, 1] }}
+              animate={{ scale: [1, 1.08, 1] }}
               transition={{ duration: 4, repeat: Infinity }}
-              className="w-12 h-12 rounded-full bg-royal-gradient mx-auto flex items-center justify-center mb-3 shadow-lg shadow-royal-500/20 relative z-10"
+              className="w-14 h-14 mx-auto mb-3 relative z-10"
             >
-              <Crown size={24} className="text-maroon-950" />
+              <Image src="/logo.png" alt="SafaKing" width={56} height={56} className="w-full h-full object-contain drop-shadow-lg" priority />
             </motion.div>
             <h3 className="font-display font-black text-2xl text-royal-100 tracking-wider uppercase relative z-10">
               SafaKing Account

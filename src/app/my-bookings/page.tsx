@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Crown, Loader2, AlertCircle, CheckCircle2, MessageSquare, ArrowLeft, LogOut,
@@ -103,7 +104,10 @@ export default function MyBookingsPage() {
             <ArrowLeft size={16} />
             <span className="text-xs font-bold uppercase tracking-wider">Home</span>
           </Link>
-          <h1 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest">
+          <h1 className="flex items-center gap-2 font-display font-black text-lg text-royal-100 uppercase tracking-widest">
+            <span className="w-6 h-6 shrink-0">
+              <Image src="/logo.png" alt="" width={24} height={24} className="w-full h-full object-contain" />
+            </span>
             My Bookings
           </h1>
           {user && (

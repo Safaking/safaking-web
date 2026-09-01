@@ -40,8 +40,8 @@ export default function KnowledgeCenterPage() {
             <ArrowLeft size={16} />
             <span className="text-xs font-bold uppercase tracking-wider">Back to Site</span>
           </Link>
-          <Link href="/" className="w-10 h-10 rounded-full bg-royal-gradient flex items-center justify-center">
-            <Crown size={20} className="text-maroon-950" />
+          <Link href="/" className="w-10 h-10 shrink-0">
+            <Image src="/logo.png" alt="SafaKing" width={40} height={40} className="w-full h-full object-contain" />
           </Link>
         </div>
       </header>
