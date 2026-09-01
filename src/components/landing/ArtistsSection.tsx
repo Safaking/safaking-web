@@ -773,10 +773,10 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
               >
                 <X size={16} />
               </button>
-              <div className="relative w-full aspect-[4/3]">
+              <div className="relative w-full aspect-square">
                 <Image
-                  src="/training-closeup-hands.jpg"
-                  alt="Artist fitting a safa on a groom"
+                  src="/head-size-guide.jpg"
+                  alt="Measuring head size with a tape around the forehead"
                   fill
                   className="object-cover"
                 />
