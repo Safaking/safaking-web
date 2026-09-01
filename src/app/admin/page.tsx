@@ -365,6 +365,17 @@ export default function AdminPanelPage() {
         { onConflict: 'id' }
       );
       if (profileErr) setError(friendlyError(profileErr));
+
+      // Best-effort — the approval itself is already saved above, so a failed
+      // email (e.g. RESEND_API_KEY not yet configured) shouldn't block it.
+      const applicantEmail = users.find((u) => u.id === application.user_id)?.email;
+      if (applicantEmail) {
+        fetch('/api/notify-artist-approved', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: applicantEmail, name: application.full_name }),
+        }).catch(() => {});
+      }
     }
   }
 
