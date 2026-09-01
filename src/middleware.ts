@@ -2,12 +2,28 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /** Path prefix -> roles allowed to enter it. */
-const PROTECTED: { prefix: string; roles: string[] }[] = [
-  { prefix: '/admin', roles: ['admin'] },
-  { prefix: '/artist-portal', roles: ['artist', 'admin'] },
+const PROTECTED: { prefix: string; roles: string[]; signedOutTo: string; deniedTo: string }[] = [
+  { prefix: '/admin', roles: ['admin'], signedOutTo: '/', deniedTo: '/' },
+  {
+    prefix: '/artist-portal',
+    roles: ['artist', 'admin'],
+    // Artists get their own dedicated login and "profile pending" views,
+    // distinct from the shared customer AuthModal — see
+    // src/app/artist-portal/{login,status}/page.tsx.
+    signedOutTo: '/artist-portal/login',
+    deniedTo: '/artist-portal/status',
+  },
 ];
 
+// Sub-routes a signed-in-but-not-yet-artist (or signed-out) visitor must
+// still be able to reach — they're what the guard above redirects TO.
+const ARTIST_PORTAL_PUBLIC_SUBPATHS = ['/artist-portal/login', '/artist-portal/status'];
+
 export async function middleware(request: NextRequest) {
+  if (ARTIST_PORTAL_PUBLIC_SUBPATHS.some((p) => request.nextUrl.pathname.startsWith(p))) {
+    return NextResponse.next({ request });
+  }
+
   const guard = PROTECTED.find(({ prefix }) =>
     request.nextUrl.pathname.startsWith(prefix)
   );
@@ -26,9 +42,13 @@ export async function middleware(request: NextRequest) {
   if (!hasAuthCookie) {
     if (guard) {
       const url = request.nextUrl.clone();
-      url.pathname = '/';
-      url.searchParams.set('auth', 'login');
-      url.searchParams.set('next', request.nextUrl.pathname);
+      url.pathname = guard.signedOutTo;
+      if (guard.signedOutTo === '/') {
+        url.searchParams.set('auth', 'login');
+        url.searchParams.set('next', request.nextUrl.pathname);
+      } else {
+        url.search = '';
+      }
       return NextResponse.redirect(url);
     }
     return NextResponse.next({ request });
@@ -64,9 +84,13 @@ export async function middleware(request: NextRequest) {
   if (guard) {
     if (!user) {
       const url = request.nextUrl.clone();
-      url.pathname = '/';
-      url.searchParams.set('auth', 'login');
-      url.searchParams.set('next', request.nextUrl.pathname);
+      url.pathname = guard.signedOutTo;
+      if (guard.signedOutTo === '/') {
+        url.searchParams.set('auth', 'login');
+        url.searchParams.set('next', request.nextUrl.pathname);
+      } else {
+        url.search = '';
+      }
       return NextResponse.redirect(url);
     }
 
@@ -78,8 +102,12 @@ export async function middleware(request: NextRequest) {
 
     if (!profile || !guard.roles.includes(profile.role)) {
       const url = request.nextUrl.clone();
-      url.pathname = '/';
-      url.searchParams.set('denied', guard.prefix.replace('/', ''));
+      url.pathname = guard.deniedTo;
+      if (guard.deniedTo === '/') {
+        url.searchParams.set('denied', guard.prefix.replace('/', ''));
+      } else {
+        url.search = '';
+      }
       return NextResponse.redirect(url);
     }
   }

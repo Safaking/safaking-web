@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2, AlertCircle, Loader2, Ruler, X } from 'lucide-react';
 import { AnimatedSection, StaggerContainer, staggerItem } from './AnimatedSection';
@@ -55,11 +56,7 @@ import { sendWhatsAppNotification } from '@/lib/whatsapp';
 import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
 
-interface ArtistsSectionProps {
-  onOpenArtistRegister?: () => void;
-}
-
-export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {}) {
+export function ArtistsSection() {
   const { user } = useAuth();
   const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
   const [safaCount, setSafaCount] = useState<number>(25);
@@ -241,16 +238,15 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
             heritage — from Jodhpuri grandeur to Patiala elegance.
           </p>
 
-          {onOpenArtistRegister && (
-            <motion.button
+          <Link href="/artist-portal/login?tab=join">
+            <motion.span
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={onOpenArtistRegister}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-maroon-950 text-royal-300 font-bold text-xs uppercase tracking-widest shadow-lg border border-royal-400/30 hover:bg-maroon-900 transition-colors"
             >
               <Crown size={15} /> Are You a Safa Artist? Apply to Join Network ➔
-            </motion.button>
-          )}
+            </motion.span>
+          </Link>
         </AnimatedSection>
 
         {/* Style cards — 3 categories */}

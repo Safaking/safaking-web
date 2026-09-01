@@ -15,7 +15,6 @@ import { SupplierSection } from '@/components/landing/SupplierSection';
 import { Footer } from '@/components/landing/Footer';
 import { Preloader } from '@/components/landing/Preloader';
 import { AuthModal } from '@/components/auth/AuthModal';
-import { ArtistRegistrationModal } from '@/components/auth/ArtistRegistrationModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { fetchProducts, StoreProduct } from '@/lib/products';
 import { useWishlist } from '@/hooks/useWishlist';
@@ -26,7 +25,6 @@ function LandingContent() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
-  const [artistRegisterOpen, setArtistRegisterOpen] = useState(false);
   // Starts empty rather than STATIC_PRODUCTS — showing demo products while
   // the real catalogue is still loading, with nothing to say so, read as
   // "the site is broken" the moment the fetch took longer than the
@@ -89,7 +87,7 @@ function LandingContent() {
         <Hero />
         <TrustBar />
         <IntroVideo />
-        <ArtistsSection onOpenArtistRegister={() => setArtistRegisterOpen(true)} />
+        <ArtistsSection />
         <FeaturedCollection
           products={featured.length > 0 ? featured : products.slice(0, 4)}
           loading={productsLoading}
@@ -102,10 +100,6 @@ function LandingContent() {
       </div>
 
       <AuthModal isOpen={authOpen} onClose={closeAuth} redirectTo={searchParams.get('next')} />
-      <ArtistRegistrationModal
-        isOpen={artistRegisterOpen}
-        onClose={() => setArtistRegisterOpen(false)}
-      />
       <CartDrawer />
     </>
   );
