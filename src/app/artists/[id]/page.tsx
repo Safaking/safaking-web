@@ -4,11 +4,11 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Crown, ShieldCheck, MapPin, Loader2, AlertCircle, Video, Calendar, Users, ArrowLeft,
-  CheckCircle2,
+  CheckCircle2, Camera,
 } from 'lucide-react';
 import {
   getArtist, listPortfolio, listReviews, portfolioUrl,
-  listReviewableBookings, submitReview,
+  listReviewableBookings, submitReview, submitCustomerPortfolioPhoto,
   ArtistPublicProfile, PortfolioItem, Review, ReviewableBooking,
 } from '@/lib/reviews';
 import { Stars, RatingSummary } from '@/components/reviews/Stars';
@@ -33,6 +33,12 @@ export default function ArtistProfilePage({ params }: { params: Promise<{ id: st
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+
+  // A photo from the event itself — separate from the rating, since a
+  // customer may want to offer one without (or in addition to) reviewing.
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoSubmitted, setPhotoSubmitted] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -83,12 +89,25 @@ export default function ArtistProfilePage({ params }: { params: Promise<{ id: st
         comment,
       });
       setReviewSubmitted(true);
-      setMyBooking(null);
       setReviews(await listReviews('artist', id));
     } catch (err) {
       setReviewError(err instanceof Error ? err.message : 'Could not save your review.');
     } finally {
       setReviewSubmitting(false);
+    }
+  };
+
+  const handlePhotoShare = async (file: File | undefined) => {
+    if (!file || !user) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      await submitCustomerPortfolioPhoto({ artistId: id, reviewerId: user.id, file });
+      setPhotoSubmitted(true);
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Could not upload that photo.');
+    } finally {
+      setPhotoBusy(false);
     }
   };
 
@@ -279,6 +298,43 @@ export default function ArtistProfilePage({ params }: { params: Promise<{ id: st
           <div className="flex items-center gap-2 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800">
             <CheckCircle2 size={18} className="shrink-0" />
             <p className="text-sm font-bold">Thank you for your review!</p>
+          </div>
+        )}
+
+        {/* Offer a photo from the event — separate from the rating, joins the
+            artist's portfolio once they approve it */}
+        {myBooking && !photoSubmitted && (
+          <section className="bg-white rounded-3xl border border-amber-200/60 shadow-sm p-6">
+            <h2 className="font-display font-bold text-lg text-maroon-950 mb-1 flex items-center gap-2">
+              <Camera size={18} className="text-amber-600" /> Share an Event Photo
+            </h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Offer a photo to this artist&apos;s portfolio — shown publicly once they approve it.
+            </p>
+            {photoError && (
+              <div className="flex items-start gap-2 p-3 mb-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+                <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                <p className="text-xs leading-relaxed">{photoError}</p>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={photoBusy}
+              onChange={(e) => handlePhotoShare(e.target.files?.[0])}
+              className="block w-full text-[11px] text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-bold file:bg-maroon-950 file:text-royal-300 hover:file:bg-maroon-900 file:cursor-pointer disabled:opacity-50"
+            />
+            {photoBusy && (
+              <p className="text-[11px] text-amber-700 flex items-center gap-1.5 mt-2">
+                <Loader2 size={12} className="animate-spin" /> Uploading…
+              </p>
+            )}
+          </section>
+        )}
+        {photoSubmitted && (
+          <div className="flex items-center gap-2 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+            <CheckCircle2 size={18} className="shrink-0" />
+            <p className="text-sm font-bold">Thanks! Your photo is waiting for the artist&apos;s approval.</p>
           </div>
         )}
 

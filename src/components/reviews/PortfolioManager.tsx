@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Images, Video, Trash2, Loader2, AlertCircle, Plus, EyeOff } from 'lucide-react';
+import { Images, Video, Trash2, Loader2, AlertCircle, Plus, EyeOff, CheckCircle2, UserRound } from 'lucide-react';
 import {
   PortfolioItem, listPortfolio, addPortfolioPhoto, addPortfolioVideo,
-  removePortfolioItem, portfolioUrl,
+  removePortfolioItem, portfolioUrl, setPortfolioItemVisibility,
 } from '@/lib/reviews';
 
 /** An artist's own portfolio: photos, video links and past events. */
@@ -88,6 +88,20 @@ export function PortfolioManager({ artistId }: { artistId: string }) {
     }
   };
 
+  const handleApprove = async (item: PortfolioItem) => {
+    setBusy(true);
+    try {
+      await setPortfolioItemVisibility(item.id, true);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not publish that photo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pendingFromCustomers = items.filter((i) => i.submitted_by && !i.visible);
+
   return (
     <section className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden">
       <div className="p-6 border-b border-amber-100">
@@ -95,8 +109,8 @@ export function PortfolioManager({ artistId }: { artistId: string }) {
           <Images size={18} className="text-amber-600" /> My Portfolio
         </h3>
         <p className="text-xs text-gray-500 mt-0.5">
-          Customers look at your work before they book. {items.length} item
-          {items.length === 1 ? '' : 's'} published.
+          Customers look at your work before they book. {items.filter((i) => i.visible).length} item
+          {items.filter((i) => i.visible).length === 1 ? '' : 's'} published.
         </p>
       </div>
 
@@ -105,6 +119,16 @@ export function PortfolioManager({ artistId }: { artistId: string }) {
           <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed">{error}</p>
+          </div>
+        )}
+
+        {pendingFromCustomers.length > 0 && (
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-royal-50 border border-royal-200 text-maroon-900">
+            <UserRound size={15} className="shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">
+              {pendingFromCustomers.length} customer photo{pendingFromCustomers.length === 1 ? '' : 's'} waiting
+              for your approval below — a customer you tied a safa for can offer a photo after their event.
+            </p>
           </div>
         )}
 
@@ -202,19 +226,37 @@ export function PortfolioManager({ artistId }: { artistId: string }) {
                     </a>
                   )}
 
-                  {!item.visible && (
-                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900/80 text-white text-[9px] font-black uppercase">
-                      <EyeOff size={9} /> Hidden
+                  {!item.visible && item.submitted_by ? (
+                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-royal-600/90 text-white text-[9px] font-black uppercase">
+                      <UserRound size={9} /> Pending approval
                     </span>
+                  ) : (
+                    !item.visible && (
+                      <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900/80 text-white text-[9px] font-black uppercase">
+                        <EyeOff size={9} /> Hidden
+                      </span>
+                    )
                   )}
 
-                  <button
-                    onClick={() => handleRemove(item)}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 text-rose-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                    aria-label="Remove"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!item.visible && item.submitted_by && (
+                      <button
+                        onClick={() => handleApprove(item)}
+                        className="w-7 h-7 rounded-full bg-white/90 text-emerald-600 flex items-center justify-center shadow-sm"
+                        aria-label="Approve and publish"
+                        title="Approve and publish"
+                      >
+                        <CheckCircle2 size={13} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRemove(item)}
+                      className="w-7 h-7 rounded-full bg-white/90 text-rose-600 flex items-center justify-center shadow-sm"
+                      aria-label="Remove"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
 
                   {(item.event_name || item.caption) && (
                     <div className="p-2">
