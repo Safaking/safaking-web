@@ -292,8 +292,10 @@ export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
               <Search size={20} />
             </Link>
 
+            {/* Account is already covered by the bottom tab bar on mobile — showing
+                it here too just duplicates a nav destination in two places. */}
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="hidden lg:flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-maroon-900 hidden xl:inline">
                   {profile?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
                 </span>
@@ -308,7 +310,7 @@ export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
             ) : (
               <button
                 onClick={onOpenAuth}
-                className="flex items-center gap-1 text-maroon-800/70 hover:text-maroon-700 transition-colors"
+                className="hidden lg:flex items-center gap-1 text-maroon-800/70 hover:text-maroon-700 transition-colors"
                 title="Account Login / Register"
               >
                 <User size={20} />
@@ -328,9 +330,10 @@ export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
               )}
             </Link>
 
+            {/* Also covered by the bottom tab bar on mobile. */}
             <button
               onClick={openCart}
-              className="relative text-maroon-800/70 hover:text-maroon-700 transition-colors"
+              className="relative hidden lg:block text-maroon-800/70 hover:text-maroon-700 transition-colors"
               aria-label="Open shopping bag"
             >
               <ShoppingBag size={20} />

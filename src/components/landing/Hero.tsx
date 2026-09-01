@@ -6,16 +6,6 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { Crown, ArrowUpRight, Sparkles, Star } from 'lucide-react';
 import { useRef } from 'react';
 
-const floatAnimation = {
-  y: [0, -18, 0],
-  transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' as const },
-};
-
-const floatAnimationDelayed = {
-  y: [0, 16, 0],
-  transition: { duration: 5, repeat: Infinity, ease: 'easeInOut' as const, delay: 1.5 },
-};
-
 export function Hero() {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({ target: ref });
@@ -196,7 +186,7 @@ export function Hero() {
             {/* Floating card — Pink Safa */}
             <motion.div
               initial={{ opacity: 0, x: -40 }}
-              animate={{ opacity: 1, x: 0, ...floatAnimation }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.5 }}
               className="absolute top-0 -left-2 sm:left-0 z-20 w-28 sm:w-40 lg:w-48 glass-card p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
             >
@@ -217,7 +207,7 @@ export function Hero() {
             {/* Floating card — Blue Safa */}
             <motion.div
               initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0, ...floatAnimationDelayed }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.7 }}
               className="absolute bottom-0 -right-2 sm:right-0 z-20 w-28 sm:w-40 lg:w-48 glass-card p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
             >
@@ -235,21 +225,14 @@ export function Hero() {
               <p className="text-[9px] text-maroon-500/60 text-center">Brocade · ₹4,199</p>
             </motion.div>
 
-            {/* Rotating decorative rings */}
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 35, repeat: Infinity, ease: 'linear' }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            >
+            {/* Decorative rings — static; the continuous rotation was a real
+                source of jank on mobile WebViews, not just a flourish */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-[260px] h-[260px] sm:w-[380px] sm:h-[380px] lg:w-[450px] lg:h-[450px] rounded-full border border-dashed border-royal-400/20" />
-            </motion.div>
-            <motion.div
-              animate={{ rotate: -360 }}
-              transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            >
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-[200px] h-[200px] sm:w-[300px] sm:h-[300px] lg:w-[360px] lg:h-[360px] rounded-full border border-dotted border-royal-300/10" />
-            </motion.div>
+            </div>
           </div>
         </div>
       </motion.div>
