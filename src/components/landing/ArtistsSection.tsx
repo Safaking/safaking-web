@@ -769,12 +769,20 @@ export function ArtistsSection({ onOpenArtistRegister }: ArtistsSectionProps = {
             >
               <button
                 onClick={() => setShowMeasureGuide(false)}
-                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-maroon-950/10 hover:bg-maroon-950/20 flex items-center justify-center text-maroon-950 transition-colors"
+                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center text-maroon-950 transition-colors shadow-md"
               >
                 <X size={16} />
               </button>
+              <div className="relative w-full aspect-[4/3]">
+                <Image
+                  src="/training-closeup-hands.jpg"
+                  alt="Artist fitting a safa on a groom"
+                  fill
+                  className="object-cover"
+                />
+              </div>
               <div className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-royal-gradient flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-royal-gradient flex items-center justify-center -mt-14 relative z-10 border-4 border-white shadow-lg">
                   <Ruler size={22} className="text-maroon-950" />
                 </div>
                 <h4 className="font-display font-black text-lg text-maroon-950">
