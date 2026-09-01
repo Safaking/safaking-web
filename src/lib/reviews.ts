@@ -32,6 +32,7 @@ export interface PortfolioItem {
   event_date: string | null;
   sort_order: number;
   visible: boolean;
+  submitted_by: string | null;
   created_at: string;
 }
 
@@ -260,6 +261,52 @@ export async function addPortfolioPhoto(params: {
     await supabase.storage.from(PORTFOLIO_BUCKET).remove([path]);
     throw new Error(describeError(error));
   }
+}
+
+/**
+ * A customer's own post-event photo, offered to the artist's portfolio
+ * (App module.docx item 23). Always lands hidden — the artist approves it
+ * (or not) from their own portfolio manager before it's public; RLS enforces
+ * this regardless of what's sent here (see supabase/024).
+ */
+export async function submitCustomerPortfolioPhoto(params: {
+  artistId: string;
+  reviewerId: string;
+  file: File;
+  eventName?: string;
+}): Promise<void> {
+  const { artistId, reviewerId, file } = params;
+
+  if (file.size > MAX_BYTES) throw new Error('That photo is larger than 8 MB.');
+  if (!ALLOWED_IMAGE.includes(file.type)) throw new Error('Upload a JPG, PNG or WEBP.');
+
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const path = `${artistId}/${Date.now()}-customer.${extension}`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from(PORTFOLIO_BUCKET)
+    .upload(path, file, { contentType: file.type });
+
+  if (uploadErr) throw new Error(describeError(uploadErr));
+
+  const { error } = await supabase.from('portfolio_items').insert({
+    artist_id: artistId,
+    submitted_by: reviewerId,
+    media_kind: 'photo',
+    storage_path: path,
+    visible: false,
+    event_name: params.eventName?.trim() || null,
+  });
+
+  if (error) {
+    await supabase.storage.from(PORTFOLIO_BUCKET).remove([path]);
+    throw new Error(describeError(error));
+  }
+}
+
+export async function setPortfolioItemVisibility(itemId: string, visible: boolean): Promise<void> {
+  const { error } = await supabase.from('portfolio_items').update({ visible }).eq('id', itemId);
+  if (error) throw new Error(describeError(error));
 }
 
 export async function addPortfolioVideo(params: {
