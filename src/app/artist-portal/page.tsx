@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
-  Calendar, MapPin, Phone, CheckCircle2,
+  Calendar, MapPin, Phone, CheckCircle2, XCircle, Bell,
   User, Sparkles, AlertCircle, LogOut, ArrowLeft, Loader2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -64,8 +64,31 @@ export default function ArtistPortalPage() {
     }
   };
 
+  // Accept keeps artist_id as-is (passes RLS's `artist_id = auth.uid()` check
+  // both before and after). Decline deliberately leaves artist_id in place
+  // too, rather than nulling it — an artist can only update rows where
+  // artist_id already equals their own id, so clearing it would fail RLS;
+  // it also preserves who declined for the admin to see before re-offering.
+  const respondToOffer = async (id: string, accept: boolean) => {
+    const previous = bookings;
+    const nextStatus = accept ? 'assigned' : 'declined';
+    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: nextStatus } : b)));
+
+    const { error: updateErr } = await supabase
+      .from('artist_bookings')
+      .update({ status: nextStatus })
+      .eq('id', id);
+
+    if (updateErr) {
+      setBookings(previous);
+      setError(friendlyError(updateErr));
+    }
+  };
+
+  const pendingOffers = bookings.filter((b) => b.status === 'offered');
+
   const filteredBookings = bookings.filter((b) => {
-    if (filter === 'assigned') return b.status === 'assigned' || b.status === 'pending';
+    if (filter === 'assigned') return b.status === 'assigned' || b.status === 'offered' || b.status === 'pending';
     if (filter === 'completed') return b.status === 'completed';
     return true;
   });
@@ -196,6 +219,15 @@ export default function ArtistPortalPage() {
           </div>
         )}
 
+        {pendingOffers.length > 0 && (
+          <div className="flex items-center gap-3 p-4 mb-6 rounded-2xl bg-amber-100 border-2 border-amber-400 text-amber-900 shadow-md">
+            <Bell size={20} className="shrink-0 animate-pulse" />
+            <p className="text-sm font-bold">
+              You have {pendingOffers.length} new booking {pendingOffers.length === 1 ? 'offer' : 'offers'} waiting — accept or decline below.
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-start gap-2 p-4 mb-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -224,7 +256,9 @@ export default function ArtistPortalPage() {
                 key={b.id}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl p-6 border border-amber-200/60 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:shadow-md transition-shadow"
+                className={`bg-white rounded-3xl p-6 border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:shadow-md transition-shadow ${
+                  b.status === 'offered' ? 'border-amber-400 border-2' : 'border-amber-200/60'
+                }`}
               >
                 <div className="space-y-3 flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -235,10 +269,20 @@ export default function ArtistPortalPage() {
                       className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${
                         b.status === 'completed'
                           ? 'bg-emerald-100 text-emerald-800'
+                          : b.status === 'offered'
+                          ? 'bg-amber-200 text-amber-900'
+                          : b.status === 'declined'
+                          ? 'bg-rose-100 text-rose-800'
                           : 'bg-amber-100 text-amber-800'
                       }`}
                     >
-                      {b.status === 'completed' ? 'Completed ✓' : 'Upcoming Event'}
+                      {b.status === 'completed'
+                        ? 'Completed ✓'
+                        : b.status === 'offered'
+                        ? 'New Offer — Respond'
+                        : b.status === 'declined'
+                        ? 'Declined'
+                        : 'Upcoming Event'}
                     </span>
                   </div>
 
@@ -266,14 +310,29 @@ export default function ArtistPortalPage() {
                   </div>
                 </div>
 
-                {b.status !== 'completed' && (
+                {b.status === 'offered' ? (
+                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                    <button
+                      onClick={() => respondToOffer(b.id, true)}
+                      className="w-full md:w-auto px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-widest rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <CheckCircle2 size={16} /> Accept
+                    </button>
+                    <button
+                      onClick={() => respondToOffer(b.id, false)}
+                      className="w-full md:w-auto px-6 py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-widest rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <XCircle size={16} /> Decline
+                    </button>
+                  </div>
+                ) : b.status !== 'completed' && b.status !== 'declined' ? (
                   <button
                     onClick={() => markCompleted(b.id)}
                     className="w-full md:w-auto px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-widest rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-colors"
                   >
                     <CheckCircle2 size={16} /> Mark Completed
                   </button>
-                )}
+                ) : null}
               </motion.div>
             ))
           )}
