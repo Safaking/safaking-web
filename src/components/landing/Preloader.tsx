@@ -12,19 +12,19 @@ export function Preloader() {
         scale: 1.03,
         transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1] } 
       }}
-      className="fixed inset-0 z-50 bg-maroon-950 flex flex-col items-center justify-center overflow-hidden"
+      className="fixed inset-0 z-50 bg-royal-50 flex flex-col items-center justify-center overflow-hidden"
     >
       {/* Decorative background grid pattern */}
-      <div className="absolute inset-0 pattern-diamond opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 pattern-diamond opacity-[0.06] pointer-events-none" />
 
       {/* Royal ambient gold glow */}
       <motion.div
-        animate={{ 
+        animate={{
           scale: [1, 1.2, 1],
           opacity: [0.15, 0.3, 0.15]
         }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute w-[400px] h-[400px] bg-royal-400/20 rounded-full blur-3xl pointer-events-none"
+        className="absolute w-[400px] h-[400px] bg-royal-400/25 rounded-full blur-3xl pointer-events-none"
       />
 
       <div className="relative flex flex-col items-center">
@@ -34,24 +34,24 @@ export function Preloader() {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-0 rounded-full border-2 border-dashed border-royal-400/30"
+            className="absolute inset-0 rounded-full border-2 border-dashed border-maroon-800/30"
           />
 
           {/* Middle ring - rotating counter-clockwise */}
           <motion.div
             animate={{ rotate: -360 }}
             transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-            className="absolute -inset-2 rounded-full border border-double border-royal-300/40"
+            className="absolute -inset-2 rounded-full border border-double border-maroon-700/40"
           />
 
           {/* Outer pulsing ring */}
           <motion.div
-            animate={{ 
+            animate={{
               scale: [1, 1.15, 1],
               opacity: [0.4, 0.8, 0.4]
             }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -inset-4 rounded-full border border-royal-500/20"
+            className="absolute -inset-4 rounded-full border border-maroon-900/20"
           />
 
           {/* Glowing Logo */}
@@ -81,14 +81,14 @@ export function Preloader() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.6 }}
             transition={{ delay: 0.6, duration: 0.6 }}
-            className="text-[10px] tracking-[0.4em] text-royal-200 uppercase mt-1.5 font-bold"
+            className="text-[10px] tracking-[0.4em] text-maroon-700/70 uppercase mt-1.5 font-bold"
           >
             Royal Turban House
           </motion.p>
         </div>
 
         {/* Custom Progress Bar */}
-        <div className="w-48 h-[3px] bg-white/10 rounded-full overflow-hidden relative border border-white/5">
+        <div className="w-48 h-[3px] bg-maroon-900/10 rounded-full overflow-hidden relative border border-maroon-900/5">
           <motion.div
             initial={{ left: "-100%" }}
             animate={{ left: "100%" }}
@@ -106,7 +106,7 @@ export function Preloader() {
           initial={{ opacity: 0 }}
           animate={{ opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          className="text-[9px] text-royal-300/50 uppercase tracking-[0.2em] mt-3 font-semibold"
+          className="text-[9px] text-maroon-700/50 uppercase tracking-[0.2em] mt-3 font-semibold"
         >
           Wrapping Turban Styles...
         </motion.p>
