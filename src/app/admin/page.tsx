@@ -695,12 +695,15 @@ export default function AdminPanelPage() {
   return (
     <div className="min-h-screen bg-[#FDF6EC] text-maroon-950 font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-maroon-950 text-white shadow-lg border-b border-royal-400/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-40 bg-maroon-950 text-white shadow-lg shadow-maroon-900/20 border-b border-royal-400/20 relative overflow-hidden">
+        <div className="absolute inset-0 pattern-diamond opacity-[0.05] pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
               <Link href="/" className="w-10 h-10 shrink-0">
-                <Image src="/logo.png" alt="SafaKing" width={40} height={40} className="w-full h-full object-contain" />
+                <motion.div whileHover={{ rotate: 8, scale: 1.05 }} className="w-full h-full">
+                  <Image src="/logo.png" alt="SafaKing" width={40} height={40} className="w-full h-full object-contain" />
+                </motion.div>
               </Link>
               <div>
                 <h1 className="font-display font-black text-xl text-royal-100 uppercase tracking-widest leading-none">
@@ -754,43 +757,23 @@ export default function AdminPanelPage() {
         {/* Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            {
-              label: 'Total Sales Revenue',
-              value: `₹${totalRevenue.toLocaleString()}`,
-              icon: TrendingUp,
-              tone: 'bg-royal-100 text-royal-800',
-            },
-            {
-              label: 'Orders',
-              value: orders.length,
-              icon: ShoppingBag,
-              tone: 'bg-amber-100 text-amber-800',
-            },
-            {
-              label: 'Artist Bookings',
-              value: bookings.length,
-              icon: Calendar,
-              tone: 'bg-emerald-100 text-emerald-800',
-            },
-            {
-              label: 'Suppliers Pending',
-              value: pendingSuppliers,
-              icon: Package,
-              tone: 'bg-indigo-100 text-indigo-800',
-            },
+            { label: 'Total Sales Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: TrendingUp },
+            { label: 'Orders', value: orders.length, icon: ShoppingBag },
+            { label: 'Artist Bookings', value: bookings.length, icon: Calendar },
+            { label: 'Suppliers Pending', value: pendingSuppliers, icon: Package },
           ].map((metric) => (
             <div
               key={metric.label}
               className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-sm flex items-center gap-5"
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${metric.tone}`}>
-                <metric.icon size={24} />
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-maroon-950 text-royal-300 shrink-0">
+                <metric.icon size={22} />
               </div>
               <div>
                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                   {metric.label}
                 </p>
-                <p className="text-2xl font-display font-black text-maroon-950 mt-0.5">
+                <p className="text-2xl font-display font-black text-gradient-gold mt-0.5">
                   {loading ? '—' : metric.value}
                 </p>
               </div>
@@ -806,11 +789,11 @@ export default function AdminPanelPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-5 py-3.5 text-xs font-bold uppercase tracking-widest border-b-2 transition-all shrink-0 ${
                 activeTab === tab.id
-                  ? 'border-maroon-950 text-maroon-950 bg-white rounded-t-2xl shadow-sm'
+                  ? 'border-royal-500 text-maroon-950 bg-white rounded-t-2xl shadow-sm'
                   : 'border-transparent text-gray-500 hover:text-gray-800'
               }`}
             >
-              <tab.icon size={16} />
+              <tab.icon size={16} className={activeTab === tab.id ? 'text-royal-600' : ''} />
               {tab.label}
             </button>
           ))}
