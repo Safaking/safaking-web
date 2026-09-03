@@ -8,7 +8,7 @@ import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
-  Phone, User, Navigation, MessageCircle,
+  Phone, User, Navigation, MessageCircle, Search,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -59,6 +59,7 @@ const JOB_STATUSES = ['pending', 'shortlisted', 'hired', 'rejected'] as const;
 const RENTAL_STATUSES = [
   'pending', 'confirmed', 'dispatched', 'active', 'returned', 'completed', 'cancelled',
 ] as const;
+const BOOKING_STATUSES = ['pending', 'offered', 'assigned', 'declined', 'completed', 'cancelled'] as const;
 const ROLES: UserRole[] = ['customer', 'artist', 'admin'];
 
 interface ArtistDispatchProfile {
@@ -134,10 +135,12 @@ function StatusSelect<T extends string>({
 }
 
 function Panel({
-  title, subtitle, children,
+  title, subtitle, toolbar, children,
 }: {
   title: string;
   subtitle?: string;
+  /** Optional filter/search row, rendered between the title and the table. */
+  toolbar?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -146,9 +149,72 @@ function Panel({
         <h3 className="font-display font-bold text-lg text-maroon-950">{title}</h3>
         {subtitle && <span className="text-xs text-gray-400 font-medium">{subtitle}</span>}
       </div>
+      {toolbar && <div className="px-6 pt-5">{toolbar}</div>}
       <div className="overflow-x-auto">{children}</div>
     </div>
   );
+}
+
+/**
+ * Search + status-filter row shared by every list tab (Orders, Rentals,
+ * Artist Bookings, Applications, Products, Suppliers, Academy, Careers,
+ * Users). Pass `statusOptions` to include the status dropdown; omit it for
+ * tabs with no editable/filterable status (e.g. Pincodes).
+ */
+function FilterBar({
+  search, onSearchChange, searchPlaceholder,
+  status, onStatusChange, statusOptions,
+}: {
+  search: string;
+  onSearchChange: (next: string) => void;
+  searchPlaceholder: string;
+  status?: string;
+  onStatusChange?: (next: string) => void;
+  statusOptions?: readonly string[];
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-3 mb-5">
+      <div className="relative flex-1 min-w-[200px]">
+        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder={searchPlaceholder}
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-amber-50/30 text-xs font-medium focus:ring-2 focus:ring-maroon-950/20 focus:outline-none placeholder:text-gray-400"
+        />
+      </div>
+      {statusOptions && onStatusChange && (
+        <select
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value)}
+          className="px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] capitalize focus:ring-2 focus:ring-maroon-950/20 shrink-0"
+        >
+          <option value="">All Statuses</option>
+          {statusOptions.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+/** True if `row` matches the current search text (across `searchFields`) and status filter. */
+function matchesFilter<T extends object>(
+  row: T,
+  search: string,
+  searchFields: (keyof T)[],
+  status?: string,
+  statusField?: keyof T
+): boolean {
+  const asRecord = row as Record<string, unknown>;
+  if (status && statusField && String(asRecord[statusField as string] ?? '') !== status) return false;
+  if (!search.trim()) return true;
+  const q = search.trim().toLowerCase();
+  return searchFields.some((field) => String(asRecord[field as string] ?? '').toLowerCase().includes(q));
 }
 
 function Empty({ label }: { label: string }) {
@@ -198,6 +264,64 @@ export default function AdminPanelPage() {
   const [bulkApproving, setBulkApproving] = useState(false);
 
   const artists = useMemo(() => users.filter((u) => u.role === 'artist'), [users]);
+
+  // Filter/search state — one {status, search} pair per list tab, applied via
+  // matchesFilter() below. Status is empty string = "All Statuses".
+  const [ordersFilter, setOrdersFilter] = useState({ status: '', search: '' });
+  const [rentalsFilter, setRentalsFilter] = useState({ status: '', search: '' });
+  const [bookingsFilter, setBookingsFilter] = useState({ status: '', search: '' });
+  const [artistAppsFilter, setArtistAppsFilter] = useState({ status: '', search: '' });
+  const [productsFilter, setProductsFilter] = useState({ status: '', search: '' });
+  const [suppliersFilter, setSuppliersFilter] = useState({ status: '', search: '' });
+  const [enrollmentsFilter, setEnrollmentsFilter] = useState({ status: '', search: '' });
+  const [jobAppsFilter, setJobAppsFilter] = useState({ status: '', search: '' });
+  const [usersFilter, setUsersFilter] = useState({ status: '', search: '' });
+  const [pincodesSearch, setPincodesSearch] = useState('');
+
+  const filteredOrders = useMemo(
+    () => orders.filter((o) => matchesFilter(o, ordersFilter.search, ['customer_name', 'customer_phone', 'shipping_address'], ordersFilter.status, 'status')),
+    [orders, ordersFilter]
+  );
+  const filteredRentals = useMemo(
+    () => rentals.filter((r) => matchesFilter(r, rentalsFilter.search, ['customer_name', 'customer_phone', 'venue_address', 'pincode', 'city'], rentalsFilter.status, 'status')),
+    [rentals, rentalsFilter]
+  );
+  const filteredBookings = useMemo(
+    () => bookings.filter((b) => matchesFilter(b, bookingsFilter.search, ['customer_name', 'customer_phone', 'city_venue', 'artist_name'], bookingsFilter.status, 'status')),
+    [bookings, bookingsFilter]
+  );
+  const filteredArtistApps = useMemo(
+    () => artistApps.filter((a) => matchesFilter(a, artistAppsFilter.search, ['full_name', 'phone', 'city'], artistAppsFilter.status, 'status')),
+    [artistApps, artistAppsFilter]
+  );
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (productsFilter.status === 'active' && !p.active) return false;
+      if (productsFilter.status === 'inactive' && p.active) return false;
+      if (productsFilter.status === 'pending_sync' && !p.pending_sync) return false;
+      return matchesFilter(p, productsFilter.search, ['name', 'code', 'category']);
+    });
+  }, [products, productsFilter]);
+  const filteredSuppliers = useMemo(
+    () => suppliers.filter((s) => matchesFilter(s, suppliersFilter.search, ['business_name', 'contact_name', 'phone', 'city'], suppliersFilter.status, 'status')),
+    [suppliers, suppliersFilter]
+  );
+  const filteredEnrollments = useMemo(
+    () => enrollments.filter((e) => matchesFilter(e, enrollmentsFilter.search, ['full_name', 'phone', 'city'], enrollmentsFilter.status, 'status')),
+    [enrollments, enrollmentsFilter]
+  );
+  const filteredJobApps = useMemo(
+    () => jobApps.filter((j) => matchesFilter(j, jobAppsFilter.search, ['full_name', 'city', 'job_title'], jobAppsFilter.status, 'status')),
+    [jobApps, jobAppsFilter]
+  );
+  const filteredUsers = useMemo(
+    () => users.filter((u) => matchesFilter(u, usersFilter.search, ['full_name', 'email', 'phone'], usersFilter.status, 'role')),
+    [users, usersFilter]
+  );
+  const filteredPincodes = useMemo(
+    () => pincodes.filter((p) => matchesFilter(p, pincodesSearch, ['pincode', 'city_state'])),
+    [pincodes, pincodesSearch]
+  );
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -808,9 +932,24 @@ export default function AdminPanelPage() {
           <>
             {/* ---- ORDERS ---- */}
             {activeTab === 'orders' && (
-              <Panel title="Fulfilment & Orders" subtitle="Change a status to update it live">
+              <Panel
+                title="Fulfilment & Orders"
+                subtitle="Change a status to update it live"
+                toolbar={
+                  <FilterBar
+                    search={ordersFilter.search}
+                    onSearchChange={(search) => setOrdersFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by customer name, phone or address…"
+                    status={ordersFilter.status}
+                    onStatusChange={(status) => setOrdersFilter((f) => ({ ...f, status }))}
+                    statusOptions={ORDER_STATUSES}
+                  />
+                }
+              >
                 {orders.length === 0 ? (
                   <Empty label="No orders yet." />
+                ) : filteredOrders.length === 0 ? (
+                  <Empty label="No orders match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -824,7 +963,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {orders.map((order) => {
+                      {filteredOrders.map((order) => {
                         const adv = order.advance_amount ?? Math.round(order.total_amount * 0.5);
                         const bal = order.balance_amount ?? (order.total_amount - adv);
                         const isFullyPaid = order.payment_status === 'fully_paid';
@@ -902,9 +1041,21 @@ export default function AdminPanelPage() {
                     ? 'No artists registered yet — an artist must sign up first'
                     : `${artists.length} artist${artists.length === 1 ? '' : 's'} available`
                 }
+                toolbar={
+                  <FilterBar
+                    search={bookingsFilter.search}
+                    onSearchChange={(search) => setBookingsFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by customer, phone, venue or artist…"
+                    status={bookingsFilter.status}
+                    onStatusChange={(status) => setBookingsFilter((f) => ({ ...f, status }))}
+                    statusOptions={BOOKING_STATUSES}
+                  />
+                }
               >
                 {bookings.length === 0 ? (
                   <Empty label="No bookings yet." />
+                ) : filteredBookings.length === 0 ? (
+                  <Empty label="No bookings match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -918,7 +1069,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {bookings.map((booking) => (
+                      {filteredBookings.map((booking) => (
                         <tr key={booking.id} className="hover:bg-amber-50/30 transition-colors">
                           <td className="p-4 font-bold text-maroon-950">
                             {booking.customer_name}
@@ -965,9 +1116,24 @@ export default function AdminPanelPage() {
 
             {/* ---- ARTIST APPLICATIONS ---- */}
             {activeTab === 'artist_apps' && (
-              <Panel title="Safa Artist Applications" subtitle="Review artist credentials & approve for wedding dispatches">
+              <Panel
+                title="Safa Artist Applications"
+                subtitle="Review artist credentials & approve for wedding dispatches"
+                toolbar={
+                  <FilterBar
+                    search={artistAppsFilter.search}
+                    onSearchChange={(search) => setArtistAppsFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by name, phone or city…"
+                    status={artistAppsFilter.status}
+                    onStatusChange={(status) => setArtistAppsFilter((f) => ({ ...f, status }))}
+                    statusOptions={APPLICATION_STATUSES}
+                  />
+                }
+              >
                 {artistApps.length === 0 ? (
                   <Empty label="No artist applications received yet." />
+                ) : filteredArtistApps.length === 0 ? (
+                  <Empty label="No applications match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -982,7 +1148,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {artistApps.map((artist) => (
+                      {filteredArtistApps.map((artist) => (
                         <tr key={artist.id} className="hover:bg-amber-50/30 transition-colors">
                           <td className="p-4 font-bold text-maroon-950">
                             {artist.full_name}
@@ -1107,9 +1273,21 @@ export default function AdminPanelPage() {
                   </form>
                 </Panel>
 
-                <Panel title="Deliverable Service Areas" subtitle={`${pincodes.length} deliverable pincodes configured`}>
+                <Panel
+                  title="Deliverable Service Areas"
+                  subtitle={`${pincodes.length} deliverable pincodes configured`}
+                  toolbar={
+                    <FilterBar
+                      search={pincodesSearch}
+                      onSearchChange={setPincodesSearch}
+                      searchPlaceholder="Search by pincode or city…"
+                    />
+                  }
+                >
                   {pincodes.length === 0 ? (
                     <Empty label="No deliverable pincodes added yet." />
+                  ) : filteredPincodes.length === 0 ? (
+                    <Empty label="No pincodes match this search." />
                   ) : (
                     <table className="w-full text-left">
                       <thead className={THEAD}>
@@ -1122,7 +1300,7 @@ export default function AdminPanelPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-amber-100 text-xs">
-                        {pincodes.map((pin) => (
+                        {filteredPincodes.map((pin) => (
                           <tr key={pin.id} className="hover:bg-amber-50/30 transition-colors">
                             <td className="p-4 font-black text-maroon-950 font-mono text-sm">
                               {pin.pincode}
@@ -1209,9 +1387,21 @@ export default function AdminPanelPage() {
                       ? `${products.length} products · ${products.filter((p) => p.pending_sync).length} new from desktop, needs review`
                       : `${products.length} products`
                   }
+                  toolbar={
+                    <FilterBar
+                      search={productsFilter.search}
+                      onSearchChange={(search) => setProductsFilter((f) => ({ ...f, search }))}
+                      searchPlaceholder="Search by name, code or category…"
+                      status={productsFilter.status}
+                      onStatusChange={(status) => setProductsFilter((f) => ({ ...f, status }))}
+                      statusOptions={['active', 'inactive', 'pending_sync']}
+                    />
+                  }
                 >
                   {products.length === 0 ? (
                     <Empty label="No products yet — add one, or run supabase/seed.sql." />
+                  ) : filteredProducts.length === 0 ? (
+                    <Empty label="No products match this filter." />
                   ) : (
                     <table className="w-full text-left">
                       <thead className={THEAD}>
@@ -1236,7 +1426,7 @@ export default function AdminPanelPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-amber-100 text-xs">
-                        {products.map((product) => (
+                        {filteredProducts.map((product) => (
                           <tr key={product.id} className="hover:bg-amber-50/30 transition-colors">
                             <td className="p-4">
                               <input
@@ -1318,9 +1508,23 @@ export default function AdminPanelPage() {
 
             {/* ---- SUPPLIERS ---- */}
             {activeTab === 'suppliers' && (
-              <Panel title="Supplier Network Submissions">
+              <Panel
+                title="Supplier Network Submissions"
+                toolbar={
+                  <FilterBar
+                    search={suppliersFilter.search}
+                    onSearchChange={(search) => setSuppliersFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by business, contact, phone or city…"
+                    status={suppliersFilter.status}
+                    onStatusChange={(status) => setSuppliersFilter((f) => ({ ...f, status }))}
+                    statusOptions={APPLICATION_STATUSES}
+                  />
+                }
+              >
                 {suppliers.length === 0 ? (
                   <Empty label="No supplier applications yet." />
+                ) : filteredSuppliers.length === 0 ? (
+                  <Empty label="No suppliers match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -1334,7 +1538,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {suppliers.map((supplier) => (
+                      {filteredSuppliers.map((supplier) => (
                         <tr key={supplier.id} className="hover:bg-amber-50/30 transition-colors">
                           <td className="p-4 font-bold text-maroon-950">{supplier.business_name}</td>
                           <td className="p-4 text-gray-700">{supplier.contact_name}</td>
@@ -1365,9 +1569,23 @@ export default function AdminPanelPage() {
 
             {/* ---- ACADEMY ---- */}
             {activeTab === 'academy' && (
-              <Panel title="Academy Enrollment Requests">
+              <Panel
+                title="Academy Enrollment Requests"
+                toolbar={
+                  <FilterBar
+                    search={enrollmentsFilter.search}
+                    onSearchChange={(search) => setEnrollmentsFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by name, phone or city…"
+                    status={enrollmentsFilter.status}
+                    onStatusChange={(status) => setEnrollmentsFilter((f) => ({ ...f, status }))}
+                    statusOptions={ENROLLMENT_STATUSES}
+                  />
+                }
+              >
                 {enrollments.length === 0 ? (
                   <Empty label="No enrollment requests yet." />
+                ) : filteredEnrollments.length === 0 ? (
+                  <Empty label="No enrollments match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -1380,7 +1598,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {enrollments.map((enrollment) => (
+                      {filteredEnrollments.map((enrollment) => (
                         <tr key={enrollment.id} className="hover:bg-amber-50/30 transition-colors">
                           <td className="p-4 font-bold text-maroon-950">{enrollment.full_name}</td>
                           <td className="p-4 text-gray-600">{enrollment.phone}</td>
@@ -1407,9 +1625,23 @@ export default function AdminPanelPage() {
 
             {/* ---- CAREERS ---- */}
             {activeTab === 'careers' && (
-              <Panel title="Job Applications">
+              <Panel
+                title="Job Applications"
+                toolbar={
+                  <FilterBar
+                    search={jobAppsFilter.search}
+                    onSearchChange={(search) => setJobAppsFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by name, city or role…"
+                    status={jobAppsFilter.status}
+                    onStatusChange={(status) => setJobAppsFilter((f) => ({ ...f, status }))}
+                    statusOptions={JOB_STATUSES}
+                  />
+                }
+              >
                 {jobApps.length === 0 ? (
                   <Empty label="No job applications yet." />
+                ) : filteredJobApps.length === 0 ? (
+                  <Empty label="No applications match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -1422,7 +1654,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {jobApps.map((application) => (
+                      {filteredJobApps.map((application) => (
                         <tr key={application.id} className="hover:bg-amber-50/30 transition-colors">
                           <td className="p-4 font-bold text-maroon-950">
                             {application.full_name}
@@ -1462,9 +1694,21 @@ export default function AdminPanelPage() {
               <Panel
                 title="Rental Bookings"
                 subtitle={`${rentals.filter((r) => r.status === 'pending').length} awaiting confirmation`}
+                toolbar={
+                  <FilterBar
+                    search={rentalsFilter.search}
+                    onSearchChange={(search) => setRentalsFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by customer, phone, venue or pincode…"
+                    status={rentalsFilter.status}
+                    onStatusChange={(status) => setRentalsFilter((f) => ({ ...f, status }))}
+                    statusOptions={RENTAL_STATUSES}
+                  />
+                }
               >
                 {rentals.length === 0 ? (
                   <Empty label="No rentals yet." />
+                ) : filteredRentals.length === 0 ? (
+                  <Empty label="No rentals match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -1479,7 +1723,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {rentals.map((rental) => (
+                      {filteredRentals.map((rental) => (
                         <tr key={rental.id} className="hover:bg-amber-50/30 transition-colors align-top">
                           <td className="p-4 font-bold text-maroon-950">
                             {rental.customer_name}
@@ -1665,9 +1909,21 @@ export default function AdminPanelPage() {
               <Panel
                 title="Users & Roles"
                 subtitle="Promote an artist or another administrator here"
+                toolbar={
+                  <FilterBar
+                    search={usersFilter.search}
+                    onSearchChange={(search) => setUsersFilter((f) => ({ ...f, search }))}
+                    searchPlaceholder="Search by name, email or phone…"
+                    status={usersFilter.status}
+                    onStatusChange={(status) => setUsersFilter((f) => ({ ...f, status }))}
+                    statusOptions={ROLES}
+                  />
+                }
               >
                 {users.length === 0 ? (
                   <Empty label="No registered users yet." />
+                ) : filteredUsers.length === 0 ? (
+                  <Empty label="No users match this filter." />
                 ) : (
                   <table className="w-full text-left">
                     <thead className={THEAD}>
@@ -1680,7 +1936,7 @@ export default function AdminPanelPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
-                      {users.map((account) => (
+                      {filteredUsers.map((account) => (
                         <tr key={account.id} className="hover:bg-amber-50/30 transition-colors">
                           <td className="p-4 font-bold text-maroon-950">
                             {account.full_name || '—'}
