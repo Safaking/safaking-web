@@ -150,7 +150,10 @@ export function ArtistsSection() {
       booking_end_time: bookingEndTime || null,
       city_venue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${effectiveSafaCount} Safas)`,
       venue_address: venueAddress.trim() || null,
-      safa_style: `${selectedStyle} x ${effectiveSafaCount}`,
+      // Must be exactly one of 'Rounded' | 'Jodhpuri' | 'Barati Safa' — the DB
+      // has a check constraint on this column. Count is already recorded in
+      // city_venue above.
+      safa_style: selectedStyle,
       second_event_name: hasSecondEvent ? secondEventName.trim() || null : null,
       second_event_date: hasSecondEvent ? secondEventDate || null : null,
       second_event_time: hasSecondEvent ? secondEventTime || null : null,
