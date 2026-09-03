@@ -54,7 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Artists',
     items: [
       { href: '/artists', label: 'Browse Artists', hint: 'Portfolios, ratings and rates', icon: Users },
-      { href: '/#artists', label: 'Join as an Artist', hint: 'Get paid wedding work', icon: Crown },
+      { href: '/artist-portal/login?tab=join', label: 'Join as an Artist', hint: 'Get paid wedding work', icon: Crown },
     ],
   },
   {
