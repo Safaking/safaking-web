@@ -123,7 +123,7 @@ function StatusSelect<T extends string>({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
-      className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] capitalize focus:ring-2 focus:ring-maroon-950/20"
+      className="px-3 py-1.5 rounded-xl border border-amber-200/70 bg-white font-bold text-[11px] capitalize focus:ring-2 focus:ring-maroon-950/20"
     >
       {options.map((option) => (
         <option key={option} value={option}>
@@ -144,7 +144,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-3xl border border-amber-200/60 shadow-md shadow-amber-900/5 overflow-hidden">
       <div className="p-6 border-b border-amber-100 flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-display font-bold text-lg text-maroon-950">{title}</h3>
         {subtitle && <span className="text-xs text-gray-400 font-medium">{subtitle}</span>}
@@ -181,14 +181,14 @@ function FilterBar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-amber-50/30 text-xs font-medium focus:ring-2 focus:ring-maroon-950/20 focus:outline-none placeholder:text-gray-400"
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-amber-200/70 bg-amber-50/30 text-xs font-medium focus:ring-2 focus:ring-maroon-950/20 focus:outline-none placeholder:text-gray-400"
         />
       </div>
       {statusOptions && onStatusChange && (
         <select
           value={status}
           onChange={(e) => onStatusChange(e.target.value)}
-          className="px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] capitalize focus:ring-2 focus:ring-maroon-950/20 shrink-0"
+          className="px-3.5 py-2.5 rounded-xl border border-amber-200/70 bg-white font-bold text-[11px] capitalize focus:ring-2 focus:ring-maroon-950/20 shrink-0"
         >
           <option value="">All Statuses</option>
           {statusOptions.map((option) => (
@@ -228,7 +228,7 @@ function Empty({ label }: { label: string }) {
 
 const TH = 'p-4 text-left';
 const THEAD =
-  'bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-amber-100';
+  'bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-maroon-800/60 border-b border-amber-100';
 
 export default function AdminPanelPage() {
   const { profile, logout } = useAuth();
@@ -888,7 +888,7 @@ export default function AdminPanelPage() {
           ].map((metric) => (
             <div
               key={metric.label}
-              className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-sm flex items-center gap-5"
+              className="p-6 rounded-3xl bg-white border border-amber-200/60 shadow-md shadow-amber-900/5 flex items-center gap-5 hover:shadow-lg hover:shadow-amber-900/10 transition-shadow"
             >
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-maroon-950 text-royal-300 shrink-0">
                 <metric.icon size={22} />
@@ -1016,7 +1016,7 @@ export default function AdminPanelPage() {
                                         setOrders
                                       )
                                     }
-                                    className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider text-center transition-colors"
+                                    className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-[9px] font-bold uppercase tracking-wider text-center transition-colors"
                                   >
                                     Mark Balance Paid ✓
                                   </button>
@@ -1093,7 +1093,7 @@ export default function AdminPanelPage() {
                               value={booking.artist_id ?? ''}
                               onChange={(e) => assignArtist(booking.id, e.target.value)}
                               disabled={artists.length === 0}
-                              className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] focus:ring-2 focus:ring-maroon-950/20 disabled:opacity-50"
+                              className="px-3 py-1.5 rounded-xl border border-amber-200/70 bg-white font-bold text-[11px] focus:ring-2 focus:ring-maroon-950/20 disabled:opacity-50"
                             >
                               <option value="">Unassigned</option>
                               {rankArtistsForBooking(booking).map(({ user, profile, tier }) => (
@@ -1244,7 +1244,7 @@ export default function AdminPanelPage() {
                       placeholder="6-Digit Pincode (e.g. 302001)"
                       value={newPinCode}
                       onChange={(e) => setNewPinCode(e.target.value)}
-                      className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                      className="px-4 py-2.5 rounded-xl border border-amber-200/70 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
                     />
                     <input
                       required
@@ -1252,7 +1252,7 @@ export default function AdminPanelPage() {
                       placeholder="City / Region (e.g. Jaipur, Rajasthan)"
                       value={newPinCity}
                       onChange={(e) => setNewPinCity(e.target.value)}
-                      className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                      className="px-4 py-2.5 rounded-xl border border-amber-200/70 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
                     />
                     <input
                       required
@@ -1262,7 +1262,7 @@ export default function AdminPanelPage() {
                       placeholder="Est. Delivery Days (e.g. 2)"
                       value={newPinDays}
                       onChange={(e) => setNewPinDays(e.target.value)}
-                      className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                      className="px-4 py-2.5 rounded-xl border border-amber-200/70 text-xs font-bold focus:ring-2 focus:ring-maroon-800/20 outline-none"
                     />
                     <button
                       type="submit"
@@ -1483,14 +1483,14 @@ export default function AdminPanelPage() {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => openProductEditor(product)}
-                                  className="p-2 rounded-lg bg-royal-100 text-royal-800 hover:bg-royal-200 transition-colors"
+                                  className="p-2 rounded-xl bg-royal-100 text-royal-800 hover:bg-royal-200 transition-colors"
                                   aria-label={`Edit ${product.name}`}
                                 >
                                   <Edit size={13} />
                                 </button>
                                 <button
                                   onClick={() => deleteProduct(product.id, product.name)}
-                                  className="p-2 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-200 transition-colors"
+                                  className="p-2 rounded-xl bg-rose-100 text-rose-700 hover:bg-rose-200 transition-colors"
                                   aria-label={`Delete ${product.name}`}
                                 >
                                   <Trash2 size={13} />
@@ -1779,7 +1779,7 @@ export default function AdminPanelPage() {
                                   value={rental.artist_id ?? ''}
                                   onChange={(e) => assignRentalArtist(rental.id, e.target.value)}
                                   disabled={artists.length === 0}
-                                  className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] disabled:opacity-50"
+                                  className="px-2.5 py-1.5 rounded-xl border border-amber-200/70 bg-white font-bold text-[11px] disabled:opacity-50"
                                 >
                                   <option value="">Unassigned</option>
                                   {artists.map((artist) => (
@@ -1790,7 +1790,7 @@ export default function AdminPanelPage() {
                                 </select>
                                 <button
                                   onClick={() => setTeamFor(rental.id)}
-                                  className="block mt-1.5 px-2.5 py-1 rounded-lg bg-maroon-950 text-royal-300 text-[10px] font-bold uppercase tracking-wider"
+                                  className="block mt-1.5 px-2.5 py-1 rounded-xl bg-maroon-950 text-royal-300 text-[10px] font-bold uppercase tracking-wider"
                                   title="Build a crew for a large event"
                                 >
                                   Team ({rental.safa_count})
@@ -1866,7 +1866,7 @@ export default function AdminPanelPage() {
                                 saveSetting(setting.key, e.target.value);
                               }
                             }}
-                            className="w-32 px-3 py-2 rounded-xl border border-gray-200 text-sm font-bold focus:ring-2 focus:ring-maroon-950/20"
+                            className="w-32 px-3 py-2 rounded-xl border border-amber-200/70 text-sm font-bold focus:ring-2 focus:ring-maroon-950/20"
                           />
                           {savingSetting === setting.key && (
                             <Loader2 size={15} className="animate-spin text-amber-600" />
@@ -1987,8 +1987,9 @@ export default function AdminPanelPage() {
             onSubmit={saveProduct}
             className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto"
           >
-            <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between">
-              <h3 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest">
+            <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between relative overflow-hidden">
+              <div className="absolute inset-0 pattern-diamond opacity-10 pointer-events-none" />
+              <h3 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest relative">
                 {editingProduct === 'new' ? 'New Product' : 'Edit Product'}
               </h3>
               <button
@@ -2030,7 +2031,7 @@ export default function AdminPanelPage() {
                       onChange={(e) =>
                         setProductForm((prev) => ({ ...prev, [key]: e.target.value }))
                       }
-                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                      className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
                     />
                   </div>
                 ))}
@@ -2046,7 +2047,7 @@ export default function AdminPanelPage() {
                   onChange={(e) =>
                     setProductForm((prev) => ({ ...prev, description: e.target.value }))
                   }
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                  className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
                 />
               </div>
 
@@ -2111,8 +2112,9 @@ export default function AdminPanelPage() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto"
           >
-            <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between">
-              <h3 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest">
+            <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between relative overflow-hidden">
+              <div className="absolute inset-0 pattern-diamond opacity-10 pointer-events-none" />
+              <h3 className="font-display font-black text-lg text-royal-100 uppercase tracking-widest relative">
                 Artist Application
               </h3>
               <button
@@ -2126,7 +2128,7 @@ export default function AdminPanelPage() {
 
             <div className="p-7 space-y-5">
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl border-2 border-gray-200 overflow-hidden shrink-0 bg-gray-50 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-2xl border-2 border-amber-200/70 overflow-hidden shrink-0 bg-amber-50/50 flex items-center justify-center">
                   {viewingApplication.photo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
