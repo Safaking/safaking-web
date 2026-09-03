@@ -110,7 +110,7 @@ export interface DBArtistBooking {
   advance_amount?: number;
   balance_amount?: number;
   payment_status?: 'advance_pending' | 'advance_paid' | 'fully_paid' | 'refunded';
-  status: 'pending' | 'assigned' | 'completed' | 'cancelled';
+  status: 'pending' | 'offered' | 'assigned' | 'declined' | 'completed' | 'cancelled';
   notes?: string | null;
   created_at?: string;
 }

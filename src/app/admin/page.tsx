@@ -61,6 +61,15 @@ const RENTAL_STATUSES = [
 ] as const;
 const ROLES: UserRole[] = ['customer', 'artist', 'admin'];
 
+interface ArtistDispatchProfile {
+  id: string;
+  display_name: string;
+  base_city: string | null;
+  service_pincodes: string[];
+  verified: boolean;
+  active: boolean;
+}
+
 const EMPTY_PRODUCT = {
   name: '', code: '', price: '', original_price: '', category: '', color: '',
   fabric: '', style: '', occasion: '', image: '', description: '', stock: '',
@@ -85,6 +94,7 @@ function statusTone(status: string): string {
       return 'bg-blue-100 text-blue-800';
     case 'cancelled':
     case 'rejected':
+    case 'declined':
       return 'bg-rose-100 text-rose-800';
     default:
       return 'bg-amber-100 text-amber-800';
@@ -167,6 +177,7 @@ export default function AdminPanelPage() {
   const [enrollments, setEnrollments] = useState<DBAcademyEnrollment[]>([]);
   const [jobApps, setJobApps] = useState<DBJobApplication[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [artistProfiles, setArtistProfiles] = useState<ArtistDispatchProfile[]>([]);
   const [rentals, setRentals] = useState<DBRentalBooking[]>([]);
   const [settings, setSettings] = useState<DBAppSetting[]>([]);
   const [savingSetting, setSavingSetting] = useState<string | null>(null);
@@ -192,7 +203,7 @@ export default function AdminPanelPage() {
     setLoading(true);
     setError(null);
 
-    const [o, b, aa, p, pin, s, e, j, u, r, cfg] = await Promise.all([
+    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
@@ -204,14 +215,15 @@ export default function AdminPanelPage() {
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: true }),
       supabase.from('app_settings').select('*').order('key', { ascending: true }),
+      supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active'),
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
     const isMissingTable = (err: { code?: string } | null) =>
       err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [aa, pin, s, e, j, u, r, cfg].find((x) => x.error && !isMissingTable(x.error))?.error;
-    
+    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap].find((x) => x.error && !isMissingTable(x.error))?.error;
+
     if (coreError || secondaryError) {
       setError(friendlyError(coreError || secondaryError));
     }
@@ -229,6 +241,7 @@ export default function AdminPanelPage() {
     setUsers((u.data as UserProfile[]) ?? []);
     setRentals((r.data as DBRentalBooking[]) ?? []);
     setSettings((cfg.data as DBAppSetting[]) ?? []);
+    setArtistProfiles((ap.data as ArtistDispatchProfile[]) ?? []);
     setLoading(false);
   }, []);
 
@@ -397,15 +410,62 @@ export default function AdminPanelPage() {
     });
   };
 
+  /**
+   * Ranks artists for a booking by location match — exact serviced pincode
+   * first, then same base city, then everyone else — so the dropdown below
+   * surfaces the best-placed artist instead of a blind alphabetical list.
+   * Done client-side against already-loaded artist_profiles rather than a
+   * match_artists() RPC call, since service_pincodes is rarely populated
+   * (nothing in the application form collects it) and city is the more
+   * reliable signal actually present in the data today.
+   */
+  const rankArtistsForBooking = useCallback(
+    (booking: DBArtistBooking) => {
+      const pincodeMatch = booking.city_venue.match(/\b(\d{6})\b/);
+      const pincode = pincodeMatch?.[1];
+      const venueLower = booking.city_venue.toLowerCase();
+
+      return artists
+        .map((user) => {
+          const profile = artistProfiles.find((ap) => ap.id === user.id);
+          const cityMatch = !!profile?.base_city && venueLower.includes(profile.base_city.toLowerCase());
+          const pinMatch = !!pincode && !!profile?.service_pincodes?.includes(pincode);
+          const tier = pinMatch ? 0 : cityMatch ? 1 : 2;
+          return { user, profile, tier };
+        })
+        .sort((a, b) => a.tier - b.tier);
+    },
+    [artists, artistProfiles]
+  );
+
+  const TIER_LABEL = ['📍 Exact pincode', '🏙️ Same city', ''];
+
   const assignArtist = async (bookingId: string, artistId: string) => {
     if (!artistId) return;
     const artist = artists.find((a) => a.id === artistId);
+    const booking = bookings.find((b) => b.id === bookingId);
+
     await patchRow<DBArtistBooking>(
       'artist_bookings',
       bookingId,
-      { artist_id: artistId, artist_name: artist?.full_name ?? null, status: 'assigned' },
+      { artist_id: artistId, artist_name: artist?.full_name ?? null, status: 'offered' },
       setBookings
     );
+
+    // Best-effort — the offer itself is already saved above.
+    if (artist?.email && booking) {
+      fetch('/api/notify-artist-offer', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email: artist.email,
+          name: artist.full_name,
+          eventDate: booking.event_date,
+          cityVenue: booking.city_venue,
+          safaStyle: booking.safa_style,
+        }),
+      }).catch(() => {});
+    }
   };
 
   const saveSetting = async (key: string, raw: string) => {
@@ -902,9 +962,12 @@ export default function AdminPanelPage() {
                               className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white font-bold text-[11px] focus:ring-2 focus:ring-maroon-950/20 disabled:opacity-50"
                             >
                               <option value="">Unassigned</option>
-                              {artists.map((artist) => (
-                                <option key={artist.id} value={artist.id}>
-                                  {artist.full_name || artist.email}
+                              {rankArtistsForBooking(booking).map(({ user, profile, tier }) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.full_name || user.email}
+                                  {profile ? ` — ${profile.base_city ?? 'no city set'}` : ''}
+                                  {TIER_LABEL[tier] ? ` (${TIER_LABEL[tier]})` : ''}
+                                  {profile && !profile.verified ? ' [Not KYC-verified]' : ''}
                                 </option>
                               ))}
                             </select>
