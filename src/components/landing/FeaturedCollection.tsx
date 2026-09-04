@@ -105,14 +105,22 @@ export function FeaturedCollection({ products, loading, wishlist, onToggleWishli
               >
                 {/* Image */}
                 <div className="relative aspect-[3/4] bg-royal-50 overflow-hidden">
+                  {/* Blurred backdrop fills the frame regardless of the source
+                      photo's aspect ratio, so a landscape photo doesn't leave
+                      a big flat gap next to portrait ones — without cropping
+                      the actual product out of frame like object-cover did. */}
+                  <Image
+                    src={product.image}
+                    alt=""
+                    fill
+                    aria-hidden
+                    className="object-cover blur-2xl scale-110 opacity-40"
+                  />
                   <Image
                     src={product.image}
                     alt={product.name}
                     fill
-                    // object-contain — raw uploaded product photos vary wildly in
-                    // proportion; cover cropped each by a different amount, so
-                    // cards looked randomly "one big one small" side by side.
-                    className="object-contain p-3 group-hover:scale-110 transition-transform duration-700"
+                    className="relative object-contain p-3 group-hover:scale-110 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
