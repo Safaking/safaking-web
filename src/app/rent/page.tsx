@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Calendar, MapPin, Users, Minus, Plus, CheckCircle2,
-  AlertCircle, Loader2, ArrowRight, Sparkles, ShieldCheck,
+  AlertCircle, Loader2, ArrowRight, Sparkles, ShieldCheck, Images, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -26,6 +26,8 @@ interface RentableSafa {
   rent_price_per_day: number;
   rent_deposit: number | null;
   available: number;
+  /** Alternate photos beyond the main `image`, if any were uploaded. */
+  gallery_images: string[] | null;
 }
 
 /** YYYY-MM-DD for an offset from today, in the user's local calendar. */
@@ -44,6 +46,8 @@ export default function RentPage() {
   const [safas, setSafas] = useState<RentableSafa[]>([]);
   const [loadingSafas, setLoadingSafas] = useState(true);
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
+  const [viewingPhotosFor, setViewingPhotosFor] = useState<RentableSafa | null>(null);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [needsArtist, setNeedsArtist] = useState(true);
@@ -332,12 +336,27 @@ export default function RentPage() {
                         soldOut ? 'bg-gray-50 border-gray-200 opacity-60' : 'bg-amber-50/40 border-amber-200/70'
                       }`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={safa.image ?? '/product-maroon-brocade.jpg'}
-                        alt={safa.name}
-                        className="w-16 h-16 rounded-xl object-cover shrink-0"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewingPhotosFor(safa);
+                          setActivePhotoIndex(0);
+                        }}
+                        className="relative w-16 h-16 shrink-0"
+                        title={(safa.gallery_images?.length ?? 0) > 0 ? 'View more photos' : 'View photo'}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={safa.image ?? '/product-maroon-brocade.jpg'}
+                          alt={safa.name}
+                          className="w-16 h-16 rounded-xl object-cover"
+                        />
+                        {(safa.gallery_images?.length ?? 0) > 0 && (
+                          <span className="absolute -bottom-1 -right-1 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-maroon-950 text-royal-300 text-[9px] font-black shadow-sm">
+                            <Images size={9} /> +{safa.gallery_images!.length}
+                          </span>
+                        )}
+                      </button>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-sm text-maroon-950 leading-snug">{safa.name}</h3>
                         <p className="text-[11px] text-gray-500 mt-0.5">
@@ -578,6 +597,58 @@ export default function RentPage() {
           </div>
         </aside>
       </form>
+
+      {viewingPhotosFor && (
+        <div
+          className="fixed inset-0 z-50 bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setViewingPhotosFor(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setViewingPhotosFor(null)}
+              className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center text-maroon-900 shadow-md"
+            >
+              <X size={16} />
+            </button>
+            <div className="relative aspect-square bg-amber-50">
+              <Image
+                src={
+                  [viewingPhotosFor.image, ...(viewingPhotosFor.gallery_images ?? [])][activePhotoIndex] ??
+                  viewingPhotosFor.image ??
+                  '/product-maroon-brocade.jpg'
+                }
+                alt={viewingPhotosFor.name}
+                fill
+                className="object-contain p-4"
+              />
+            </div>
+            {(viewingPhotosFor.gallery_images?.length ?? 0) > 0 && (
+              <div className="flex gap-2 p-3 overflow-x-auto">
+                {[viewingPhotosFor.image, ...(viewingPhotosFor.gallery_images ?? [])].map((src, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setActivePhotoIndex(i)}
+                    className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${
+                      i === activePhotoIndex ? 'border-maroon-700' : 'border-amber-200 hover:border-amber-300'
+                    }`}
+                    aria-label={`View photo ${i + 1}`}
+                  >
+                    <Image src={src ?? '/product-maroon-brocade.jpg'} alt="" fill className="object-contain p-1 bg-amber-50" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="px-4 pb-4 text-sm font-bold text-maroon-950">{viewingPhotosFor.name}</p>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
