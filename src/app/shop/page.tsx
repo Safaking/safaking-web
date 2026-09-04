@@ -335,16 +335,22 @@ function ShopContent() {
                     className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 group flex flex-col justify-between"
                   >
                     <div className="relative aspect-[3/4] bg-slate-100 overflow-hidden">
+                      {/* Blurred backdrop fills the frame regardless of the
+                          source photo's aspect ratio, so a landscape photo
+                          doesn't leave a big flat gap next to portrait ones —
+                          without cropping the product out like object-cover did. */}
+                      <Image
+                        src={product.image}
+                        alt=""
+                        fill
+                        aria-hidden
+                        className="object-cover blur-2xl scale-110 opacity-40"
+                      />
                       <Image
                         src={product.image}
                         alt={product.name}
                         fill
-                        // object-contain — these are raw uploaded product photos of
-                        // very different proportions (some close-up, some wide);
-                        // object-cover cropped/zoomed each by a different amount,
-                        // so cards looked randomly "one big one small" next to
-                        // each other. Contain always shows the full photo instead.
-                        className="object-contain p-3 group-hover:scale-105 transition-transform duration-500"
+                        className="relative object-contain p-3 group-hover:scale-105 transition-transform duration-500"
                       />
                       {product.isBestseller && (
                         <span className="absolute top-3 left-3 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-sm">
