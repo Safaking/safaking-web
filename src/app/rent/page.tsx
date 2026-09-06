@@ -16,6 +16,7 @@ import {
   RentalQuote,
 } from '@/lib/checkout';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
+import { getActiveContract, recordContractAcceptance } from '@/lib/client-update';
 
 interface RentableSafa {
   id: string;
@@ -189,6 +190,28 @@ export default function RentPage() {
         { startDate, endDate, items: selection, needsArtist },
         customer
       );
+
+      // Record the terms the customer ticked against this rental (the box
+      // was display-only before — nothing ever reached contract_acceptances).
+      try {
+        const contract = await getActiveContract('customer');
+        if (contract) {
+          await recordContractAcceptance({
+            contractId: contract.id,
+            userId: user?.id ?? null,
+            rentalId: created.rentalId,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not record contract acceptance:', err);
+      }
+
+      // Online payment isn't switched on yet — the rental is saved and the
+      // team collects the advance directly. Treat it as booked.
+      if (created.paymentSkipped) {
+        setBookedRef(created.rentalId);
+        return;
+      }
 
       const ready = await loadRazorpayScript();
       if (!ready) throw new Error('Could not reach the payment provider. Check your connection.');

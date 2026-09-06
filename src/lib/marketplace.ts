@@ -133,26 +133,43 @@ export async function getLead(id: string): Promise<Lead | null> {
 
 /** Quotes on a lead. RLS returns all of them to the lead's owner, one to an artist. */
 export async function listQuotes(leadId: string): Promise<Quote[]> {
+  // No embed here: lead_quotes.artist_id's FK points at profiles, not
+  // artist_profiles, so `artist_profiles!lead_quotes_artist_id_fkey(...)`
+  // fails with PGRST200 on the live DB — which meant a customer could never
+  // see a single quote. Fetch the artist details in a second query instead.
   const { data, error } = await supabase
     .from('lead_quotes')
-    .select('*, artist_profiles!lead_quotes_artist_id_fkey(display_name, rating, verified, total_events)')
+    .select('*')
     .eq('lead_id', leadId)
     .neq('status', 'withdrawn')
     .order('total_amount', { ascending: true });
 
   if (error) throw new Error(describe(error));
+  const quotes = (data ?? []) as Quote[];
+  if (quotes.length === 0) return [];
 
-  return ((data ?? []) as (Quote & {
-    artist_profiles?: {
+  const artistIds = Array.from(new Set(quotes.map((q) => q.artist_id)));
+  const { data: artists } = await supabase
+    .from('artist_profiles')
+    .select('id, display_name, rating, verified, total_events')
+    .in('id', artistIds);
+
+  const byId = new Map(
+    (artists ?? []).map((a) => [a.id as string, a as {
       display_name?: string; rating?: number; verified?: boolean; total_events?: number;
-    } | null;
-  })[]).map((row) => ({
-    ...row,
-    artist_name: row.artist_profiles?.display_name ?? null,
-    artist_rating: row.artist_profiles?.rating ?? null,
-    artist_verified: row.artist_profiles?.verified ?? false,
-    artist_events: row.artist_profiles?.total_events ?? 0,
-  }));
+    }])
+  );
+
+  return quotes.map((row) => {
+    const a = byId.get(row.artist_id);
+    return {
+      ...row,
+      artist_name: a?.display_name ?? null,
+      artist_rating: a?.rating ?? null,
+      artist_verified: a?.verified ?? false,
+      artist_events: a?.total_events ?? 0,
+    };
+  });
 }
 
 /** Open enquiries this artist can actually serve. */

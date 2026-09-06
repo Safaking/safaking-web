@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { createAdminClient } from '@/lib/supabase-admin';
 import { sendArtistBookingOfferEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
@@ -10,6 +9,9 @@ function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
+// Role check via the caller's own session (RLS allows reading your own
+// profiles row) — not the service-role client, which throws when
+// SUPABASE_SERVICE_ROLE_KEY isn't set and would 500 every offer email.
 async function requireAdmin() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -22,8 +24,7 @@ async function requireAdmin() {
   } = await supabase.auth.getUser();
   if (!user) return { error: bad('Sign in.', 401) };
 
-  const admin = createAdminClient();
-  const { data: profile } = await admin
+  const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).maybeSingle();
   if (profile?.role !== 'admin') {
     return { error: bad('Administrators only.', 403) };

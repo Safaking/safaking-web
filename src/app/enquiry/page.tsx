@@ -9,6 +9,7 @@ import {
   Calendar, MapPin, Users, ShieldCheck, IndianRupee,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   postLead, listMyLeads, listQuotes, acceptQuote, Lead, Quote,
 } from '@/lib/marketplace';
@@ -36,6 +37,10 @@ export default function EnquiryPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Added on top of the artist's quote — what the customer actually pays.
+  // Admin-controlled via app_settings; the artist still receives their full
+  // quoted amount (see accept_quote() in the DB).
+  const [platformRate, setPlatformRate] = useState(0.2);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -76,6 +81,21 @@ export default function EnquiryPage() {
     if (!authLoading) load();
   }, [authLoading, load]);
 
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'platform_charge_rate')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value != null) setPlatformRate(Number(data.value));
+      });
+  }, []);
+
+  /** What the customer pays for a quote: artist's amount plus the platform charge. */
+  const customerTotal = (quote: Quote) => Math.round(quote.total_amount * (1 + platformRate));
+  const platformCharge = (quote: Quote) => customerTotal(quote) - quote.total_amount;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy('post');
@@ -111,7 +131,7 @@ export default function EnquiryPage() {
   const accept = async (quote: Quote) => {
     if (
       !confirm(
-        `Accept ${quote.artist_name}'s quote of ₹${quote.total_amount.toLocaleString()}? This books them and declines the other quotes.`
+        `Accept ${quote.artist_name}'s quote? You'll pay ₹${customerTotal(quote).toLocaleString()} (artist ₹${quote.total_amount.toLocaleString()} + platform charge ₹${platformCharge(quote).toLocaleString()}). This books them and declines the other quotes.`
       )
     )
       return;
@@ -360,10 +380,11 @@ export default function EnquiryPage() {
 
                             <div className="text-right shrink-0">
                               <p className="font-display font-black text-lg text-gradient-gold">
-                                ₹{quote.total_amount.toLocaleString()}
+                                ₹{customerTotal(quote).toLocaleString()}
                               </p>
-                              <p className="text-[10px] text-gray-500">
-                                ₹{quote.per_safa_rate}/safa
+                              <p className="text-[10px] text-gray-500 leading-snug">
+                                Artist ₹{quote.total_amount.toLocaleString()} (₹{quote.per_safa_rate}/safa)
+                                <br />+ platform charge ₹{platformCharge(quote).toLocaleString()}
                               </p>
 
                               {!awarded && quote.status === 'submitted' && (

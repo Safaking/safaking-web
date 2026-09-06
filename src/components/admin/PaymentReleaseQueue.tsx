@@ -39,7 +39,7 @@ export function PaymentReleaseQueue() {
         .eq('payment_release_status', 'ready_for_review'),
       supabase
         .from('artist_bookings')
-        .select('id, customer_name, customer_phone, artist_name, amount, happy_code_verified_at')
+        .select('id, customer_name, customer_phone, artist_name, amount, artist_payout_amount, happy_code_verified_at')
         .eq('payment_release_status', 'ready_for_review'),
     ]);
 
@@ -58,7 +58,11 @@ export function PaymentReleaseQueue() {
       })),
       ...(bookings.data ?? []).map((b) => ({
         id: b.id, kind: 'booking' as const, customerName: b.customer_name, customerPhone: b.customer_phone,
-        artistName: b.artist_name, amount: b.amount, happyCodeVerifiedAt: b.happy_code_verified_at,
+        // Marketplace-awarded bookings charge the customer more than the
+        // artist actually receives (platform charge on top) — pay out the
+        // artist's own amount, not what the customer was billed.
+        artistName: b.artist_name, amount: b.artist_payout_amount ?? b.amount,
+        happyCodeVerifiedAt: b.happy_code_verified_at,
       })),
     ]);
     setError(null);

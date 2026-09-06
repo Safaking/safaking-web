@@ -109,6 +109,13 @@ export interface DBArtistBooking {
   amount: number;
   advance_amount?: number;
   balance_amount?: number;
+  /**
+   * What the artist actually receives — only differs from `amount` for
+   * marketplace-awarded bookings, where `amount` (what the customer is
+   * charged) has the platform charge added on top. Null on direct/older
+   * bookings, where the artist's payout is simply `amount` itself.
+   */
+  artist_payout_amount?: number | null;
   payment_status?: 'advance_pending' | 'advance_paid' | 'fully_paid' | 'refunded';
   status: 'pending' | 'offered' | 'assigned' | 'declined' | 'completed' | 'cancelled';
   notes?: string | null;
