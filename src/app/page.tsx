@@ -39,6 +39,20 @@ function LandingContent() {
     return () => clearTimeout(timer);
   }, []);
 
+  // The browser's native #hash scroll fires on initial load, before the
+  // preloader clears and before layout below the fold has its final height —
+  // so it lands at whatever pixel offset the (still-collapsing) page had at
+  // that moment, not where the target actually ends up. Re-scroll once the
+  // preloader is gone and the DOM has settled.
+  useEffect(() => {
+    if (isLoading || !window.location.hash) return;
+    const id = window.location.hash.slice(1);
+    const timer = setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
   useEffect(() => {
     let active = true;
     fetchProducts().then((result) => {
