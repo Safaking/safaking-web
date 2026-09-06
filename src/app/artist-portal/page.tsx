@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Calendar, MapPin, Phone, CheckCircle2, XCircle, Bell,
-  User, Sparkles, AlertCircle, LogOut, ArrowLeft, Loader2
+  User, Sparkles, AlertCircle, LogOut, ArrowLeft, Loader2, ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError, DBArtistBooking } from '@/lib/supabase';
@@ -23,6 +23,10 @@ export default function ArtistPortalPage() {
   const [filter, setFilter] = useState<'all' | 'assigned' | 'completed'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // KYC is a hard gate on receiving work, so the portal has to say so loudly
+  // rather than leaving an approved artist waiting for offers that the
+  // dispatch board will never let an admin send them.
+  const [kycStatus, setKycStatus] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async () => {
     if (!user) return;
@@ -49,6 +53,16 @@ export default function ArtistPortalPage() {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('artist_profiles')
+      .select('verification_status')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setKycStatus((data?.verification_status as string) ?? 'unverified'));
+  }, [user]);
 
   // Completion goes through the customer's completion code, never a bare
   // status update: verify_completion_code() is what flips the job to
@@ -149,6 +163,26 @@ export default function ArtistPortalPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+        {kycStatus && kycStatus !== 'verified' && (
+          <div className="flex items-start gap-3 p-5 mb-8 rounded-3xl bg-amber-50 border-2 border-amber-300 text-amber-900 shadow-sm">
+            <ShieldAlert size={22} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="font-display font-black text-base">
+                {kycStatus === 'pending'
+                  ? 'Your documents are being reviewed'
+                  : kycStatus === 'rejected'
+                    ? 'Your documents were rejected — please re-upload'
+                    : 'One step left: upload your KYC documents'}
+              </p>
+              <p className="text-xs leading-relaxed mt-1">
+                You cannot be given bookings or send quotes until your KYC is approved. Scroll down
+                to <span className="font-black">Verification &amp; Documents</span> to
+                {kycStatus === 'pending' ? ' check the status.' : ' upload them.'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">

@@ -559,6 +559,33 @@ export default function AdminPanelPage() {
   };
 
   /**
+   * KYC is a hard gate, not a badge: an artist can only be given work once
+   * their documents are approved and the account is live. Enforced in the DB
+   * too (supabase/025_kyc_assignment_gate.sql) — this is just so the admin
+   * sees why, instead of getting a rejected update.
+   */
+  const isAssignable = useCallback(
+    (profile: ArtistDispatchProfile | undefined) =>
+      !!profile && profile.verification_status === 'verified' && profile.active && !profile.blacklisted,
+    []
+  );
+
+  /** Why an artist can't be assigned, for the dropdown label. */
+  const blockedReason = useCallback((profile: ArtistDispatchProfile | undefined) => {
+    if (!profile) return 'no artist profile';
+    if (profile.blacklisted) return 'blacklisted';
+    if (!profile.active) return 'inactive';
+    if (profile.verification_status !== 'verified') {
+      return profile.verification_status === 'rejected'
+        ? 'KYC rejected'
+        : profile.verification_status === 'pending'
+          ? 'KYC awaiting review'
+          : 'KYC not uploaded';
+    }
+    return null;
+  }, []);
+
+  /**
    * Ranks artists for a booking by location match — exact serviced pincode
    * first, then same base city, then everyone else — so the dropdown below
    * surfaces the best-placed artist instead of a blind alphabetical list.
@@ -579,14 +606,16 @@ export default function AdminPanelPage() {
           const cityMatch = !!profile?.base_city && venueLower.includes(profile.base_city.toLowerCase());
           const pinMatch = !!pincode && !!profile?.service_pincodes?.includes(pincode);
           const tier = pinMatch ? 0 : cityMatch ? 1 : 2;
-          return { user, profile, tier };
+          return { user, profile, tier, assignable: isAssignable(profile) };
         })
         // Never offer work to a deactivated or blacklisted artist — the
         // dropdown used to list everyone with role='artist' regardless.
         .filter(({ profile }) => !profile || (profile.active && !profile.blacklisted))
-        .sort((a, b) => a.tier - b.tier);
+        // Assignable first, then by location tier: a KYC-blocked artist stays
+        // visible (so it's obvious why they can't be picked) but sinks.
+        .sort((a, b) => Number(b.assignable) - Number(a.assignable) || a.tier - b.tier);
     },
-    [artists, artistProfiles]
+    [artists, artistProfiles, isAssignable]
   );
 
   const TIER_LABEL = ['📍 Exact pincode', '🏙️ Same city', ''];
@@ -609,6 +638,15 @@ export default function AdminPanelPage() {
     const artist = artists.find((a) => a.id === artistId);
     const booking = bookings.find((b) => b.id === bookingId);
 
+    const profile = artistProfiles.find((ap) => ap.id === artistId);
+    if (!isAssignable(profile)) {
+      setError(
+        `${artist?.full_name || 'This artist'} cannot be assigned — ${blockedReason(profile)}. Approve their documents under the Verification tab first.`
+      );
+      return;
+    }
+    setError(null);
+
     await patchRow<DBArtistBooking>(
       'artist_bookings',
       bookingId,
@@ -616,7 +654,8 @@ export default function AdminPanelPage() {
       setBookings
     );
 
-    // Best-effort — the offer itself is already saved above.
+    // Best-effort — the offer itself is already saved above. Skip the email
+    // if the write was rejected (patchRow rolls back and sets the error).
     if (artist?.email && booking) {
       fetch('/api/notify-artist-offer', {
         method: 'POST',
@@ -654,6 +693,16 @@ export default function AdminPanelPage() {
 
   const assignRentalArtist = async (rentalId: string, artistId: string) => {
     const artist = artists.find((a) => a.id === artistId);
+    if (artistId) {
+      const profile = artistProfiles.find((ap) => ap.id === artistId);
+      if (!isAssignable(profile)) {
+        setError(
+          `${artist?.full_name || 'This artist'} cannot be assigned — ${blockedReason(profile)}. Approve their documents under the Verification tab first.`
+        );
+        return;
+      }
+      setError(null);
+    }
     await patchRow<DBRentalBooking>(
       'rental_bookings',
       rentalId,
@@ -1136,12 +1185,12 @@ export default function AdminPanelPage() {
                               className="px-3 py-1.5 rounded-xl border border-amber-200/70 bg-white font-bold text-[11px] focus:ring-2 focus:ring-maroon-950/20 disabled:opacity-50"
                             >
                               <option value="">Unassigned</option>
-                              {rankArtistsForBooking(booking).map(({ user, profile, tier }) => (
-                                <option key={user.id} value={user.id}>
+                              {rankArtistsForBooking(booking).map(({ user, profile, tier, assignable }) => (
+                                <option key={user.id} value={user.id} disabled={!assignable}>
                                   {user.full_name || user.email}
                                   {profile ? ` — ${profile.base_city ?? 'no city set'}` : ''}
                                   {TIER_LABEL[tier] ? ` (${TIER_LABEL[tier]})` : ''}
-                                  {profile && profile.verification_status !== 'verified' ? ' [KYC not done]' : ''}
+                                  {assignable ? '' : ` 🔒 ${blockedReason(profile)}`}
                                   {profile && profile.total_events > 0 && profile.rating != null && profile.rating < 3 ? ' ⚠ low rating' : ''}
                                 </option>
                               ))}
@@ -1823,11 +1872,16 @@ export default function AdminPanelPage() {
                                   className="px-2.5 py-1.5 rounded-xl border border-amber-200/70 bg-white font-bold text-[11px] disabled:opacity-50"
                                 >
                                   <option value="">Unassigned</option>
-                                  {artists.map((artist) => (
-                                    <option key={artist.id} value={artist.id}>
-                                      {artist.full_name || artist.email}
-                                    </option>
-                                  ))}
+                                  {artists.map((artist) => {
+                                    const profile = artistProfiles.find((ap) => ap.id === artist.id);
+                                    const ok = isAssignable(profile);
+                                    return (
+                                      <option key={artist.id} value={artist.id} disabled={!ok}>
+                                        {artist.full_name || artist.email}
+                                        {ok ? '' : ` 🔒 ${blockedReason(profile)}`}
+                                      </option>
+                                    );
+                                  })}
                                 </select>
                                 <button
                                   onClick={() => setTeamFor(rental.id)}
@@ -2025,10 +2079,15 @@ export default function AdminPanelPage() {
                                     className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                       ap.verification_status === 'verified'
                                         ? 'bg-emerald-100 text-emerald-800'
-                                        : 'bg-amber-100 text-amber-800'
+                                        : 'bg-rose-100 text-rose-800'
                                     }`}
+                                    title={
+                                      ap.verification_status === 'verified'
+                                        ? 'Documents approved — can be assigned work'
+                                        : 'KYC must be approved (Verification tab) before this artist can be assigned any booking'
+                                    }
                                   >
-                                    {ap.verification_status === 'verified' ? 'KYC ✓' : 'KYC pending'}
+                                    {ap.verification_status === 'verified' ? 'KYC ✓' : 'KYC — cannot be assigned'}
                                   </span>
                                   {ap.blacklisted ? (
                                     <button

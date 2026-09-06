@@ -101,7 +101,7 @@ function LandingContent() {
         <Hero />
         <TrustBar />
         <IntroVideo />
-        <ArtistsSection />
+        <ArtistsSection onRequireSignIn={() => setAuthOpen(true)} />
         <FeaturedCollection
           products={featured.length > 0 ? featured : products.slice(0, 4)}
           loading={productsLoading}

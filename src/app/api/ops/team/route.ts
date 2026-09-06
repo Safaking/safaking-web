@@ -121,6 +121,24 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!rental) return bad('Rental not found.', 404);
 
+  // KYC first, before anything is written: the leader gets mirrored onto the
+  // booking by a trigger, which the KYC gate would then reject — leaving a
+  // half-built team behind. Checking here fails cleanly instead.
+  const { data: crewProfiles } = await admin!
+    .from('artist_profiles')
+    .select('id, display_name, verification_status, active, blacklisted')
+    .in('id', members.map((m) => m.artistId));
+
+  for (const member of members) {
+    const crew = crewProfiles?.find((c) => c.id === member.artistId);
+    if (!crew || crew.verification_status !== 'verified' || !crew.active || crew.blacklisted) {
+      return bad(
+        `${crew?.display_name ?? 'One of the chosen artists'} cannot be assigned — KYC not approved, or the account is inactive/blacklisted.`,
+        409
+      );
+    }
+  }
+
   // Re-check every artist at assignment time. The suggestion may be minutes
   // old, and putting one artist at two weddings is the failure this whole
   // feature exists to avoid.

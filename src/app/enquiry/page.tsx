@@ -98,12 +98,19 @@ export default function EnquiryPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A guest enquiry is a dead end: the quotes that come back are only
+    // visible to the account that posted it, so the customer would never see
+    // a reply. Sign-in is required to post.
+    if (!user) {
+      setError('Please sign in to post an enquiry — quotes come back to your account.');
+      return;
+    }
     setBusy('post');
     setError(null);
 
     try {
       await postLead({
-        customerId: user?.id ?? null,
+        customerId: user.id,
         customerName: form.customerName,
         customerPhone: form.customerPhone,
         pincode: form.pincode,
@@ -188,14 +195,16 @@ export default function EnquiryPage() {
           </div>
         )}
 
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="w-full py-4 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-2xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
-        >
-          <MessageSquare size={15} /> {showForm ? 'Cancel' : 'Post a new enquiry'}
-        </button>
+        {user && (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="w-full py-4 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-2xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
+          >
+            <MessageSquare size={15} /> {showForm ? 'Cancel' : 'Post a new enquiry'}
+          </button>
+        )}
 
-        {showForm && (
+        {showForm && user && (
           <motion.form
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -267,13 +276,19 @@ export default function EnquiryPage() {
         )}
 
         {!user && !authLoading && (
-          <p className="text-xs text-gray-500 text-center leading-relaxed">
-            You can post as a guest, but{' '}
-            <Link href="/?auth=login&next=%2Fenquiry" className="font-bold text-maroon-800 hover:underline">
-              sign in
-            </Link>{' '}
-            to see the quotes that come back.
-          </p>
+          <div className="bg-white rounded-3xl border border-amber-200/60 shadow-sm p-8 text-center space-y-3">
+            <p className="font-display font-black text-lg text-maroon-950">Sign in to post an enquiry</p>
+            <p className="text-xs text-gray-500 leading-relaxed max-w-sm mx-auto">
+              Artists send their quotes straight to your account — without one there is nowhere for
+              their replies to land.
+            </p>
+            <Link
+              href="/?auth=login&next=%2Fenquiry"
+              className="inline-flex items-center justify-center px-6 py-3 bg-maroon-950 hover:bg-maroon-900 text-royal-300 font-bold rounded-xl text-xs uppercase tracking-widest"
+            >
+              Sign in / Create account
+            </Link>
+          </div>
         )}
 
         {loading || authLoading ? (
