@@ -158,12 +158,22 @@ export async function POST(request: Request) {
 
   const { data: replacement } = await admin!
     .from('artist_profiles')
-    .select('id, display_name, active')
+    .select('id, display_name, active, blacklisted, verification_status')
     .eq('id', replacementArtistId)
     .maybeSingle();
 
-  if (!replacement || !replacement.active) {
+  if (!replacement || !replacement.active || replacement.blacklisted) {
     return bad('That artist is not available.', 409);
+  }
+
+  // KYC is a hard requirement for any assignment, rescue included — the DB
+  // rejects it anyway (supabase/025_kyc_assignment_gate.sql); this returns a
+  // reason the ops team can act on instead of a raw constraint error.
+  if (replacement.verification_status !== 'verified') {
+    return bad(
+      `${replacement.display_name} cannot be assigned — their KYC is not approved yet.`,
+      409
+    );
   }
 
   // Re-check availability at the moment of assignment — the candidate list may

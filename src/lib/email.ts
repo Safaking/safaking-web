@@ -36,7 +36,13 @@ export async function sendArtistApprovedEmail({ to, name }: { to: string; name: 
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
         <h2 style="color:#7a1f2b">Welcome to the Network, ${name}!</h2>
         <p>Your Safa Artist application has been reviewed and <strong>approved</strong>.</p>
-        <p>You can now sign in to your Artist Portal to accept bookings, track earnings, and manage your profile.</p>
+        <p>One step is left before you can receive bookings: sign in to your Artist Portal and
+           upload your <strong>KYC documents</strong> (ID proof and photo) under
+           <em>Verification &amp; Documents</em>. Our team approves them within a working day.</p>
+        <p style="background:#fff7e6;border:1px solid #f0c96a;border-radius:8px;padding:12px;font-size:14px">
+          Until your KYC is approved you will not be offered any booking and cannot send quotes on
+          customer enquiries.
+        </p>
         <p style="margin-top:24px">
           <a href="https://www.safaking.in/artist-portal/login"
              style="background:#7a1f2b;color:#f5d98e;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">

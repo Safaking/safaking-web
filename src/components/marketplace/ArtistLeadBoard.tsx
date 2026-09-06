@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Megaphone, Calendar, MapPin, Users, Loader2, AlertCircle, CheckCircle2, Send,
+  Megaphone, Calendar, MapPin, Users, Loader2, AlertCircle, CheckCircle2, Send, ShieldAlert,
 } from 'lucide-react';
 import { listLeadsForArtist, submitQuote, ArtistLead } from '@/lib/marketplace';
+import { supabase } from '@/lib/supabase';
 
 /**
  * Open enquiries an artist can quote on.
@@ -24,6 +25,9 @@ export function ArtistLeadBoard({ artistId }: { artistId: string }) {
   const [message, setMessage] = useState('');
   const [withTeam, setWithTeam] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // Quoting is pointless before KYC: the DB rejects both the quote and any
+  // assignment that would follow (supabase/025_kyc_assignment_gate.sql).
+  const [kycOk, setKycOk] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,10 +45,27 @@ export function ArtistLeadBoard({ artistId }: { artistId: string }) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    supabase
+      .from('artist_profiles')
+      .select('verification_status, active, blacklisted')
+      .eq('id', artistId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setKycOk(
+          !!data && data.verification_status === 'verified' && !!data.active && !data.blacklisted
+        );
+      });
+  }, [artistId]);
+
   const send = async (lead: ArtistLead) => {
     const perSafa = Number(rate);
     if (!Number.isFinite(perSafa) || perSafa <= 0) {
       setError('Enter your rate per safa.');
+      return;
+    }
+    if (kycOk === false) {
+      setError('Your KYC is not approved yet, so you cannot send quotes.');
       return;
     }
 
@@ -106,6 +127,17 @@ export function ArtistLeadBoard({ artistId }: { artistId: string }) {
           <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
             <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed">{notice}</p>
+          </div>
+        )}
+
+        {kycOk === false && (
+          <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900">
+            <ShieldAlert size={16} className="shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">
+              <span className="font-black">Finish your KYC to start quoting.</span> Upload your ID
+              and photo below and wait for our team to approve them — until then you can see
+              enquiries but cannot send a quote or be assigned a booking.
+            </p>
           </div>
         )}
 
@@ -176,9 +208,11 @@ export function ArtistLeadBoard({ artistId }: { artistId: string }) {
                   ) : (
                     <button
                       onClick={() => setOpenFor(isOpen ? null : lead.id)}
-                      className="px-4 py-2 rounded-xl bg-maroon-950 hover:bg-maroon-900 text-royal-300 text-[10px] font-bold uppercase tracking-wider shrink-0"
+                      disabled={kycOk === false}
+                      title={kycOk === false ? 'Complete your KYC to send quotes' : undefined}
+                      className="px-4 py-2 rounded-xl bg-maroon-950 hover:bg-maroon-900 disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed text-royal-300 text-[10px] font-bold uppercase tracking-wider shrink-0"
                     >
-                      {isOpen ? 'Cancel' : 'Send quote'}
+                      {kycOk === false ? 'KYC required' : isOpen ? 'Cancel' : 'Send quote'}
                     </button>
                   )}
                 </div>

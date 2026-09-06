@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2, AlertCircle, Loader2, Ruler, X } from 'lucide-react';
+import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2, AlertCircle, Loader2, Ruler, X, ShieldCheck } from 'lucide-react';
 import { AnimatedSection, StaggerContainer, staggerItem } from './AnimatedSection';
 
 const SAFA_STYLES = [
@@ -57,8 +57,13 @@ import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
 import { getActiveContract, recordContractAcceptance } from '@/lib/client-update';
 
-export function ArtistsSection() {
-  const { user } = useAuth();
+interface ArtistsSectionProps {
+  /** Opens the shared customer AuthModal — a booking needs a signed-in account. */
+  onRequireSignIn?: () => void;
+}
+
+export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
+  const { user, loading: authLoading } = useAuth();
   const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
   const [safaCount, setSafaCount] = useState<number>(25);
   const [pincode, setPincode] = useState('302001');
@@ -137,11 +142,19 @@ export function ArtistsSection() {
       setError('Please accept the booking terms to continue.');
       return;
     }
+    // A booking with no account behind it can never be tracked, reviewed or
+    // refunded by the person who made it — the arrival/completion codes and
+    // My Bookings page are all keyed on customer_id. Sign-in is required.
+    if (!user) {
+      setError('Please sign in to confirm your booking — this is how you track your artist and get your arrival code.');
+      onRequireSignIn?.();
+      return;
+    }
 
     setSubmitting(true);
 
     const bookingPayload = {
-      customer_id: user?.id ?? null,
+      customer_id: user.id,
       customer_name: customerName.trim(),
       customer_phone: customerPhone.trim(),
       customer_phone_alt: customerPhoneAlt.trim() || null,
@@ -193,7 +206,7 @@ export function ArtistsSection() {
       if (contract) {
         await recordContractAcceptance({
           contractId: contract.id,
-          userId: user?.id ?? null,
+          userId: user.id,
           bookingId: inserted?.id ?? null,
         });
       }
@@ -731,6 +744,23 @@ export function ArtistsSection() {
 
                       <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="dark" />
 
+                      {!user && !authLoading && (
+                        <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-royal-500/10 border border-royal-400/40 text-royal-100">
+                          <ShieldCheck size={16} className="shrink-0 mt-0.5 text-royal-300" />
+                          <p className="text-[11px] leading-relaxed">
+                            <button
+                              type="button"
+                              onClick={() => onRequireSignIn?.()}
+                              className="font-black text-royal-300 underline underline-offset-2"
+                            >
+                              Sign in
+                            </button>{' '}
+                            to confirm — your account keeps the arrival code, live artist tracking and
+                            booking history in one place.
+                          </p>
+                        </div>
+                      )}
+
                       <motion.button
                         whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
                         whileTap={{ scale: 0.97 }}
@@ -744,7 +774,10 @@ export function ArtistsSection() {
                           </>
                         ) : (
                           <>
-                            <Phone size={16} /> Pay {Math.round(advanceRate * 100)}% Advance (₹{advanceAmount.toLocaleString()}) & Lock Date for {effectiveSafaCount} Safa{effectiveSafaCount === 1 ? '' : 's'}
+                            <Phone size={16} />{' '}
+                            {!user && !authLoading
+                              ? 'Sign In & Lock Your Date'
+                              : `Pay ${Math.round(advanceRate * 100)}% Advance (₹${advanceAmount.toLocaleString()}) & Lock Date for ${effectiveSafaCount} Safa${effectiveSafaCount === 1 ? '' : 's'}`}
                           </>
                         )}
                       </motion.button>
