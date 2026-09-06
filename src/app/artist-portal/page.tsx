@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError, DBArtistBooking } from '@/lib/supabase';
+import { verifyCompletionCode } from '@/lib/client-update';
 import { VerificationPanel } from '@/components/verification/VerificationPanel';
 import { DigitalIdCard } from '@/components/verification/DigitalIdCard';
 import { PortfolioManager } from '@/components/reviews/PortfolioManager';
@@ -49,18 +50,29 @@ export default function ArtistPortalPage() {
     fetchBookings();
   }, [fetchBookings]);
 
+  // Completion goes through the customer's completion code, never a bare
+  // status update: verify_completion_code() is what flips the job to
+  // 'completed' AND sets payment_release_status='ready_for_review', which is
+  // the only way it reaches the admin's Payment Release queue. The old
+  // direct update skipped that, so a self-completed job could never be paid.
   const markCompleted = async (id: string) => {
-    const previous = bookings;
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'completed' } : b)));
+    const code = window.prompt(
+      'Ask the customer for their 6-digit Completion Code (shown in their My Bookings) and enter it here:'
+    );
+    if (!code?.trim()) return;
 
-    const { error: updateErr } = await supabase
-      .from('artist_bookings')
-      .update({ status: 'completed' })
-      .eq('id', id);
-
-    if (updateErr) {
-      setBookings(previous); // Roll the optimistic update back.
-      setError(friendlyError(updateErr));
+    setError(null);
+    try {
+      const ok = await verifyCompletionCode('booking', id, code);
+      if (!ok) {
+        setError('That completion code did not match. Please check it with the customer and try again.');
+        return;
+      }
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, status: 'completed' } : b))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : friendlyError(err));
     }
   };
 
@@ -95,7 +107,7 @@ export default function ArtistPortalPage() {
 
   const totalEarned = bookings
     .filter((b) => b.status === 'completed')
-    .reduce((sum, b) => sum + b.amount, 0);
+    .reduce((sum, b) => sum + (b.artist_payout_amount ?? b.amount), 0);
 
   return (
     <div className="min-h-screen bg-[#FDF6EC] text-maroon-950">
@@ -305,7 +317,7 @@ export default function ArtistPortalPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Sparkles size={14} className="text-amber-600" />
-                      <span>Tying Fee: <strong className="text-gradient-gold">₹{b.amount}</strong></span>
+                      <span>Your Payout: <strong className="text-gradient-gold">₹{(b.artist_payout_amount ?? b.amount).toLocaleString()}</strong></span>
                     </div>
                   </div>
                 </div>

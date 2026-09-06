@@ -183,10 +183,16 @@ export interface RentalCustomer {
 
 export interface CreatedRental {
   rentalId: string;
-  razorpayOrderId: string;
-  amount: number;
-  currency: string;
-  keyId: string;
+  /**
+   * True when the server booked the rental without taking payment (Razorpay
+   * not configured yet). The rental is saved as pending / advance_pending and
+   * the team collects the advance manually — the Razorpay fields are absent.
+   */
+  paymentSkipped?: boolean;
+  razorpayOrderId?: string;
+  amount?: number;
+  currency?: string;
+  keyId?: string;
   quote: RentalQuote;
 }
 
@@ -341,11 +347,14 @@ export function payableFromOrder(order: CreatedOrder): PayableOrder {
 
 /** Adapts a rental booking to the shared Razorpay payload. */
 export function payableFromRental(rental: CreatedRental): PayableOrder {
+  if (rental.paymentSkipped || !rental.razorpayOrderId) {
+    throw new Error('This rental was booked without online payment — nothing to pay here.');
+  }
   return {
     razorpayOrderId: rental.razorpayOrderId,
-    amount: rental.amount,
-    currency: rental.currency,
-    keyId: rental.keyId,
+    amount: rental.amount ?? 0,
+    currency: rental.currency ?? 'INR',
+    keyId: rental.keyId ?? '',
     reference: rental.rentalId,
     description: `Rental advance · ${rental.quote.safaCount} safa(s) · ${rental.quote.days} day(s)`,
   };

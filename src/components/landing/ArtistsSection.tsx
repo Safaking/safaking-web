@@ -55,6 +55,7 @@ import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
 import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
+import { getActiveContract, recordContractAcceptance } from '@/lib/client-update';
 
 export function ArtistsSection() {
   const { user } = useAuth();
@@ -171,13 +172,33 @@ export function ArtistsSection() {
     // balance_amount / payment_status saved bookings with no payment record
     // while still reporting success. The columns exist as of
     // supabase/002_production_hardening.sql and supabase/019_client_feedback_updates.sql.
-    const { error: insertErr } = await supabase.from('artist_bookings').insert(bookingPayload);
+    const { data: inserted, error: insertErr } = await supabase
+      .from('artist_bookings')
+      .insert(bookingPayload)
+      .select('id')
+      .single();
 
     setSubmitting(false);
 
     if (insertErr) {
       setError(friendlyError(insertErr));
       return;
+    }
+
+    // The tick-box used to be display-only — nothing was ever written to
+    // contract_acceptances, so there was no record the customer agreed to
+    // the terms. Best-effort: the booking itself is already saved.
+    try {
+      const contract = await getActiveContract('customer');
+      if (contract) {
+        await recordContractAcceptance({
+          contractId: contract.id,
+          userId: user?.id ?? null,
+          bookingId: inserted?.id ?? null,
+        });
+      }
+    } catch (err) {
+      console.warn('Could not record contract acceptance:', err);
     }
 
     sendWhatsAppNotification('booking', {

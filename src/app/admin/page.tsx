@@ -69,6 +69,22 @@ interface ArtistDispatchProfile {
   service_pincodes: string[];
   verified: boolean;
   active: boolean;
+  blacklisted: boolean;
+  verification_status: 'unverified' | 'pending' | 'verified' | 'rejected' | null;
+  rating: number | null;
+  total_events: number;
+}
+
+/**
+ * Traffic-light for an artist's rating: red when it's consistently poor,
+ * orange when it's slipping, green otherwise. Only meaningful once they've
+ * actually done events — a brand-new artist shows neutral.
+ */
+function ratingTone(rating: number | null, totalEvents: number): { cls: string; label: string } {
+  if (!totalEvents || rating == null) return { cls: 'bg-gray-100 text-gray-500', label: 'New' };
+  if (rating < 3) return { cls: 'bg-rose-100 text-rose-800', label: `${rating.toFixed(1)} ★ Poor` };
+  if (rating < 4) return { cls: 'bg-orange-100 text-orange-800', label: `${rating.toFixed(1)} ★ Watch` };
+  return { cls: 'bg-emerald-100 text-emerald-800', label: `${rating.toFixed(1)} ★` };
 }
 
 const EMPTY_PRODUCT = {
@@ -339,7 +355,7 @@ export default function AdminPanelPage() {
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: true }),
       supabase.from('app_settings').select('*').order('key', { ascending: true }),
-      supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active'),
+      supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events'),
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
@@ -472,7 +488,10 @@ export default function AdminPanelPage() {
     await patchRow<DBArtistApplication>('artist_applications', application.id, { status }, setArtistApps);
 
     if (status === 'approved' && application.user_id) {
-      await patchRow<UserProfile>('profiles', application.user_id, { role: 'artist' }, setUsers);
+      // Profile row first, role second. The role flip is what unlocks the
+      // portal — doing it before the artist_profiles upsert meant a failed
+      // upsert left an artist with portal access but no profile row (no
+      // public listing, portfolio inserts failing on the FK, blank ID card).
 
       // Mirrors on_artist_application_approved() in supabase/016_client_update.sql —
       // done here too (not just relying on that DB trigger) so approval works
@@ -502,7 +521,12 @@ export default function AdminPanelPage() {
         },
         { onConflict: 'id' }
       );
-      if (profileErr) setError(friendlyError(profileErr));
+      if (profileErr) {
+        setError(friendlyError(profileErr));
+        return;
+      }
+
+      await patchRow<UserProfile>('profiles', application.user_id, { role: 'artist' }, setUsers);
 
       // Best-effort — the approval itself is already saved above, so a failed
       // email (e.g. RESEND_API_KEY not yet configured) shouldn't block it.
@@ -557,12 +581,28 @@ export default function AdminPanelPage() {
           const tier = pinMatch ? 0 : cityMatch ? 1 : 2;
           return { user, profile, tier };
         })
+        // Never offer work to a deactivated or blacklisted artist — the
+        // dropdown used to list everyone with role='artist' regardless.
+        .filter(({ profile }) => !profile || (profile.active && !profile.blacklisted))
         .sort((a, b) => a.tier - b.tier);
     },
     [artists, artistProfiles]
   );
 
   const TIER_LABEL = ['📍 Exact pincode', '🏙️ Same city', ''];
+
+  /** Active / blacklist controls on the artist roster (Users & Roles tab). */
+  const setArtistFlags = async (
+    artistId: string,
+    patch: Partial<Pick<ArtistDispatchProfile, 'active' | 'blacklisted'>>
+  ) => {
+    const { error: flagErr } = await supabase.from('artist_profiles').update(patch).eq('id', artistId);
+    if (flagErr) {
+      setError(friendlyError(flagErr));
+      return;
+    }
+    setArtistProfiles((prev) => prev.map((p) => (p.id === artistId ? { ...p, ...patch } : p)));
+  };
 
   const assignArtist = async (bookingId: string, artistId: string) => {
     if (!artistId) return;
@@ -1101,7 +1141,8 @@ export default function AdminPanelPage() {
                                   {user.full_name || user.email}
                                   {profile ? ` — ${profile.base_city ?? 'no city set'}` : ''}
                                   {TIER_LABEL[tier] ? ` (${TIER_LABEL[tier]})` : ''}
-                                  {profile && !profile.verified ? ' [Not KYC-verified]' : ''}
+                                  {profile && profile.verification_status !== 'verified' ? ' [KYC not done]' : ''}
+                                  {profile && profile.total_events > 0 && profile.rating != null && profile.rating < 3 ? ' ⚠ low rating' : ''}
                                 </option>
                               ))}
                             </select>
@@ -1933,6 +1974,7 @@ export default function AdminPanelPage() {
                         <th className={TH}>Phone</th>
                         <th className={TH}>City</th>
                         <th className={TH}>Role</th>
+                        <th className={TH}>Artist Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-100 text-xs">
@@ -1958,6 +2000,72 @@ export default function AdminPanelPage() {
                                 }
                               />
                             )}
+                          </td>
+                          <td className="p-4">
+                            {(() => {
+                              if (account.role !== 'artist') return <span className="text-gray-300">—</span>;
+                              const ap = artistProfiles.find((p) => p.id === account.id);
+                              if (!ap) {
+                                return (
+                                  <span className="text-[10px] font-bold text-rose-700">
+                                    No artist profile — re-approve their application
+                                  </span>
+                                );
+                              }
+                              const tone = ratingTone(ap.rating, ap.total_events);
+                              return (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${tone.cls}`}
+                                    title={`${ap.total_events} event${ap.total_events === 1 ? '' : 's'}`}
+                                  >
+                                    {tone.label}
+                                  </span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                      ap.verification_status === 'verified'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-amber-100 text-amber-800'
+                                    }`}
+                                  >
+                                    {ap.verification_status === 'verified' ? 'KYC ✓' : 'KYC pending'}
+                                  </span>
+                                  {ap.blacklisted ? (
+                                    <button
+                                      onClick={() => setArtistFlags(ap.id, { blacklisted: false })}
+                                      className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold uppercase tracking-wider"
+                                      title="Remove from blacklist"
+                                    >
+                                      Blacklisted · Undo
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => setArtistFlags(ap.id, { active: !ap.active })}
+                                        className={`px-2.5 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                                          ap.active
+                                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`}
+                                        title={ap.active ? 'Click to deactivate (hidden from listing & assignment)' : 'Click to reactivate'}
+                                      >
+                                        {ap.active ? 'Active' : 'Inactive'}
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          if (confirm(`Blacklist ${account.full_name || 'this artist'}? They will be removed from listings, matching and assignment until undone.`)) {
+                                            setArtistFlags(ap.id, { blacklisted: true, active: false });
+                                          }
+                                        }}
+                                        className="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider"
+                                      >
+                                        Blacklist
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}

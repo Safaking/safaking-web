@@ -8,6 +8,7 @@ import { getLatestArtistLocation, LatestLocation } from '@/lib/client-update';
 interface ActiveBooking {
   id: string;
   kind: 'rental' | 'booking';
+  status: string;
   artistName: string | null;
   eventDate: string;
   venue: string;
@@ -37,21 +38,25 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
     setError(null);
 
     const [rentals, bookingsRes] = await Promise.all([
+      // Every live booking, not just ones already assigned: a customer whose
+      // request is still 'pending' (no artist yet) or whose job just finished
+      // used to see nothing at all here and assume the booking was lost.
       supabase
         .from('rental_bookings')
         .select(
-          'id, artist_name, start_date, venue_address, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status'
+          'id, status, artist_name, start_date, venue_address, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status'
         )
         .eq('customer_id', userId)
-        .in('status', ['confirmed', 'dispatched', 'active'])
-        .not('artist_id', 'is', null),
+        .in('status', ['pending', 'confirmed', 'dispatched', 'active', 'returned', 'completed'])
+        .order('start_date', { ascending: true }),
       supabase
         .from('artist_bookings')
         .select(
-          'id, artist_name, event_date, city_venue, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status'
+          'id, status, artist_name, event_date, city_venue, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status'
         )
         .eq('customer_id', userId)
-        .eq('status', 'assigned'),
+        .in('status', ['pending', 'offered', 'assigned', 'completed'])
+        .order('event_date', { ascending: true }),
     ]);
 
     if (rentals.error || bookingsRes.error) {
@@ -62,13 +67,13 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
 
     const list: ActiveBooking[] = [
       ...(rentals.data ?? []).map((r) => ({
-        id: r.id, kind: 'rental' as const, artistName: r.artist_name, eventDate: r.start_date,
+        id: r.id, kind: 'rental' as const, status: r.status, artistName: r.artist_name, eventDate: r.start_date,
         venue: r.venue_address, arrivalOtp: r.arrival_otp, completionCode: r.completion_code,
         otpVerifiedAt: r.otp_verified_at, happyCodeVerifiedAt: r.happy_code_verified_at,
         paymentReleaseStatus: r.payment_release_status,
       })),
       ...(bookingsRes.data ?? []).map((b) => ({
-        id: b.id, kind: 'booking' as const, artistName: b.artist_name, eventDate: b.event_date,
+        id: b.id, kind: 'booking' as const, status: b.status, artistName: b.artist_name, eventDate: b.event_date,
         venue: b.city_venue, arrivalOtp: b.arrival_otp, completionCode: b.completion_code,
         otpVerifiedAt: b.otp_verified_at, happyCodeVerifiedAt: b.happy_code_verified_at,
         paymentReleaseStatus: b.payment_release_status,
@@ -114,9 +119,17 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="font-display font-black text-xl text-maroon-900">Upcoming Bookings</h2>
+      <h2 className="font-display font-black text-xl text-maroon-900">Your Bookings</h2>
       {bookings.map((b) => {
         const loc = locations[b.id];
+        const stageLabel =
+          b.paymentReleaseStatus === 'released' ? null
+          : b.status === 'completed' || b.status === 'returned' ? 'Completed'
+          : b.status === 'pending' ? 'Request received — artist being arranged'
+          : b.status === 'offered' ? 'Artist being confirmed'
+          : b.status === 'assigned' || b.status === 'confirmed' ? 'Confirmed'
+          : b.status === 'dispatched' || b.status === 'active' ? 'In progress'
+          : b.status;
         return (
           <div key={`${b.kind}-${b.id}`} className="bg-white rounded-3xl border border-amber-200/60 shadow-sm p-6 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -126,11 +139,15 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
                 </p>
                 <p className="text-[11px] text-gray-500 mt-0.5">{b.eventDate} · {b.venue}</p>
               </div>
-              {b.paymentReleaseStatus === 'released' && (
+              {b.paymentReleaseStatus === 'released' ? (
                 <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
                   <ShieldCheck size={11} /> Completed & paid
                 </span>
-              )}
+              ) : stageLabel ? (
+                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
+                  {stageLabel}
+                </span>
+              ) : null}
             </div>
 
             {/* Codes — only while still relevant */}

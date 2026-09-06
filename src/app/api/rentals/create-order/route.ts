@@ -152,6 +152,14 @@ export async function POST(request: Request) {
   }
 
   // ---- Razorpay -----------------------------------------------------------
+  // Online payment isn't switched on yet (keys not configured): keep the
+  // rental as pending / advance_pending for the team to collect the advance
+  // manually, instead of throwing — which used to mark every rental
+  // 'cancelled' and show the customer an error the moment they booked.
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    return NextResponse.json({ rentalId: rental.id, paymentSkipped: true, quote });
+  }
+
   try {
     const rzpOrder = await createRazorpayOrder(
       toPaise(quote.advanceAmount),
