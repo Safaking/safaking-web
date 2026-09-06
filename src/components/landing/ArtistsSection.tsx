@@ -334,6 +334,12 @@ export function ArtistsSection() {
 
         {/* Booking CTA */}
         <AnimatedSection>
+          {/* Its own anchor, distinct from the section's #artists — a "Book a
+              Safa Artist" link should land straight on the booking form, not
+              at the top of this section where the "Apply to Join Network"
+              recruitment CTA sits (that read as a bug: customers wanting to
+              book an artist landed on artist-recruitment copy instead). */}
+          <div id="artist-booking-form" className="scroll-mt-24" />
           <div className="relative rounded-3xl overflow-hidden bg-royal-gradient shadow-2xl shadow-maroon-900/40">
             <div className="absolute inset-0 pattern-diamond opacity-30" />
 

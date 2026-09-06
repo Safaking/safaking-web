@@ -47,7 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/rent', label: 'Rent a Safa', hint: 'Safas for your event dates', icon: CalendarRange },
       { href: '/plan', label: 'Plan My Event', hint: 'Guests in, full quotation out', icon: Sparkles },
       { href: '/enquiry', label: 'Get Quotes', hint: 'Let artists bid for your wedding', icon: MessageSquare },
-      { href: '/#artists', label: 'Book a Safa Artist', hint: 'Tying at your venue', icon: Crown },
+      { href: '/#artist-booking-form', label: 'Book a Safa Artist', hint: 'Tying at your venue', icon: Crown },
     ],
   },
   {

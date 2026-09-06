@@ -115,7 +115,7 @@ export function Hero() {
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
                 <Link
-                  href="#artists"
+                  href="#artist-booking-form"
                   className="w-full sm:w-auto border-2 border-royal-400/50 hover:border-royal-300 text-royal-100 font-bold px-8 py-4 rounded-2xl text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:bg-royal-500/10"
                 >
                   <Crown size={16} />

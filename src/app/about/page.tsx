@@ -193,7 +193,7 @@ export default function AboutPage() {
               Shop Safa Collection
             </Link>
             <Link
-              href="/#artists"
+              href="/#artist-booking-form"
               className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-xs uppercase tracking-widest border border-white/20 transition-colors"
             >
               Book Safa Artist
