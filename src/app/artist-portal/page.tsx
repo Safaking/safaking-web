@@ -351,7 +351,18 @@ export default function ArtistPortalPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Sparkles size={14} className="text-amber-600" />
-                      <span>Your Payout: <strong className="text-gradient-gold">₹{(b.artist_payout_amount ?? b.amount).toLocaleString()}</strong></span>
+                      <span>
+                        Your Payout:{' '}
+                        <strong className="text-gradient-gold">
+                          ₹{(b.artist_payout_amount ?? b.amount).toLocaleString()}
+                        </strong>
+                        {b.artist_payout_amount != null && b.artist_payout_amount !== b.amount && (
+                          <span className="text-[11px] text-gray-500">
+                            {' '}(customer pays ₹{b.amount.toLocaleString()} — our charge is on top,
+                            nothing is cut from you)
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>

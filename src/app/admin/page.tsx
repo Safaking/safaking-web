@@ -8,7 +8,7 @@ import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
-  Phone, User, Navigation, MessageCircle, Search,
+  Phone, User, Navigation, MessageCircle, Search, ZoomIn,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -276,6 +276,10 @@ export default function AdminPanelPage() {
   const [savingProduct, setSavingProduct] = useState(false);
   const [teamFor, setTeamFor] = useState<string | null>(null);
   const [viewingApplication, setViewingApplication] = useState<DBArtistApplication | null>(null);
+  // The application photo is the only look an admin gets at the person they
+  // are about to let into people's weddings — a 80px thumbnail is not enough
+  // to judge it, so it opens full size.
+  const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; name: string } | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
 
@@ -2295,18 +2299,33 @@ export default function AdminPanelPage() {
 
             <div className="p-7 space-y-5">
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl border-2 border-amber-200/70 overflow-hidden shrink-0 bg-amber-50/50 flex items-center justify-center">
-                  {viewingApplication.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                {viewingApplication.photo_url ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setZoomedPhoto({
+                        url: viewingApplication.photo_url!,
+                        name: viewingApplication.full_name,
+                      })
+                    }
+                    title="Click to enlarge"
+                    className="group relative w-20 h-20 rounded-2xl border-2 border-amber-200/70 overflow-hidden shrink-0 bg-amber-50/50 cursor-zoom-in"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={viewingApplication.photo_url}
                       alt={viewingApplication.full_name}
                       className="w-full h-full object-cover"
                     />
-                  ) : (
+                    <span className="absolute inset-0 bg-maroon-950/0 group-hover:bg-maroon-950/45 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all">
+                      <ZoomIn size={20} />
+                    </span>
+                  </button>
+                ) : (
+                  <div className="w-20 h-20 rounded-2xl border-2 border-amber-200/70 overflow-hidden shrink-0 bg-amber-50/50 flex items-center justify-center">
                     <User size={28} className="text-gray-300" />
-                  )}
-                </div>
+                  </div>
+                )}
                 <div>
                   <p className="font-display font-black text-xl text-maroon-950">
                     {viewingApplication.full_name}
@@ -2438,6 +2457,44 @@ export default function AdminPanelPage() {
               </div>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Full-size photo viewer — sits above the application modal */}
+      {zoomedPhoto && (
+        <div
+          className="fixed inset-0 z-[70] bg-maroon-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setZoomedPhoto(null)}
+        >
+          <motion.img
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            src={zoomedPhoto.url}
+            alt={zoomedPhoto.name}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-[92vw] max-h-[80vh] object-contain rounded-2xl shadow-2xl cursor-default"
+          />
+          <div
+            className="mt-4 flex items-center gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display font-black text-royal-100 text-sm">{zoomedPhoto.name}</p>
+            <a
+              href={zoomedPhoto.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-royal-100 text-[11px] font-bold uppercase tracking-wider"
+            >
+              Open original ↗
+            </a>
+            <button
+              type="button"
+              onClick={() => setZoomedPhoto(null)}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-royal-100 text-[11px] font-bold uppercase tracking-wider"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>

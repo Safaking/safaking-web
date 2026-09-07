@@ -28,6 +28,9 @@ export function ArtistLeadBoard({ artistId }: { artistId: string }) {
   // Quoting is pointless before KYC: the DB rejects both the quote and any
   // assignment that would follow (supabase/025_kyc_assignment_gate.sql).
   const [kycOk, setKycOk] = useState<boolean | null>(null);
+  // SafaKing's charge is added on top of the artist's quote, never deducted
+  // from it — spell that out so a quote is not padded "for the commission".
+  const [platformRate, setPlatformRate] = useState(0.2);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,6 +47,17 @@ export function ArtistLeadBoard({ artistId }: { artistId: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'platform_charge_rate')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value != null) setPlatformRate(Number(data.value));
+      });
+  }, []);
 
   useEffect(() => {
     supabase
@@ -234,13 +248,37 @@ export function ArtistLeadBoard({ artistId }: { artistId: string }) {
                       </label>
                       <div className="text-right">
                         <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
-                          Your total
+                          You receive
                         </p>
                         <p className="font-display font-black text-lg text-gradient-gold">
                           ₹{Number.isFinite(estimate) ? estimate.toLocaleString() : '—'}
                         </p>
                       </div>
                     </div>
+
+                    {Number.isFinite(estimate) && estimate > 0 && (
+                      <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3 space-y-1">
+                        <div className="flex justify-between text-[11px] text-maroon-900">
+                          <span>Customer is shown</span>
+                          <span className="font-bold">
+                            ₹{Math.round(estimate * (1 + platformRate)).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-maroon-700/70">
+                          <span>SafaKing charge ({Math.round(platformRate * 100)}%)</span>
+                          <span>
+                            ₹{(Math.round(estimate * (1 + platformRate)) - estimate).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs font-black text-emerald-900 pt-1 border-t border-emerald-200">
+                          <span>Paid to you</span>
+                          <span>₹{estimate.toLocaleString()}</span>
+                        </div>
+                        <p className="text-[10px] text-emerald-800/80 leading-relaxed">
+                          Our charge is added on top of your quote — you are paid your full rate.
+                        </p>
+                      </div>
+                    )}
 
                     <textarea
                       rows={2}
