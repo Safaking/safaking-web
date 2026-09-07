@@ -26,6 +26,7 @@ const SAFA_SPECIALTIES = [
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const HOME_FOR_ROLE: Record<UserRole, string> = {
   admin: '/artist-portal',
+  manager: '/artist-portal',
   artist: '/artist-portal',
   customer: '/artist-portal/status',
 };

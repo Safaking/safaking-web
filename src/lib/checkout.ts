@@ -181,6 +181,10 @@ export interface RentalCustomer {
   pincode: string;
   /** How the customer says they found us — feeds the Lead Source report. */
   leadSource?: string;
+  /** Exact venue pin, so the artist reaches the right gate. */
+  lat?: number;
+  lng?: number;
+  locationNote?: string;
 }
 
 export interface CreatedRental {
@@ -217,6 +221,9 @@ export async function createRental(
       city: customer.city,
       pincode: customer.pincode,
       leadSource: customer.leadSource,
+      lat: customer.lat,
+      lng: customer.lng,
+      locationNote: customer.locationNote,
     },
     'Could not start the rental booking.'
   );

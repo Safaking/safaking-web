@@ -16,6 +16,7 @@ import { DigitalIdCard } from '@/components/verification/DigitalIdCard';
 import { PortfolioManager } from '@/components/reviews/PortfolioManager';
 import { ArtistCheckin } from '@/components/liveops/ArtistCheckin';
 import { ArtistLeadBoard } from '@/components/marketplace/ArtistLeadBoard';
+import { ArtistComplaints } from '@/components/complaints/ArtistComplaints';
 
 export default function ArtistPortalPage() {
   const { profile, user, logout } = useAuth();
@@ -257,6 +258,7 @@ export default function ArtistPortalPage() {
 
         {user && (
           <div className="mb-8 space-y-6">
+            <ArtistComplaints artistId={user.id} artistName={profile?.full_name || 'Artist'} />
             <ArtistCheckin artistId={user.id} />
             <ArtistLeadBoard artistId={user.id} />
             <VerificationPanel ownerId={user.id} subjectType="artist" />

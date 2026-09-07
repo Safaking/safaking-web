@@ -14,7 +14,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 /** Browser client. Persists the session in cookies so middleware can read it. */
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
 
-export type UserRole = 'customer' | 'artist' | 'admin';
+export type UserRole = 'customer' | 'artist' | 'manager' | 'admin';
+
+/** Staff roles — everyone who gets into /admin. */
+export const STAFF_ROLES: UserRole[] = ['admin', 'manager'];
+export const isStaffRole = (role: UserRole | null | undefined) =>
+  role === 'admin' || role === 'manager';
 
 /** Roles a visitor may pick at signup. Admin is granted by an admin, never chosen. */
 export const SIGNUP_ROLES: Exclude<UserRole, 'admin'>[] = ['customer', 'artist'];
@@ -122,6 +127,17 @@ export interface DBArtistBooking {
   notes?: string | null;
   /** How the customer found us — drives the Lead Source report. */
   lead_source?: string | null;
+  /** Exact spot the customer pinned, so the artist reaches the right gate. */
+  customer_lat?: number | null;
+  customer_lng?: number | null;
+  location_note?: string | null;
+  /**
+   * An artist accepting an offer is not the final word — an admin signs off,
+   * and may swap the artist. Null means "waiting for that sign-off".
+   */
+  assigned_by?: string | null;
+  assignment_approved_at?: string | null;
+  assignment_approved_by?: string | null;
   created_at?: string;
 }
 
@@ -223,6 +239,12 @@ export interface DBRentalBooking {
   status: 'pending' | 'confirmed' | 'dispatched' | 'active' | 'returned' | 'completed' | 'cancelled';
   notes?: string | null;
   lead_source?: string | null;
+  customer_lat?: number | null;
+  customer_lng?: number | null;
+  location_note?: string | null;
+  assigned_by?: string | null;
+  assignment_approved_at?: string | null;
+  assignment_approved_by?: string | null;
   created_at?: string;
 }
 
@@ -290,5 +312,41 @@ export interface DBExpense {
   paid_to?: string | null;
   reference?: string | null;
   created_by?: string | null;
+  created_at?: string;
+}
+
+export type ComplaintStatus =
+  | 'open' | 'awaiting_artist' | 'awaiting_customer' | 'escalated' | 'resolved' | 'dismissed';
+
+export interface DBComplaint {
+  id: string;
+  booking_id?: string | null;
+  rental_id?: string | null;
+  artist_id?: string | null;
+  customer_id?: string | null;
+  customer_name: string;
+  customer_phone?: string | null;
+  subject: string;
+  description: string;
+  severity: 'low' | 'normal' | 'high';
+  status: ComplaintStatus;
+  escalated_at?: string | null;
+  escalated_by?: string | null;
+  escalation_note?: string | null;
+  resolution?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+  created_at?: string;
+}
+
+export interface DBComplaintMessage {
+  id: string;
+  complaint_id: string;
+  author_id?: string | null;
+  author_role: 'customer' | 'artist' | 'manager' | 'admin' | 'system';
+  author_name?: string | null;
+  body: string;
+  /** Staff-only note — never shown to the customer or the artist. */
+  internal: boolean;
   created_at?: string;
 }
