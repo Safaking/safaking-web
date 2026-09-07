@@ -42,12 +42,16 @@ export const ARTIST_DOCS: DocSpec[] = [
     type: 'selfie', label: 'Selfie', required: true,
     hint: 'A clear photo of your face, to match against your Aadhaar.',
   },
+  // Neither of these is required to reach 'verified': a 10-year veteran
+  // usually has no training certificate, and demanding one left them stuck at
+  // 'pending' forever — unassignable under the KYC gate. Whether the evidence
+  // an artist does provide is good enough is the admin's call at review time.
   {
-    type: 'certificate', label: 'Safa tying certificate', required: true,
-    hint: 'SafaKing Academy or any recognised training certificate.',
+    type: 'certificate', label: 'Safa tying certificate (optional)', required: false,
+    hint: 'SafaKing Academy or any recognised training certificate, if you have one.',
   },
   {
-    type: 'experience_proof', label: 'Experience proof', required: false,
+    type: 'experience_proof', label: 'Experience proof (optional)', required: false,
     hint: 'Event photos, client letters, or anything showing past work.',
   },
 ];
