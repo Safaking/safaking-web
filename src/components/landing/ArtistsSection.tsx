@@ -49,7 +49,7 @@ const SAFA_STYLES = [
   },
 ];
 
-import { supabase, friendlyError } from '@/lib/supabase';
+import { supabase, friendlyError, LEAD_SOURCES } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
@@ -89,6 +89,9 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
   const [cityVenue, setCityVenue] = useState('');
   const [venueAddress, setVenueAddress] = useState('');
   const [showMeasureGuide, setShowMeasureGuide] = useState(false);
+  // Asked once, at booking time — it is the only place we ever learn which
+  // marketing actually brings weddings in.
+  const [leadSource, setLeadSource] = useState('');
 
   // A second function (Haldi, Sangeet, etc.) on a different date/time/venue.
   const [hasSecondEvent, setHasSecondEvent] = useState(false);
@@ -168,6 +171,7 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
       // has a check constraint on this column. Count is already recorded in
       // city_venue above.
       safa_style: selectedStyle,
+      lead_source: leadSource || null,
       second_event_name: hasSecondEvent ? secondEventName.trim() || null : null,
       second_event_date: hasSecondEvent ? secondEventDate || null : null,
       second_event_time: hasSecondEvent ? secondEventTime || null : null,
@@ -224,6 +228,7 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
     });
 
     setCustomerName('');
+    setLeadSource('');
     setContractAccepted(false);
     setCustomerPhone('');
     setCustomerPhoneAlt('');
@@ -741,6 +746,17 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                           <span>₹{balanceAmount.toLocaleString()}</span>
                         </div>
                       </div>
+
+                      <select
+                        value={leadSource}
+                        onChange={(e) => setLeadSource(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-royal-400/25 text-royal-100 text-xs font-bold outline-none focus:border-royal-400/60"
+                      >
+                        <option value="" className="text-maroon-950">How did you hear about SafaKing? (optional)</option>
+                        {LEAD_SOURCES.map((src) => (
+                          <option key={src} value={src} className="text-maroon-950">{src}</option>
+                        ))}
+                      </select>
 
                       <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="dark" />
 

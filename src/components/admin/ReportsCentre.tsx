@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Loader2, AlertCircle, Printer, Download, RefreshCw, ClipboardList, Sunrise,
   Calendar, CalendarRange, Crown, Users, IndianRupee, TrendingUp, Search,
+  Wallet, Megaphone,
 } from 'lucide-react';
 import { supabase, friendlyError } from '@/lib/supabase';
 import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
@@ -92,8 +93,26 @@ interface PersonRow {
   role: string;
 }
 
+interface ExpenseRow {
+  id: string;
+  expense_date: string;
+  category: string;
+  description: string | null;
+  amount: number;
+  payment_mode: string;
+  paid_to: string | null;
+}
+
+const EXPENSE_LABEL: Record<string, string> = {
+  salary: 'Salary & wages', artist_payment: 'Artist payment', marketing: 'Marketing & ads',
+  rent: 'Shop rent', electricity: 'Electricity & utilities', delivery: 'Delivery & courier',
+  software: 'Software', travel: 'Travel & fuel', materials: 'Fabric & materials',
+  refund: 'Customer refund', other: 'Other',
+};
+
 type ReportId =
-  | 'control' | 'ops' | 'bookings' | 'rentals' | 'artists' | 'customers' | 'revenue' | 'analytics';
+  | 'control' | 'ops' | 'bookings' | 'rentals' | 'artists' | 'customers'
+  | 'revenue' | 'pnl' | 'sources' | 'analytics';
 
 const REPORTS: { id: ReportId; label: string; hint: string; icon: typeof ClipboardList }[] = [
   { id: 'control', label: 'Daily Control Sheet', hint: 'One page — the whole day at a glance', icon: ClipboardList },
@@ -103,6 +122,8 @@ const REPORTS: { id: ReportId; label: string; hint: string; icon: typeof Clipboa
   { id: 'artists', label: 'Artist Performance & Payable', hint: 'Jobs, earnings, what we still owe', icon: Crown },
   { id: 'customers', label: 'Customer & Outstanding', hint: 'Who has booked, who still owes', icon: Users },
   { id: 'revenue', label: 'Revenue Summary', hint: 'Month by month, by business line', icon: IndianRupee },
+  { id: 'pnl', label: 'Profit & Loss', hint: 'Revenue minus expenses, by month', icon: Wallet },
+  { id: 'sources', label: 'Lead Source', hint: 'Which marketing actually brings bookings', icon: Megaphone },
   { id: 'analytics', label: 'Business Analytics', hint: 'Top products, top artists, trend', icon: TrendingUp },
 ];
 
@@ -148,37 +169,76 @@ function downloadCSV(filename: string, headers: string[], rows: (string | number
 
 /* ------------------------------------------------------------ small parts */
 
-function Stat({ label, value, tone = 'plain' }: { label: string; value: string | number; tone?: 'plain' | 'good' | 'warn' | 'bad' }) {
-  const cls =
-    tone === 'good' ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-    : tone === 'warn' ? 'bg-amber-50 border-amber-300 text-amber-900'
-    : tone === 'bad' ? 'bg-rose-50 border-rose-200 text-rose-900'
-    : 'bg-white border-amber-200/70 text-maroon-950';
+function Stat({ label, value, tone = 'plain', note }: {
+  label: string; value: string | number; tone?: 'plain' | 'good' | 'warn' | 'bad'; note?: string;
+}) {
+  const tones = {
+    plain: { card: 'border-amber-200/70 bg-white', rule: 'bg-royal-400', value: 'text-maroon-950' },
+    good: { card: 'border-emerald-200 bg-emerald-50/60', rule: 'bg-emerald-500', value: 'text-emerald-800' },
+    warn: { card: 'border-amber-300 bg-amber-50/80', rule: 'bg-amber-500', value: 'text-amber-800' },
+    bad: { card: 'border-rose-200 bg-rose-50/70', rule: 'bg-rose-500', value: 'text-rose-800' },
+  }[tone];
+
   return (
-    <div className={`rounded-2xl border p-4 ${cls}`}>
-      <p className="text-[10px] font-black uppercase tracking-wider opacity-70">{label}</p>
-      <p className="font-display font-black text-2xl mt-1">{value}</p>
+    <div className={`relative rounded-2xl border pl-5 pr-4 py-4 overflow-hidden ${tones.card}`}>
+      <span className={`absolute left-0 top-0 bottom-0 w-1.5 ${tones.rule}`} />
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-maroon-900/45">{label}</p>
+      <p className={`font-display font-black text-[26px] leading-tight mt-1 tabular-nums ${tones.value}`}>{value}</p>
+      {note && <p className="text-[10px] text-maroon-900/45 mt-0.5">{note}</p>}
     </div>
   );
 }
 
-const TH = 'px-3 py-2 text-[10px] font-black uppercase tracking-wider text-maroon-900/60 whitespace-nowrap';
-const TD = 'px-3 py-2 text-[11px] text-gray-700 align-top';
+/** A section heading with the gold rule used across the admin. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mb-3">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-maroon-900">{children}</p>
+      <span className="flex-1 h-px bg-gradient-to-r from-royal-300 to-transparent" />
+    </div>
+  );
+}
+
+const TH =
+  'px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-maroon-900/75 whitespace-nowrap';
+const TD = 'px-4 py-2.5 text-[12.5px] text-gray-800 align-top leading-snug';
+
+/**
+ * Columns whose header reads like money or a count are right-aligned with
+ * tabular figures — a column of rupees that does not line up is unreadable
+ * on paper, which is where these reports mostly end up.
+ */
+const NUMERIC = /amount|revenue|balance|advance|paid|payable|total|rent|deposit|qty|safas|jobs|completed|lost|bookings|rentals|orders|days|share|profit|expense|collected|outstanding|sales|tying/i;
 
 function Table({ headers, rows, empty }: { headers: string[]; rows: React.ReactNode[][]; empty: string }) {
   if (rows.length === 0) {
-    return <p className="py-10 text-center text-sm text-gray-500">{empty}</p>;
+    return (
+      <div className="py-14 text-center">
+        <p className="text-sm font-bold text-maroon-900/40">{empty}</p>
+      </div>
+    );
   }
+  const alignOf = (i: number) =>
+    NUMERIC.test(headers[i] ?? '') ? 'text-right tabular-nums font-semibold text-maroon-900' : '';
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-2xl border border-amber-200/70">
       <table className="w-full text-left border-collapse">
-        <thead className="bg-amber-50/70 border-y border-amber-200/70">
-          <tr>{headers.map((h) => <th key={h} className={TH}>{h}</th>)}</tr>
+        <thead className="bg-gradient-to-b from-royal-100/80 to-royal-50 border-b-2 border-royal-300/70">
+          <tr>
+            {headers.map((h, i) => (
+              <th key={h + i} className={`${TH} ${alignOf(i)}`}>{h}</th>
+            ))}
+          </tr>
         </thead>
-        <tbody className="divide-y divide-amber-100">
+        <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="hover:bg-amber-50/40">
-              {r.map((c, j) => <td key={j} className={TD}>{c}</td>)}
+            <tr
+              key={i}
+              className={`border-b border-amber-100/80 last:border-0 transition-colors hover:bg-royal-50/60 ${
+                i % 2 === 1 ? 'bg-amber-50/25' : 'bg-white'
+              }`}
+            >
+              {r.map((c, j) => <td key={j} className={`${TD} ${alignOf(j)}`}>{c}</td>)}
             </tr>
           ))}
         </tbody>
@@ -199,6 +259,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [artists, setArtists] = useState<ArtistRow[]>([]);
   const [people, setPeople] = useState<PersonRow[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
 
   // Single-date reports (control sheet, ops sheet) vs range reports.
   const [onDate, setOnDate] = useState(todayISO());
@@ -215,22 +276,28 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
     // Everything is pulled once and aggregated in the browser: the volumes
     // here are small (hundreds of rows), and it keeps every report instant
     // and consistent instead of firing a query per switch.
-    const [b, r, o, a, p] = await Promise.all([
+    const [b, r, o, a, p, e] = await Promise.all([
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_profiles').select('id, display_name, base_city, rating, total_events, verification_status, active, blacklisted'),
       supabase.from('profiles').select('id, full_name, phone, role'),
+      supabase.from('expenses').select('*').order('expense_date', { ascending: false }),
     ]);
 
+    // Expenses are the one table that may not exist yet (it arrives with
+    // supabase/027) — a missing table should grey out one report, not break
+    // the whole centre.
     const firstError = b.error ?? r.error ?? o.error ?? a.error ?? p.error;
     if (firstError) setError(friendlyError(firstError));
+    else if (e.error) setError('Expense reports need supabase/027_expenses_and_lead_source.sql to be run first.');
 
     setBookings((b.data as BookingRow[]) ?? []);
     setRentals((r.data as RentalRow[]) ?? []);
     setOrders((o.data as OrderRow[]) ?? []);
     setArtists((a.data as ArtistRow[]) ?? []);
     setPeople((p.data as PersonRow[]) ?? []);
+    setExpenses((e.data as ExpenseRow[]) ?? []);
     setGeneratedAt(new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
     setLoading(false);
   }, []);
@@ -517,6 +584,74 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
     [revenueRows]
   );
 
+  /* ------------------------------------------------- report: profit & loss */
+
+  const pnlRows = useMemo(() => {
+    const map = new Map<string, { month: string; revenue: number; expense: number }>();
+    const bucket = (iso: string) => {
+      const m = iso.slice(0, 7);
+      if (!map.has(m)) map.set(m, { month: m, revenue: 0, expense: 0 });
+      return map.get(m)!;
+    };
+
+    revenueRows.forEach((r) => { bucket(`${r.month}-01`).revenue += r.tying + r.rental + r.sales; });
+    expenses.filter((e) => inRange(e.expense_date)).forEach((e) => {
+      bucket(e.expense_date).expense += Number(e.amount ?? 0);
+    });
+
+    return [...map.values()].sort((a, b) => b.month.localeCompare(a.month));
+  }, [revenueRows, expenses, inRange]);
+
+  const pnlTotals = useMemo(
+    () => pnlRows.reduce((a, r) => ({ revenue: a.revenue + r.revenue, expense: a.expense + r.expense }),
+      { revenue: 0, expense: 0 }),
+    [pnlRows]
+  );
+
+  const expenseByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    expenses.filter((e) => inRange(e.expense_date))
+      .forEach((e) => map.set(e.category, (map.get(e.category) ?? 0) + Number(e.amount ?? 0)));
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [expenses, inRange]);
+
+  /* -------------------------------------------------- report: lead source */
+
+  const sourceRows = useMemo(() => {
+    const map = new Map<string, { source: string; bookings: number; rentals: number; orders: number; revenue: number }>();
+    const bucket = (src: string | null | undefined) => {
+      const key = (src ?? '').trim() || 'Not recorded';
+      if (!map.has(key)) map.set(key, { source: key, bookings: 0, rentals: 0, orders: 0, revenue: 0 });
+      return map.get(key)!;
+    };
+
+    bookings.filter((b) => inRange(b.event_date) && !DEAD_BOOKING.includes(b.status)).forEach((b) => {
+      const row = bucket((b as BookingRow & { lead_source?: string | null }).lead_source);
+      row.bookings += 1;
+      row.revenue += Number(b.amount ?? 0);
+    });
+    rentals.filter((r) => inRange(r.start_date) && !DEAD_BOOKING.includes(r.status)).forEach((r) => {
+      const row = bucket((r as RentalRow & { lead_source?: string | null }).lead_source);
+      row.rentals += 1;
+      row.revenue += Number(r.total_amount ?? 0);
+    });
+    orders.filter((o) => inRange(dayOf(o.created_at)) && o.status !== 'cancelled').forEach((o) => {
+      const row = bucket((o as OrderRow & { lead_source?: string | null }).lead_source);
+      row.orders += 1;
+      row.revenue += Number(o.total_amount ?? 0);
+    });
+
+    return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+  }, [bookings, rentals, orders, inRange]);
+
+  const sourceTotals = useMemo(
+    () => sourceRows.reduce(
+      (a, r) => ({ jobs: a.jobs + r.bookings + r.rentals + r.orders, revenue: a.revenue + r.revenue }),
+      { jobs: 0, revenue: 0 }
+    ),
+    [sourceRows]
+  );
+
   /* --------------------------------------------------------------- export */
 
   const exportCSV = () => {
@@ -548,6 +683,15 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
       downloadCSV(name,
         ['Customer', 'Phone', 'Bookings', 'Rentals', 'Orders', 'Billed', 'Advance Paid', 'Outstanding', 'Last Activity'],
         customerRows.map((c) => [c.name, c.phone, c.bookings, c.rentals, c.orders, c.billed, c.advance, c.outstanding, c.last]));
+    } else if (report === 'pnl') {
+      downloadCSV(name,
+        ['Month', 'Revenue', 'Expenses', 'Net Profit'],
+        pnlRows.map((r) => [r.month, r.revenue, r.expense, r.revenue - r.expense]));
+    } else if (report === 'sources') {
+      downloadCSV(name,
+        ['Source', 'Bookings', 'Rentals', 'Orders', 'Revenue', 'Share %'],
+        sourceRows.map((r) => [r.source, r.bookings, r.rentals, r.orders, r.revenue,
+          sourceTotals.revenue > 0 ? Math.round((r.revenue / sourceTotals.revenue) * 100) : 0]));
     } else if (report === 'revenue') {
       downloadCSV(name,
         ['Month', 'Safa Tying', 'Rental', 'Deposits Held', 'Product Sales', 'Total Revenue', 'Collected', 'Outstanding'],
@@ -591,7 +735,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
       )}
 
       {/* Report picker */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 no-print">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 no-print">
         {REPORTS.map((r) => {
           const Icon = r.icon;
           const on = report === r.id;
@@ -599,14 +743,23 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
             <button
               key={r.id}
               onClick={() => { setReport(r.id); setSearch(''); setStatusFilter('all'); }}
-              title={r.hint}
-              className={`text-left p-3 rounded-2xl border transition-all ${
-                on ? 'bg-maroon-950 border-maroon-950 text-royal-200 shadow-md'
-                   : 'bg-white border-amber-200/70 text-maroon-900 hover:border-amber-300'
+              className={`group text-left p-3.5 rounded-2xl border transition-all duration-150 ${
+                on
+                  ? 'bg-maroon-950 border-maroon-950 shadow-lg shadow-maroon-950/20'
+                  : 'bg-white border-amber-200/70 hover:border-royal-300 hover:shadow-sm'
               }`}
             >
-              <Icon size={16} className={on ? 'text-royal-300' : 'text-amber-600'} />
-              <p className="font-bold text-[11px] mt-1.5 leading-tight">{r.label}</p>
+              <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                on ? 'bg-royal-400/20 text-royal-300' : 'bg-royal-50 text-royal-600 group-hover:bg-royal-100'
+              }`}>
+                <Icon size={15} />
+              </span>
+              <p className={`font-bold text-[12px] mt-2 leading-tight ${on ? 'text-royal-100' : 'text-maroon-950'}`}>
+                {r.label}
+              </p>
+              <p className={`text-[10px] mt-0.5 leading-snug ${on ? 'text-royal-200/60' : 'text-gray-500'}`}>
+                {r.hint}
+              </p>
             </button>
           );
         })}
@@ -637,7 +790,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
           </>
         ) : null}
 
-        {report !== 'analytics' && report !== 'control' && (
+        {report !== 'analytics' && report !== 'control' && report !== 'pnl' && report !== 'sources' && (
           <label className="text-[10px] font-black uppercase tracking-wider text-gray-500 flex-1 min-w-[12rem]">
             Search
             <span className="relative block mt-1">
@@ -685,20 +838,28 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
 
       {/* ---------------------------------------------------- printable area */}
       <div id="report-print-area" className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden print:border-0 print:shadow-none print:rounded-none">
-        <div className="px-6 py-5 border-b border-amber-100">
-          <p className="font-display font-black text-lg text-maroon-950 uppercase tracking-wide">
-            SafaKing — {current.label}
-          </p>
-          <p className="text-[11px] text-gray-500 mt-0.5">
-            {rangeLabel} · generated {generatedAt} by {adminName}
-          </p>
+        <div className="relative px-7 py-6 bg-gradient-to-r from-maroon-950 via-maroon-900 to-maroon-950 overflow-hidden">
+          <span className="absolute inset-0 pattern-diamond opacity-[0.07] pointer-events-none" />
+          <div className="relative flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-royal-400/70">SafaKing</p>
+              <h2 className="font-display font-black text-2xl text-royal-100 mt-1">{current.label}</h2>
+              <p className="text-[11px] text-royal-200/60 mt-1">{current.hint}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] font-bold text-royal-200">{rangeLabel}</p>
+              <p className="text-[10px] text-royal-200/50 mt-0.5">
+                Generated {generatedAt} · {adminName}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="p-6">
           {report === 'control' && (
             <div className="space-y-6">
               <section>
-                <p className="text-[10px] font-black uppercase tracking-widest text-maroon-900/50 mb-2">Bookings</p>
+                <SectionTitle>Bookings</SectionTitle>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <Stat label="Today's bookings" value={control.todayCount} />
                   <Stat label="Tomorrow's bookings" value={control.tomorrowCount} />
@@ -708,7 +869,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
               </section>
 
               <section>
-                <p className="text-[10px] font-black uppercase tracking-widest text-maroon-900/50 mb-2">Artists</p>
+                <SectionTitle>Artists</SectionTitle>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <Stat label="Artists required" value={control.required} />
                   <Stat label="Assigned" value={control.assigned} tone="good" />
@@ -717,7 +878,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
               </section>
 
               <section>
-                <p className="text-[10px] font-black uppercase tracking-widest text-maroon-900/50 mb-2">Payment</p>
+                <SectionTitle>Payment</SectionTitle>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <Stat label="Advance recorded today" value={money(control.collectedToday)} tone="good" />
                   <Stat label="Pending collection (all live jobs)" value={money(control.pendingCollection)} tone={control.pendingCollection ? 'warn' : 'plain'} />
@@ -726,7 +887,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
               </section>
 
               <section>
-                <p className="text-[10px] font-black uppercase tracking-widest text-maroon-900/50 mb-2">Rental</p>
+                <SectionTitle>Rental</SectionTitle>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <Stat label="Deliveries today" value={control.deliveryToday} />
                   <Stat label="Returns due today" value={control.returnToday} />
@@ -735,7 +896,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
               </section>
 
               <section>
-                <p className="text-[10px] font-black uppercase tracking-widest text-maroon-900/50 mb-2">Action required</p>
+                <SectionTitle>Action required</SectionTitle>
                 {control.actions.length === 0 ? (
                   <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
                     Nothing outstanding — every job for this date has an artist, and no returns are overdue.
@@ -874,6 +1035,117 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
                     <span key="g" className="font-black">{money(revenueTotals.outstanding)}</span>,
                   ]] : []),
                 ]}
+              />
+            </>
+          )}
+
+          {report === 'pnl' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                <Stat label="Revenue" value={money(pnlTotals.revenue)} tone="good" note="Tying + rental + product sales" />
+                <Stat label="Expenses" value={money(pnlTotals.expense)} tone="bad" note="Everything recorded in the Expenses tab" />
+                <Stat
+                  label="Net profit"
+                  value={money(pnlTotals.revenue - pnlTotals.expense)}
+                  tone={pnlTotals.revenue - pnlTotals.expense >= 0 ? 'good' : 'bad'}
+                  note={pnlTotals.revenue > 0
+                    ? `${Math.round(((pnlTotals.revenue - pnlTotals.expense) / pnlTotals.revenue) * 100)}% margin`
+                    : undefined}
+                />
+              </div>
+
+              {expenses.length === 0 && (
+                <div className="flex items-start gap-2.5 p-4 mb-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">
+                    No expenses recorded yet, so this is revenue only. Add them under the
+                    <span className="font-black"> Expenses </span> tab and the profit line becomes real.
+                  </p>
+                </div>
+              )}
+
+              <SectionTitle>Month by month</SectionTitle>
+              <Table
+                headers={['Month', 'Revenue', 'Expenses', 'Net Profit', 'Margin']}
+                empty="Nothing recorded in this range."
+                rows={[
+                  ...pnlRows.map((r) => {
+                    const net = r.revenue - r.expense;
+                    return [
+                      <span key="m" className="font-bold text-maroon-950">{r.month}</span>,
+                      money(r.revenue), money(r.expense),
+                      <span key="n" className={net >= 0 ? 'font-black text-emerald-800' : 'font-black text-rose-800'}>
+                        {money(net)}
+                      </span>,
+                      r.revenue > 0 ? `${Math.round((net / r.revenue) * 100)}%` : '—',
+                    ];
+                  }),
+                  ...(pnlRows.length > 0 ? [[
+                    <span key="t" className="font-black uppercase text-[10px] tracking-wider">Total</span>,
+                    <span key="a" className="font-black">{money(pnlTotals.revenue)}</span>,
+                    <span key="b" className="font-black">{money(pnlTotals.expense)}</span>,
+                    <span key="c" className={`font-black ${pnlTotals.revenue - pnlTotals.expense >= 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
+                      {money(pnlTotals.revenue - pnlTotals.expense)}
+                    </span>,
+                    pnlTotals.revenue > 0 ? `${Math.round(((pnlTotals.revenue - pnlTotals.expense) / pnlTotals.revenue) * 100)}%` : '—',
+                  ]] : []),
+                ]}
+              />
+
+              {expenseByCategory.length > 0 && (
+                <div className="mt-7">
+                  <SectionTitle>Where the money went</SectionTitle>
+                  <Table
+                    headers={['Category', 'Amount', 'Share']}
+                    empty="No expenses in this range."
+                    rows={expenseByCategory.map(([cat, sum]) => [
+                      <span key="c" className="font-bold text-maroon-950">{EXPENSE_LABEL[cat] ?? cat}</span>,
+                      money(sum),
+                      pnlTotals.expense > 0 ? `${Math.round((sum / pnlTotals.expense) * 100)}%` : '—',
+                    ])}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {report === 'sources' && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                <Stat label="Jobs in range" value={sourceTotals.jobs} />
+                <Stat label="Revenue" value={money(sourceTotals.revenue)} tone="good" />
+                <Stat
+                  label="Source recorded"
+                  value={`${sourceTotals.jobs > 0
+                    ? Math.round(((sourceTotals.jobs - (sourceRows.find((r) => r.source === 'Not recorded')
+                        ? sourceRows.find((r) => r.source === 'Not recorded')!.bookings
+                          + sourceRows.find((r) => r.source === 'Not recorded')!.rentals
+                          + sourceRows.find((r) => r.source === 'Not recorded')!.orders
+                        : 0)) / sourceTotals.jobs) * 100)
+                    : 0}%`}
+                  note="Older bookings have no source — the field is new"
+                />
+              </div>
+
+              <Table
+                headers={['Source', 'Bookings', 'Rentals', 'Orders', 'Revenue', 'Share']}
+                empty="No activity in this range."
+                rows={sourceRows.map((r) => {
+                  const share = sourceTotals.revenue > 0 ? Math.round((r.revenue / sourceTotals.revenue) * 100) : 0;
+                  const unknown = r.source === 'Not recorded';
+                  return [
+                    <span key="s" className={unknown ? 'font-bold text-gray-400 italic' : 'font-bold text-maroon-950'}>
+                      {r.source}
+                    </span>,
+                    r.bookings, r.rentals, r.orders, money(r.revenue),
+                    <span key="p" className="inline-flex items-center gap-2 justify-end w-full">
+                      <span className="hidden sm:block w-16 h-1.5 rounded-full bg-amber-100 overflow-hidden">
+                        <span className="block h-full bg-maroon-800 rounded-full" style={{ width: `${share}%` }} />
+                      </span>
+                      <span className="font-bold">{share}%</span>
+                    </span>,
+                  ];
+                })}
               />
             </>
           )}

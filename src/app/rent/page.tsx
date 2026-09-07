@@ -8,7 +8,7 @@ import {
   Calendar, MapPin, Users, Minus, Plus, CheckCircle2,
   AlertCircle, Loader2, ArrowRight, Sparkles, ShieldCheck, Images, X,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, LEAD_SOURCES } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
 import {
@@ -67,6 +67,7 @@ export default function RentPage() {
   const [error, setError] = useState<string | null>(null);
   const [bookedRef, setBookedRef] = useState<string | null>(null);
   const [contractAccepted, setContractAccepted] = useState(false);
+  const [leadSource, setLeadSource] = useState('');
 
   useEffect(() => {
     if (profile?.full_name) setName((prev) => prev || profile.full_name);
@@ -182,7 +183,10 @@ export default function RentPage() {
     }
 
     setSubmitting(true);
-    const customer = { name: name.trim(), phone: phone.trim(), venueAddress: venue.trim(), pincode };
+    const customer = {
+      name: name.trim(), phone: phone.trim(), venueAddress: venue.trim(), pincode,
+      leadSource: leadSource || undefined,
+    };
 
     try {
       // The server re-prices and re-checks availability before taking money.
@@ -585,7 +589,19 @@ export default function RentPage() {
             )}
 
             {quote && (
-              <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="light" />
+              <>
+                <select
+                  value={leadSource}
+                  onChange={(e) => setLeadSource(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-maroon-800/20"
+                >
+                  <option value="">How did you hear about SafaKing? (optional)</option>
+                  {LEAD_SOURCES.map((src) => (
+                    <option key={src} value={src}>{src}</option>
+                  ))}
+                </select>
+                <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="light" />
+              </>
             )}
 
             {error && (

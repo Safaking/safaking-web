@@ -84,6 +84,7 @@ export interface DBOrder {
   payment_status?: 'advance_pending' | 'advance_paid' | 'fully_paid' | 'refunded';
   shipping_address: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  lead_source?: string | null;
   created_at?: string;
 }
 
@@ -119,6 +120,8 @@ export interface DBArtistBooking {
   payment_status?: 'advance_pending' | 'advance_paid' | 'fully_paid' | 'refunded';
   status: 'pending' | 'offered' | 'assigned' | 'declined' | 'completed' | 'cancelled';
   notes?: string | null;
+  /** How the customer found us — drives the Lead Source report. */
+  lead_source?: string | null;
   created_at?: string;
 }
 
@@ -219,6 +222,7 @@ export interface DBRentalBooking {
   payment_status: string;
   status: 'pending' | 'confirmed' | 'dispatched' | 'active' | 'returned' | 'completed' | 'cancelled';
   notes?: string | null;
+  lead_source?: string | null;
   created_at?: string;
 }
 
@@ -260,4 +264,31 @@ export function friendlyError(error: unknown): string {
     return 'That record already exists.';
   }
   return err.message || 'Something went wrong. Please try again.';
+}
+
+/** Where a customer says they found SafaKing. Free text in the DB — this is
+ *  the list the booking forms offer, and what the Lead Source report expects. */
+export const LEAD_SOURCES = [
+  'Instagram', 'Facebook', 'Google Search', 'Website', 'WhatsApp',
+  'Referral (friend/family)', 'Advertisement', 'Walk-in', 'Past customer', 'Other',
+] as const;
+
+export const EXPENSE_CATEGORIES = [
+  'salary', 'artist_payment', 'marketing', 'rent', 'electricity',
+  'delivery', 'software', 'travel', 'materials', 'refund', 'other',
+] as const;
+
+export const EXPENSE_MODES = ['cash', 'upi', 'bank', 'card', 'other'] as const;
+
+export interface DBExpense {
+  id: string;
+  expense_date: string;
+  category: (typeof EXPENSE_CATEGORIES)[number] | string;
+  description?: string | null;
+  amount: number;
+  payment_mode: string;
+  paid_to?: string | null;
+  reference?: string | null;
+  created_by?: string | null;
+  created_at?: string;
 }

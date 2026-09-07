@@ -21,6 +21,7 @@ import { STATIC_PINCODES } from '@/lib/pincodes';
 import { VerificationQueue } from '@/components/verification/VerificationQueue';
 import { CancellationDesk } from '@/components/protection/CancellationDesk';
 import { ReportsCentre } from '@/components/admin/ReportsCentre';
+import { ExpenseLedger } from '@/components/admin/ExpenseLedger';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 import { TrainingManager } from '@/components/admin/TrainingManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
@@ -29,7 +30,7 @@ import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts' | 'expenses';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'liveops', label: 'Live Ops', icon: Siren },
@@ -47,6 +48,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'training', label: 'Training & Certificates', icon: GraduationCap },
   { id: 'careers', label: 'Job Applications', icon: Users },
   { id: 'payouts', label: 'Payment Release', icon: Wallet },
+  { id: 'expenses', label: 'Expenses', icon: Wallet },
   { id: 'messages', label: 'Messages', icon: Mail },
   { id: 'users', label: 'Users & Roles', icon: Users },
   { id: 'settings', label: 'Pricing Settings', icon: SlidersHorizontal },
@@ -1989,6 +1991,8 @@ export default function AdminPanelPage() {
             {activeTab === 'protection' && <CancellationDesk />}
 
             {/* ---- ANALYTICS ---- */}
+            {activeTab === 'expenses' && <ExpenseLedger />}
+
             {activeTab === 'analytics' && (
               <ReportsCentre adminName={profile?.full_name || profile?.email || 'admin'} />
             )}
