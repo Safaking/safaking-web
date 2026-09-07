@@ -17,6 +17,7 @@ interface CreateRentalBody {
   venueAddress: string;
   city?: string;
   pincode: string;
+  leadSource?: string;
 }
 
 function bad(message: string, status = 400) {
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
       balance_amount: quote.balanceAmount,
       payment_status: 'advance_pending',
       status: 'pending',
+      lead_source: body.leadSource?.trim() || null,
     })
     .select('id')
     .single();

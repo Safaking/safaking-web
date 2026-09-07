@@ -179,6 +179,8 @@ export interface RentalCustomer {
   venueAddress: string;
   city?: string;
   pincode: string;
+  /** How the customer says they found us — feeds the Lead Source report. */
+  leadSource?: string;
 }
 
 export interface CreatedRental {
@@ -214,6 +216,7 @@ export async function createRental(
       venueAddress: customer.venueAddress,
       city: customer.city,
       pincode: customer.pincode,
+      leadSource: customer.leadSource,
     },
     'Could not start the rental booking.'
   );
