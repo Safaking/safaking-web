@@ -9,7 +9,7 @@ interface ActiveBooking {
   id: string;
   kind: 'rental' | 'booking';
   status: string;
-  artistName: string | null;
+  approvedAt: string | null;
   eventDate: string;
   venue: string;
   arrivalOtp: string | null;
@@ -44,7 +44,7 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
       supabase
         .from('rental_bookings')
         .select(
-          'id, status, artist_name, start_date, venue_address, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status'
+          'id, status, start_date, venue_address, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status, assignment_approved_at'
         )
         .eq('customer_id', userId)
         .in('status', ['pending', 'confirmed', 'dispatched', 'active', 'returned', 'completed'])
@@ -52,7 +52,7 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
       supabase
         .from('artist_bookings')
         .select(
-          'id, status, artist_name, event_date, city_venue, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status'
+          'id, status, event_date, city_venue, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status, assignment_approved_at'
         )
         .eq('customer_id', userId)
         .in('status', ['pending', 'offered', 'assigned', 'completed'])
@@ -67,13 +67,13 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
 
     const list: ActiveBooking[] = [
       ...(rentals.data ?? []).map((r) => ({
-        id: r.id, kind: 'rental' as const, status: r.status, artistName: r.artist_name, eventDate: r.start_date,
+        id: r.id, kind: 'rental' as const, status: r.status, approvedAt: r.assignment_approved_at, eventDate: r.start_date,
         venue: r.venue_address, arrivalOtp: r.arrival_otp, completionCode: r.completion_code,
         otpVerifiedAt: r.otp_verified_at, happyCodeVerifiedAt: r.happy_code_verified_at,
         paymentReleaseStatus: r.payment_release_status,
       })),
       ...(bookingsRes.data ?? []).map((b) => ({
-        id: b.id, kind: 'booking' as const, status: b.status, artistName: b.artist_name, eventDate: b.event_date,
+        id: b.id, kind: 'booking' as const, status: b.status, approvedAt: b.assignment_approved_at, eventDate: b.event_date,
         venue: b.city_venue, arrivalOtp: b.arrival_otp, completionCode: b.completion_code,
         otpVerifiedAt: b.otp_verified_at, happyCodeVerifiedAt: b.happy_code_verified_at,
         paymentReleaseStatus: b.payment_release_status,
@@ -122,12 +122,16 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
       <h2 className="font-display font-black text-xl text-maroon-900">Your Bookings</h2>
       {bookings.map((b) => {
         const loc = locations[b.id];
+        // Which artist is coming is deliberately not shown: an artist
+        // accepting is not the final word — SafaKing signs off on it and may
+        // still swap them, so naming one here would only mislead.
         const stageLabel =
           b.paymentReleaseStatus === 'released' ? null
           : b.status === 'completed' || b.status === 'returned' ? 'Completed'
           : b.status === 'pending' ? 'Request received — artist being arranged'
-          : b.status === 'offered' ? 'Artist being confirmed'
-          : b.status === 'assigned' || b.status === 'confirmed' ? 'Confirmed'
+          : b.status === 'offered' ? 'Artist being arranged'
+          : (b.status === 'assigned' || b.status === 'confirmed') && !b.approvedAt ? 'Artist being confirmed'
+          : b.status === 'assigned' || b.status === 'confirmed' ? 'Confirmed — artist booked'
           : b.status === 'dispatched' || b.status === 'active' ? 'In progress'
           : b.status;
         return (
@@ -135,7 +139,7 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-bold text-sm text-maroon-950">
-                  {b.artistName || 'Artist to be assigned'}
+                  {b.kind === 'rental' ? 'Safa Rental' : 'Safa Artist Booking'}
                 </p>
                 <p className="text-[11px] text-gray-500 mt-0.5">{b.eventDate} · {b.venue}</p>
               </div>
@@ -177,6 +181,13 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
                   </p>
                 </div>
               </div>
+            )}
+
+            {b.approvedAt && !b.happyCodeVerifiedAt && (
+              <p className="text-[11px] text-gray-600 bg-royal-50 rounded-xl p-3 leading-relaxed">
+                Your artist is booked and confirmed by SafaKing. They will call you before the
+                event — share your arrival code with them when they reach you.
+              </p>
             )}
 
             {b.happyCodeVerifiedAt && b.paymentReleaseStatus !== 'released' && (

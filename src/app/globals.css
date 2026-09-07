@@ -185,4 +185,10 @@ button, a {
   .no-print {
     display: none !important;
   }
+
+  /* Address labels: two per row, never split across a page. */
+  #report-print-area .break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }

@@ -16,6 +16,7 @@ import {
   RentalQuote,
 } from '@/lib/checkout';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
+import { LocationPin, PinnedLocation } from '@/components/booking/LocationPin';
 import { getActiveContract, recordContractAcceptance } from '@/lib/client-update';
 
 interface RentableSafa {
@@ -68,6 +69,7 @@ export default function RentPage() {
   const [bookedRef, setBookedRef] = useState<string | null>(null);
   const [contractAccepted, setContractAccepted] = useState(false);
   const [leadSource, setLeadSource] = useState('');
+  const [pin, setPin] = useState<PinnedLocation>({ lat: null, lng: null, note: '' });
 
   useEffect(() => {
     if (profile?.full_name) setName((prev) => prev || profile.full_name);
@@ -186,6 +188,9 @@ export default function RentPage() {
     const customer = {
       name: name.trim(), phone: phone.trim(), venueAddress: venue.trim(), pincode,
       leadSource: leadSource || undefined,
+      lat: pin.lat ?? undefined,
+      lng: pin.lng ?? undefined,
+      locationNote: pin.note.trim() || undefined,
     };
 
     try {
@@ -590,6 +595,7 @@ export default function RentPage() {
 
             {quote && (
               <>
+                <LocationPin value={pin} onChange={setPin} />
                 <select
                   value={leadSource}
                   onChange={(e) => setLeadSource(e.target.value)}

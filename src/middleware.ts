@@ -3,10 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 /** Path prefix -> roles allowed to enter it. */
 const PROTECTED: { prefix: string; roles: string[]; signedOutTo: string; deniedTo: string }[] = [
-  { prefix: '/admin', roles: ['admin'], signedOutTo: '/', deniedTo: '/' },
+  // Managers run daily operations from the same panel — the panel itself
+  // hides what is admin-only, and the database refuses the rest.
+  { prefix: '/admin', roles: ['admin', 'manager'], signedOutTo: '/', deniedTo: '/' },
   {
     prefix: '/artist-portal',
-    roles: ['artist', 'admin'],
+    roles: ['artist', 'admin', 'manager'],
     // Artists get their own dedicated login and "profile pending" views,
     // distinct from the shared customer AuthModal — see
     // src/app/artist-portal/{login,status}/page.tsx.

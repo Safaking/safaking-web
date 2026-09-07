@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   Crown, Loader2, AlertCircle, CheckCircle2, MessageSquare, ArrowLeft, LogOut,
+  MessageSquareWarning, Send,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@/lib/reviews';
 import { Stars } from '@/components/reviews/Stars';
 import { ActiveBookingTracker } from '@/components/tracking/ActiveBookingTracker';
+import { raiseComplaint } from '@/lib/complaints';
 
 /**
  * Post-event review prompt.
@@ -33,6 +35,14 @@ export default function MyBookingsPage() {
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // A rating is public and permanent; a complaint is a conversation with the
+  // office. Keeping them apart means an unhappy customer does not have to
+  // choose between being heard and being fair.
+  const [complaintFor, setComplaintFor] = useState<string | null>(null);
+  const [complaintSubject, setComplaintSubject] = useState('');
+  const [complaintBody, setComplaintBody] = useState('');
+  const [complaintSent, setComplaintSent] = useState<string[]>([]);
+
   const keyOf = (b: ReviewableBooking) => b.rentalId ?? b.bookingId ?? '';
 
   const load = useCallback(async () => {
@@ -51,6 +61,35 @@ export default function MyBookingsPage() {
   useEffect(() => {
     if (!authLoading) load();
   }, [authLoading, load]);
+
+  const sendComplaint = async (booking: ReviewableBooking) => {
+    if (!user || !complaintSubject.trim() || !complaintBody.trim()) {
+      setError('Please tell us what went wrong.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await raiseComplaint({
+        bookingId: booking.bookingId,
+        rentalId: booking.rentalId,
+        artistId: booking.artistId,
+        customerId: user.id,
+        customerName: user.user_metadata?.full_name ?? user.email ?? 'Customer',
+        customerPhone: user.phone ?? null,
+        subject: complaintSubject,
+        description: complaintBody,
+      });
+      setComplaintSent((prev) => [...prev, keyOf(booking)]);
+      setComplaintFor(null);
+      setComplaintSubject('');
+      setComplaintBody('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send your complaint.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const send = async (booking: ReviewableBooking) => {
     if (!user) return;
@@ -166,9 +205,7 @@ export default function MyBookingsPage() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="font-bold text-sm text-maroon-950">
-                        {booking.artistName || 'Your Safa Artist'}
-                      </p>
+                      <p className="font-bold text-sm text-maroon-950">Your Safa Artist</p>
                       <p className="text-[11px] text-gray-500 mt-0.5">
                         {booking.label} · {booking.when}
                       </p>
@@ -187,6 +224,46 @@ export default function MyBookingsPage() {
                       </button>
                     )}
                   </div>
+
+                  {complaintSent.includes(key) ? (
+                    <p className="mt-3 text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                      Your complaint has reached our team. We will contact you — you can also see
+                      our reply here.
+                    </p>
+                  ) : (
+                    <button
+                      onClick={() => setComplaintFor(complaintFor === key ? null : key)}
+                      className="mt-3 text-[11px] font-bold text-rose-700 hover:text-rose-800 flex items-center gap-1.5"
+                    >
+                      <MessageSquareWarning size={13} />
+                      {complaintFor === key ? 'Cancel' : 'Report a problem with this booking'}
+                    </button>
+                  )}
+
+                  {complaintFor === key && (
+                    <div className="mt-3 pt-4 border-t border-rose-100 space-y-3">
+                      <input
+                        placeholder="What went wrong? (e.g. Artist arrived late)"
+                        value={complaintSubject}
+                        onChange={(e) => setComplaintSubject(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-rose-500/20"
+                      />
+                      <textarea
+                        rows={3}
+                        placeholder="Tell us what happened, in your words."
+                        value={complaintBody}
+                        onChange={(e) => setComplaintBody(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm resize-none outline-none focus:ring-2 focus:ring-rose-500/20"
+                      />
+                      <button
+                        onClick={() => sendComplaint(booking)}
+                        disabled={saving}
+                        className="w-full py-3 bg-rose-700 hover:bg-rose-800 disabled:opacity-60 text-white font-bold rounded-xl text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                      >
+                        {saving ? <><Loader2 size={14} className="animate-spin" /> Sending…</> : <><Send size={14} /> Send to SafaKing</>}
+                      </button>
+                    </div>
+                  )}
 
                   {isOpen && !isDone && (
                     <div className="mt-4 pt-4 border-t border-amber-100 space-y-3">

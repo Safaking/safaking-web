@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Loader2, AlertCircle, Printer, Download, RefreshCw, ClipboardList, Sunrise,
   Calendar, CalendarRange, Crown, Users, IndianRupee, TrendingUp, Search,
-  Wallet, Megaphone,
+  Wallet, Megaphone, Star, Tag, Percent, MapPin, X, ChevronRight,
 } from 'lucide-react';
 import { supabase, friendlyError } from '@/lib/supabase';
 import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
@@ -103,6 +103,32 @@ interface ExpenseRow {
   paid_to: string | null;
 }
 
+interface ComplaintLite {
+  id: string;
+  artist_id: string | null;
+  subject: string;
+  status: string;
+  severity: string;
+  created_at: string | null;
+}
+
+interface ReviewLite {
+  id: string;
+  subject_id: string;
+  rating: number;
+  comment: string | null;
+  visible: boolean;
+  created_at: string | null;
+}
+
+interface CheckinLite {
+  booking_id: string | null;
+  rental_id: string | null;
+  artist_id: string;
+  stage: string;
+  created_at: string;
+}
+
 const EXPENSE_LABEL: Record<string, string> = {
   salary: 'Salary & wages', artist_payment: 'Artist payment', marketing: 'Marketing & ads',
   rent: 'Shop rent', electricity: 'Electricity & utilities', delivery: 'Delivery & courier',
@@ -112,7 +138,7 @@ const EXPENSE_LABEL: Record<string, string> = {
 
 type ReportId =
   | 'control' | 'ops' | 'bookings' | 'rentals' | 'artists' | 'customers'
-  | 'revenue' | 'pnl' | 'sources' | 'analytics';
+  | 'revenue' | 'pnl' | 'sources' | 'platform' | 'ratings' | 'labels' | 'analytics';
 
 const REPORTS: { id: ReportId; label: string; hint: string; icon: typeof ClipboardList }[] = [
   { id: 'control', label: 'Daily Control Sheet', hint: 'One page — the whole day at a glance', icon: ClipboardList },
@@ -124,6 +150,9 @@ const REPORTS: { id: ReportId; label: string; hint: string; icon: typeof Clipboa
   { id: 'revenue', label: 'Revenue Summary', hint: 'Month by month, by business line', icon: IndianRupee },
   { id: 'pnl', label: 'Profit & Loss', hint: 'Revenue minus expenses, by month', icon: Wallet },
   { id: 'sources', label: 'Lead Source', hint: 'Which marketing actually brings bookings', icon: Megaphone },
+  { id: 'platform', label: 'Platform Earnings', hint: 'What SafaKing earned, artist by artist', icon: Percent },
+  { id: 'ratings', label: 'Artist Ratings', hint: 'Stars, reviews and complaints per artist', icon: Star },
+  { id: 'labels', label: 'Address Labels', hint: 'Print & stick on the parcel', icon: Tag },
   { id: 'analytics', label: 'Business Analytics', hint: 'Top products, top artists, trend', icon: TrendingUp },
 ];
 
@@ -260,6 +289,11 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
   const [artists, setArtists] = useState<ArtistRow[]>([]);
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+  const [complaints, setComplaints] = useState<ComplaintLite[]>([]);
+  const [reviews, setReviews] = useState<ReviewLite[]>([]);
+  const [checkins, setCheckins] = useState<CheckinLite[]>([]);
+  /** Artist whose full sheet is open — the printable per-artist report. */
+  const [artistDetail, setArtistDetail] = useState<string | null>(null);
 
   // Single-date reports (control sheet, ops sheet) vs range reports.
   const [onDate, setOnDate] = useState(todayISO());
@@ -276,13 +310,16 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
     // Everything is pulled once and aggregated in the browser: the volumes
     // here are small (hundreds of rows), and it keeps every report instant
     // and consistent instead of firing a query per switch.
-    const [b, r, o, a, p, e] = await Promise.all([
+    const [b, r, o, a, p, e, cm, rv, ci] = await Promise.all([
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_profiles').select('id, display_name, base_city, rating, total_events, verification_status, active, blacklisted'),
       supabase.from('profiles').select('id, full_name, phone, role'),
       supabase.from('expenses').select('*').order('expense_date', { ascending: false }),
+      supabase.from('complaints').select('id, artist_id, subject, status, severity, created_at'),
+      supabase.from('reviews').select('id, subject_id, rating, comment, visible, created_at'),
+      supabase.from('booking_checkins').select('booking_id, rental_id, artist_id, stage, created_at'),
     ]);
 
     // Expenses are the one table that may not exist yet (it arrives with
@@ -298,6 +335,9 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
     setArtists((a.data as ArtistRow[]) ?? []);
     setPeople((p.data as PersonRow[]) ?? []);
     setExpenses((e.data as ExpenseRow[]) ?? []);
+    setComplaints((cm.data as ComplaintLite[]) ?? []);
+    setReviews((rv.data as ReviewLite[]) ?? []);
+    setCheckins((ci.data as CheckinLite[]) ?? []);
     setGeneratedAt(new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
     setLoading(false);
   }, []);
@@ -388,6 +428,10 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
         type: 'Safa Tying',
         when: [b.event_date, b.booking_start_time ?? b.event_time].filter(Boolean).join(' · '),
         place: cleanVenue(b.venue_address || b.city_venue),
+        landmark: (b as BookingRow & { location_note?: string | null }).location_note ?? '',
+        maps: (b as BookingRow & { customer_lat?: number | null; customer_lng?: number | null }).customer_lat != null
+          ? `https://www.google.com/maps?q=${(b as BookingRow & { customer_lat?: number | null }).customer_lat},${(b as BookingRow & { customer_lng?: number | null }).customer_lng}`
+          : null,
         service: b.safa_style,
         qty: countFromVenue(b.city_venue),
         artist: b.artist_name ?? '— UNASSIGNED —',
@@ -405,6 +449,10 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
         type: r.needs_artist ? 'Rental + Artist' : 'Rental',
         when: `${r.start_date} → ${r.end_date}`,
         place: r.venue_address || r.city || r.pincode,
+        landmark: (r as RentalRow & { location_note?: string | null }).location_note ?? '',
+        maps: (r as RentalRow & { customer_lat?: number | null; customer_lng?: number | null }).customer_lat != null
+          ? `https://www.google.com/maps?q=${(r as RentalRow & { customer_lat?: number | null }).customer_lat},${(r as RentalRow & { customer_lng?: number | null }).customer_lng}`
+          : null,
         service: `${r.safa_count} safas`,
         qty: r.safa_count,
         artist: r.needs_artist ? r.artist_name ?? '— UNASSIGNED —' : '—',
@@ -457,6 +505,29 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
   /* ------------------------------------------- report: artist performance */
 
   const artistRows = useMemo(() => {
+    // Hours are taken from the artist's own check-ins where they exist
+    // ('started' to 'completed'), and fall back to the scheduled window —
+    // guessing from safa counts would put a number in a report that nobody
+    // could defend.
+    const hoursFor = (bookingIds: string[], rentalIds: string[]) => {
+      let ms = 0;
+      const spans = new Map<string, { start?: number; end?: number }>();
+      checkins.forEach((c) => {
+        const key = c.booking_id ?? c.rental_id;
+        if (!key) return;
+        if (!bookingIds.includes(key) && !rentalIds.includes(key)) return;
+        const span = spans.get(key) ?? {};
+        const t = new Date(c.created_at).getTime();
+        if (c.stage === 'started') span.start = Math.min(span.start ?? t, t);
+        if (c.stage === 'completed') span.end = Math.max(span.end ?? t, t);
+        spans.set(key, span);
+      });
+      spans.forEach((span) => {
+        if (span.start && span.end && span.end > span.start) ms += span.end - span.start;
+      });
+      return Math.round((ms / 3_600_000) * 10) / 10;
+    };
+
     const rows = artists.map((a) => {
       const jobs = bookings.filter((b) => b.artist_id === a.id && inRange(b.event_date));
       const rentalJobs = rentals.filter((r) => r.artist_id === a.id && inRange(r.start_date));
@@ -466,21 +537,74 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
       const earned = completed.reduce((s, b) => s + payoutOf(b), 0)
         + rentalJobs.filter((r) => ['returned', 'completed'].includes(r.status)).reduce((s, r) => s + Number(r.artist_amount ?? 0), 0);
       const paid = completed.filter((b) => b.payment_release_status === 'released').reduce((s, b) => s + payoutOf(b), 0);
+      const customerRevenue = jobs.filter((b) => !DEAD_BOOKING.includes(b.status)).reduce((s, b) => s + Number(b.amount ?? 0), 0);
+      // What SafaKing keeps: the gap between what the customer paid and what
+      // the artist is owed. Only marketplace jobs carry a payout figure, so
+      // direct bookings correctly contribute nothing here.
+      const platform = jobs
+        .filter((b) => !DEAD_BOOKING.includes(b.status) && b.artist_payout_amount != null)
+        .reduce((s, b) => s + (Number(b.amount ?? 0) - Number(b.artist_payout_amount ?? 0)), 0);
+
+      const theirComplaints = complaints.filter(
+        (c) => c.artist_id === a.id && inRange(dayOf(c.created_at))
+      );
+      const theirReviews = reviews.filter((r) => r.subject_id === a.id && r.visible);
+      // With no reviews and no completed events, an artist is simply New —
+      // showing the profile's default 5.0 next to "0 reviews" reads as a
+      // perfect record nobody earned.
+      const avgRating = theirReviews.length > 0
+        ? Math.round((theirReviews.reduce((s, r) => s + r.rating, 0) / theirReviews.length) * 10) / 10
+        : a.total_events > 0 ? a.rating : null;
+
       return {
         artist: a,
         jobs: jobs.length + rentalJobs.length,
         completed: completed.length,
         lost: lost.length,
-        customerRevenue: jobs.filter((b) => !DEAD_BOOKING.includes(b.status)).reduce((s, b) => s + Number(b.amount ?? 0), 0),
+        hours: hoursFor(jobs.map((b) => b.id), rentalJobs.map((r) => r.id)),
+        customerRevenue,
         earned,
         paid,
         payable: Math.max(0, earned - paid),
+        platform,
+        complaints: theirComplaints.length,
+        openComplaints: theirComplaints.filter((c) => !['resolved', 'dismissed'].includes(c.status)).length,
+        reviewCount: theirReviews.length,
+        avgRating,
       };
     });
     return rows
       .filter((row) => matches(row.artist.display_name, row.artist.base_city))
       .sort((x, y) => y.earned - x.earned);
-  }, [artists, bookings, rentals, inRange, matches]);
+  }, [artists, bookings, rentals, checkins, complaints, reviews, inRange, matches]);
+
+  const artistTotals = useMemo(
+    () => artistRows.reduce(
+      (a, r) => ({
+        jobs: a.jobs + r.jobs, earned: a.earned + r.earned,
+        platform: a.platform + r.platform, payable: a.payable + r.payable,
+      }),
+      { jobs: 0, earned: 0, platform: 0, payable: 0 }
+    ),
+    [artistRows]
+  );
+
+  /** The one artist's full sheet, when a name is clicked. */
+  const detail = useMemo(() => {
+    if (!artistDetail) return null;
+    const row = artistRows.find((r) => r.artist.id === artistDetail);
+    if (!row) return null;
+    return {
+      row,
+      jobs: bookings
+        .filter((b) => b.artist_id === artistDetail && inRange(b.event_date))
+        .sort((a, b) => b.event_date.localeCompare(a.event_date)),
+      rentals: rentals.filter((r) => r.artist_id === artistDetail && inRange(r.start_date)),
+      complaints: complaints.filter((c) => c.artist_id === artistDetail),
+      reviews: reviews.filter((r) => r.subject_id === artistDetail && r.visible),
+      phone: phoneOf(artistDetail),
+    };
+  }, [artistDetail, artistRows, bookings, rentals, complaints, reviews, inRange, phoneOf]);
 
   /* -------------------------------------------- report: customers & dues */
 
@@ -584,6 +708,57 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
     [revenueRows]
   );
 
+  /* ----------------------------------------------- report: address labels */
+
+  const labelRows = useMemo(() => {
+    const mapsLink = (lat: number | null | undefined, lng: number | null | undefined) =>
+      lat != null && lng != null ? `https://www.google.com/maps?q=${lat},${lng}` : null;
+
+    const fromRentals = rentals
+      .filter((r) => inRange(r.start_date) && !DEAD_BOOKING.includes(r.status))
+      .map((r) => {
+        const extra = r as RentalRow & { customer_lat?: number | null; customer_lng?: number | null; location_note?: string | null };
+        return {
+          ref: `R-${shortRef(r.id)}`,
+          name: r.customer_name,
+          phone: r.customer_phone,
+          address: r.venue_address || r.city || '—',
+          pincode: r.pincode,
+          landmark: extra.location_note ?? '',
+          kind: r.needs_artist ? 'Rental + Artist' : 'Safa Rental',
+          date: r.start_date,
+          time: '',
+          qty: `${r.safa_count} safas`,
+          returnBy: r.end_date,
+          maps: mapsLink(extra.customer_lat, extra.customer_lng),
+        };
+      });
+
+    const fromBookings = bookings
+      .filter((b) => inRange(b.event_date) && !DEAD_BOOKING.includes(b.status))
+      .map((b) => {
+        const extra = b as BookingRow & { customer_lat?: number | null; customer_lng?: number | null; location_note?: string | null };
+        return {
+          ref: `B-${shortRef(b.id)}`,
+          name: b.customer_name,
+          phone: b.customer_phone,
+          address: b.venue_address || cleanVenue(b.city_venue),
+          pincode: b.city_venue.match(/Pincode:\s*(\d{6})/i)?.[1] ?? '',
+          landmark: extra.location_note ?? '',
+          kind: `Safa Tying · ${b.safa_style}`,
+          date: b.event_date,
+          time: b.booking_start_time ?? b.event_time ?? '',
+          qty: `${countFromVenue(b.city_venue)} safas`,
+          returnBy: '',
+          maps: mapsLink(extra.customer_lat, extra.customer_lng),
+        };
+      });
+
+    return [...fromRentals, ...fromBookings]
+      .filter((l) => matches(l.name, l.phone, l.ref, l.address))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [rentals, bookings, inRange, matches]);
+
   /* ------------------------------------------------- report: profit & loss */
 
   const pnlRows = useMemo(() => {
@@ -676,13 +851,26 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
           r.advance_amount, r.balance_amount, r.payment_status, r.status]));
     } else if (report === 'artists') {
       downloadCSV(name,
-        ['Artist', 'City', 'KYC', 'Rating', 'Jobs', 'Completed', 'Cancelled/Declined', 'Customer Revenue', 'Artist Earned', 'Paid', 'Still Payable'],
+        ['Artist', 'City', 'KYC', 'Rating', 'Reviews', 'Jobs', 'Completed', 'Cancelled/Declined', 'Hours', 'Complaints', 'Open Complaints', 'Customer Revenue', 'Artist Earned', 'SafaKing Earned', 'Paid', 'Still Payable'],
         artistRows.map((x) => [x.artist.display_name, x.artist.base_city ?? '', x.artist.verification_status ?? '',
-          x.artist.rating ?? '', x.jobs, x.completed, x.lost, x.customerRevenue, x.earned, x.paid, x.payable]));
+          x.avgRating ?? '', x.reviewCount, x.jobs, x.completed, x.lost, x.hours, x.complaints, x.openComplaints,
+          x.customerRevenue, x.earned, x.platform, x.paid, x.payable]));
     } else if (report === 'customers') {
       downloadCSV(name,
         ['Customer', 'Phone', 'Bookings', 'Rentals', 'Orders', 'Billed', 'Advance Paid', 'Outstanding', 'Last Activity'],
         customerRows.map((c) => [c.name, c.phone, c.bookings, c.rentals, c.orders, c.billed, c.advance, c.outstanding, c.last]));
+    } else if (report === 'labels') {
+      downloadCSV(name,
+        ['Ref', 'Name', 'Phone', 'Address', 'Pincode', 'Landmark', 'Type', 'Date', 'Time', 'Qty', 'Return By'],
+        labelRows.map((l) => [l.ref, l.name, l.phone, l.address, l.pincode, l.landmark, l.kind, l.date, l.time, l.qty, l.returnBy]));
+    } else if (report === 'platform') {
+      downloadCSV(name,
+        ['Artist', 'Jobs', 'Customer Paid', 'Artist Earned', 'SafaKing Earned'],
+        artistRows.map((x) => [x.artist.display_name, x.jobs, x.customerRevenue, x.earned, x.platform]));
+    } else if (report === 'ratings') {
+      downloadCSV(name,
+        ['Artist', 'Rating', 'Reviews', 'Jobs', 'Cancellations', 'Complaints', 'Open Complaints'],
+        artistRows.map((x) => [x.artist.display_name, x.avgRating ?? '', x.reviewCount, x.jobs, x.lost, x.complaints, x.openComplaints]));
     } else if (report === 'pnl') {
       downloadCSV(name,
         ['Month', 'Revenue', 'Expenses', 'Net Profit'],
@@ -837,7 +1025,10 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
       </div>
 
       {/* ---------------------------------------------------- printable area */}
-      <div id="report-print-area" className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden print:border-0 print:shadow-none print:rounded-none">
+      <div
+        id={detail ? undefined : 'report-print-area'}
+        className="bg-white rounded-3xl border border-amber-200/60 shadow-sm overflow-hidden print:border-0 print:shadow-none print:rounded-none"
+      >
         <div className="relative px-7 py-6 bg-gradient-to-r from-maroon-950 via-maroon-900 to-maroon-950 overflow-hidden">
           <span className="absolute inset-0 pattern-diamond opacity-[0.07] pointer-events-none" />
           <div className="relative flex flex-wrap items-end justify-between gap-3">
@@ -921,7 +1112,18 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
               rows={opsRows.map((x) => [
                 <span key="r" className="font-mono font-bold">{x.ref}</span>,
                 <span key="c" className="font-bold text-maroon-950">{x.customer}</span>,
-                x.phone, x.type, x.when, x.place, x.service, x.qty,
+                x.phone, x.type, x.when,
+                <span key="l" className="block max-w-[15rem]">
+                  {x.place}
+                  {x.landmark ? <span className="block text-[11px] text-gray-500">Landmark: {x.landmark}</span> : null}
+                  {x.maps ? (
+                    <a href={x.maps} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1 text-[11px] font-bold text-royal-700 underline mt-0.5">
+                      <MapPin size={9} /> Pinned location
+                    </a>
+                  ) : null}
+                </span>,
+                x.service, x.qty,
                 <span key="a" className={x.artist.includes('UNASSIGNED') ? 'font-black text-rose-700' : 'font-bold'}>{x.artist}</span>,
                 x.artistPhone,
                 <span key="p" className="capitalize">{(x.pay ?? '').replace(/_/g, ' ')}</span>,
@@ -939,18 +1141,41 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
                 <Stat label="Balance due" value={money(bookingTotals.balance)} tone={bookingTotals.balance ? 'warn' : 'plain'} />
               </div>
               <Table
-                headers={['Ref', 'Booked', 'Event Date', 'Customer', 'Phone', 'Venue', 'Style', 'Safas', 'Artist', 'Amount', 'Advance', 'Balance', 'Payment', 'Status']}
+                headers={['Ref', 'Event Date', 'Time', 'Customer', 'Phone', 'Address', 'Style', 'Safas', 'Artist', 'Amount', 'Advance', 'Balance', 'Payment', 'Status']}
                 empty="No bookings in this range."
-                rows={bookingRows.map((b) => [
-                  <span key="r" className="font-mono font-bold">{shortRef(b.id)}</span>,
-                  dayOf(b.created_at), b.event_date,
-                  <span key="c" className="font-bold text-maroon-950">{b.customer_name}</span>,
-                  b.customer_phone, cleanVenue(b.city_venue), b.safa_style, countFromVenue(b.city_venue),
-                  b.artist_name ?? <span key="u" className="text-rose-700 font-bold">Unassigned</span>,
-                  money(b.amount), money(b.advance_amount), money(b.balance_amount),
-                  <span key="p" className="capitalize">{(b.payment_status ?? '').replace(/_/g, ' ')}</span>,
-                  <span key="s" className="capitalize font-bold">{b.status}</span>,
-                ])}
+                rows={bookingRows.map((b) => {
+                  const extra = b as BookingRow & { customer_lat?: number | null; customer_lng?: number | null; location_note?: string | null; assignment_approved_at?: string | null };
+                  return [
+                    <span key="r" className="font-mono font-bold">{shortRef(b.id)}</span>,
+                    b.event_date,
+                    <span key="t" className="font-bold">{b.booking_start_time ?? b.event_time ?? '—'}</span>,
+                    <span key="c" className="font-bold text-maroon-950">{b.customer_name}</span>,
+                    b.customer_phone,
+                    <span key="v" className="block max-w-[16rem]">
+                      {b.venue_address || cleanVenue(b.city_venue)}
+                      {extra.location_note ? <span className="block text-[11px] text-gray-500">Landmark: {extra.location_note}</span> : null}
+                      {extra.customer_lat != null && extra.customer_lng != null ? (
+                        <a href={`https://www.google.com/maps?q=${extra.customer_lat},${extra.customer_lng}`}
+                           target="_blank" rel="noopener noreferrer"
+                           className="inline-flex items-center gap-1 text-[11px] font-bold text-royal-700 underline mt-0.5">
+                          <MapPin size={9} /> Pinned location
+                        </a>
+                      ) : null}
+                    </span>,
+                    b.safa_style, countFromVenue(b.city_venue),
+                    b.artist_id
+                      ? <span key="a" className="block">
+                          {b.artist_name ?? 'Assigned'}
+                          {!extra.assignment_approved_at && (
+                            <span className="block text-[10px] font-black text-amber-700 uppercase">Needs approval</span>
+                          )}
+                        </span>
+                      : <span key="u" className="text-rose-700 font-bold">Not yet assigned</span>,
+                    money(b.amount), money(b.advance_amount), money(b.balance_amount),
+                    <span key="p" className="capitalize">{(b.payment_status ?? '').replace(/_/g, ' ')}</span>,
+                    <span key="s" className="capitalize font-bold">{b.status}</span>,
+                  ];
+                })}
               />
             </>
           )}
@@ -975,22 +1200,165 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
           )}
 
           {report === 'artists' && (
-            <Table
-              headers={['Artist', 'City', 'KYC', 'Rating', 'Jobs', 'Completed', 'Lost', 'Customer Revenue', 'Artist Earned', 'Paid', 'Still Payable']}
-              empty="No artists to report on."
-              rows={artistRows.map((x) => [
-                <span key="n" className="font-bold text-maroon-950">{x.artist.display_name}</span>,
-                x.artist.base_city ?? '—',
-                <span key="k" className={x.artist.verification_status === 'verified' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
-                  {x.artist.verification_status === 'verified' ? 'Verified' : 'Not verified'}
-                </span>,
-                x.artist.total_events > 0 && x.artist.rating != null ? `${x.artist.rating.toFixed(1)} ★` : 'New',
-                x.jobs, x.completed,
-                <span key="l" className={x.lost ? 'text-rose-700 font-bold' : ''}>{x.lost}</span>,
-                money(x.customerRevenue), money(x.earned), money(x.paid),
-                <span key="p" className={x.payable ? 'font-black text-amber-800' : ''}>{money(x.payable)}</span>,
-              ])}
-            />
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <Stat label="Jobs" value={artistTotals.jobs} />
+                <Stat label="Artist earnings" value={money(artistTotals.earned)} />
+                <Stat label="SafaKing earned" value={money(artistTotals.platform)} tone="good" />
+                <Stat label="Still payable" value={money(artistTotals.payable)} tone={artistTotals.payable ? 'warn' : 'plain'} />
+              </div>
+              <p className="text-[11px] text-gray-500 mb-3 no-print">
+                Click an artist&apos;s name for their full sheet — every job, payment and complaint.
+              </p>
+              <Table
+                headers={['Artist', 'City', 'KYC', 'Rating', 'Jobs', 'Completed', 'Lost', 'Hours', 'Complaints', 'Customer Revenue', 'Artist Earned', 'Paid', 'Still Payable']}
+                empty="No artists to report on."
+                rows={artistRows.map((x) => [
+                  <button
+                    key="n"
+                    onClick={() => setArtistDetail(x.artist.id)}
+                    className="font-bold text-maroon-950 hover:text-royal-700 underline decoration-royal-300 underline-offset-2 text-left flex items-center gap-1"
+                  >
+                    {x.artist.display_name} <ChevronRight size={11} />
+                  </button>,
+                  x.artist.base_city ?? '—',
+                  <span key="k" className={x.artist.verification_status === 'verified' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                    {x.artist.verification_status === 'verified' ? 'Verified' : 'Not verified'}
+                  </span>,
+                  x.avgRating != null
+                    ? <span key="r" className={x.avgRating < 3 ? 'text-rose-700 font-black' : x.avgRating < 4 ? 'text-amber-700 font-black' : 'text-emerald-700 font-black'}>
+                        {x.avgRating.toFixed(1)} ★ <span className="text-gray-400 font-normal">({x.reviewCount})</span>
+                      </span>
+                    : 'New',
+                  x.jobs, x.completed,
+                  <span key="l" className={x.lost ? 'text-rose-700 font-bold' : ''}>{x.lost}</span>,
+                  x.hours > 0 ? `${x.hours} h` : '—',
+                  <span key="c" className={x.openComplaints ? 'text-rose-700 font-black' : ''}>
+                    {x.complaints}{x.openComplaints ? ` (${x.openComplaints} open)` : ''}
+                  </span>,
+                  money(x.customerRevenue), money(x.earned), money(x.paid),
+                  <span key="p" className={x.payable ? 'font-black text-amber-800' : ''}>{money(x.payable)}</span>,
+                ])}
+              />
+            </>
+          )}
+
+          {report === 'platform' && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                <Stat label="SafaKing earned" value={money(artistTotals.platform)} tone="good" />
+                <Stat label="Paid to artists" value={money(artistTotals.earned)} />
+                <Stat
+                  label="Platform share"
+                  value={artistTotals.earned + artistTotals.platform > 0
+                    ? `${Math.round((artistTotals.platform / (artistTotals.earned + artistTotals.platform)) * 100)}%`
+                    : '—'}
+                />
+              </div>
+              <p className="text-[11px] text-gray-500 mb-3">
+                Only marketplace jobs carry a platform charge — on a direct booking the whole
+                amount is the artist&apos;s, so those rows correctly show nothing earned.
+              </p>
+              <Table
+                headers={['Artist', 'Jobs', 'Customer Paid', 'Artist Earned', 'SafaKing Earned', 'Share']}
+                empty="No artist activity in this range."
+                rows={artistRows.map((x) => [
+                  <span key="n" className="font-bold text-maroon-950">{x.artist.display_name}</span>,
+                  x.jobs, money(x.customerRevenue), money(x.earned),
+                  <span key="p" className={x.platform ? 'font-black text-emerald-800' : 'text-gray-400'}>{money(x.platform)}</span>,
+                  x.customerRevenue > 0 ? `${Math.round((x.platform / x.customerRevenue) * 100)}%` : '—',
+                ])}
+              />
+            </>
+          )}
+
+          {report === 'ratings' && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <Stat label="Rated artists" value={artistRows.filter((x) => x.reviewCount > 0).length} />
+                <Stat label="Total reviews" value={artistRows.reduce((s, x) => s + x.reviewCount, 0)} />
+                <Stat
+                  label="Below 4 stars"
+                  value={artistRows.filter((x) => x.reviewCount > 0 && (x.avgRating ?? 5) < 4).length}
+                  tone={artistRows.some((x) => x.reviewCount > 0 && (x.avgRating ?? 5) < 4) ? 'warn' : 'plain'}
+                />
+                <Stat
+                  label="Open complaints"
+                  value={artistRows.reduce((s, x) => s + x.openComplaints, 0)}
+                  tone={artistRows.some((x) => x.openComplaints > 0) ? 'bad' : 'good'}
+                />
+              </div>
+              <Table
+                headers={['Artist', 'Rating', 'Reviews', 'Jobs', 'Cancellations', 'Complaints', 'Open', 'Standing']}
+                empty="No artists to rate yet."
+                rows={[...artistRows]
+                  .sort((a, b) => (b.avgRating ?? 0) - (a.avgRating ?? 0))
+                  .map((x) => {
+                    const bad = (x.avgRating != null && x.avgRating < 3) || x.openComplaints > 1;
+                    const watch = (x.avgRating != null && x.avgRating < 4) || x.openComplaints > 0;
+                    return [
+                      <span key="n" className="font-bold text-maroon-950">{x.artist.display_name}</span>,
+                      x.avgRating != null ? `${x.avgRating.toFixed(1)} ★` : 'New',
+                      x.reviewCount, x.jobs,
+                      <span key="l" className={x.lost ? 'text-rose-700 font-bold' : ''}>{x.lost}</span>,
+                      x.complaints,
+                      <span key="o" className={x.openComplaints ? 'text-rose-700 font-black' : ''}>{x.openComplaints}</span>,
+                      <span key="s" className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                        bad ? 'bg-rose-100 text-rose-800' : watch ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {bad ? 'Action needed' : watch ? 'Watch' : 'Good'}
+                      </span>,
+                    ];
+                  })}
+              />
+            </>
+          )}
+
+          {report === 'labels' && (
+            <>
+              <p className="text-[11px] text-gray-500 mb-4 no-print">
+                Every parcel and job in this range, one label each. Print, cut along the lines and
+                stick on the box.
+              </p>
+              {labelRows.length === 0 ? (
+                <p className="py-14 text-center text-sm font-bold text-maroon-900/40">
+                  Nothing to dispatch in this range.
+                </p>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {labelRows.map((l) => (
+                    <div key={l.ref} className="border-2 border-dashed border-maroon-300 rounded-2xl p-4 break-inside-avoid">
+                      <div className="flex items-start justify-between gap-2 pb-2 mb-2 border-b border-amber-200">
+                        <div>
+                          <p className="font-display font-black text-sm text-maroon-950">SAFAKING</p>
+                          <p className="text-[9px] uppercase tracking-widest text-gray-500">Royal Turban House</p>
+                        </div>
+                        <p className="font-mono font-black text-[11px] text-maroon-900">{l.ref}</p>
+                      </div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Deliver to</p>
+                      <p className="font-black text-[15px] text-maroon-950 leading-tight mt-0.5">{l.name}</p>
+                      <p className="text-[12px] text-gray-800 leading-snug mt-1">{l.address}</p>
+                      <p className="text-[12px] font-bold text-maroon-900 mt-1">PIN {l.pincode}</p>
+                      <p className="text-[12px] font-bold text-maroon-900">📞 {l.phone}</p>
+                      {l.landmark && <p className="text-[11px] text-gray-600 mt-0.5">Landmark: {l.landmark}</p>}
+                      <div className="mt-2 pt-2 border-t border-amber-200 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-gray-600">
+                        <span><b>{l.kind}</b></span>
+                        <span>Date: <b>{l.date}</b></span>
+                        {l.time && <span>Time: <b>{l.time}</b></span>}
+                        <span>Qty: <b>{l.qty}</b></span>
+                        {l.returnBy && <span>Return by: <b>{l.returnBy}</b></span>}
+                      </div>
+                      {l.maps && (
+                        <a href={l.maps} target="_blank" rel="noopener noreferrer"
+                          className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-royal-700 underline no-print">
+                          <MapPin size={10} /> Open pinned location
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {report === 'customers' && (
@@ -1153,6 +1521,110 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
           {report === 'analytics' && <AnalyticsPanel />}
         </div>
       </div>
+
+      {/* One artist's full sheet — printable on its own */}
+      {detail && (
+        <div className="fixed inset-0 z-50 bg-maroon-950/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+          <div id="report-print-area" className="bg-white rounded-3xl w-full max-w-4xl my-6 shadow-2xl overflow-hidden">
+            <div className="relative px-7 py-6 bg-gradient-to-r from-maroon-950 via-maroon-900 to-maroon-950">
+              <span className="absolute inset-0 pattern-diamond opacity-[0.07] pointer-events-none" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-royal-400/70">SafaKing · Artist Sheet</p>
+                  <h3 className="font-display font-black text-2xl text-royal-100 mt-1">{detail.row.artist.display_name}</h3>
+                  <p className="text-[11px] text-royal-200/70 mt-1">
+                    {detail.row.artist.base_city ?? 'No city set'} · {detail.phone} ·{' '}
+                    {detail.row.artist.verification_status === 'verified' ? 'KYC verified' : 'KYC not verified'}
+                  </p>
+                  <p className="text-[10px] text-royal-200/50 mt-1">
+                    {from} to {to} · generated {generatedAt} by {adminName}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 no-print">
+                  <button onClick={() => window.print()}
+                    className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-royal-100 text-[11px] font-bold flex items-center gap-1.5">
+                    <Printer size={13} /> Print
+                  </button>
+                  <button onClick={() => setArtistDetail(null)}
+                    className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center">
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-7 space-y-7">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Stat label="Jobs" value={detail.row.jobs} note={`${detail.row.completed} completed`} />
+                <Stat label="Hours worked" value={detail.row.hours > 0 ? `${detail.row.hours} h` : '—'} />
+                <Stat label="Earned" value={money(detail.row.earned)} tone="good" note={`${money(detail.row.paid)} paid`} />
+                <Stat label="Still payable" value={money(detail.row.payable)} tone={detail.row.payable ? 'warn' : 'plain'} />
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Stat label="Rating" value={detail.row.avgRating != null ? `${detail.row.avgRating.toFixed(1)} ★` : 'New'}
+                  note={`${detail.row.reviewCount} reviews`} />
+                <Stat label="Cancelled / declined" value={detail.row.lost} tone={detail.row.lost ? 'warn' : 'plain'} />
+                <Stat label="Complaints" value={detail.row.complaints}
+                  tone={detail.row.openComplaints ? 'bad' : 'plain'} note={`${detail.row.openComplaints} open`} />
+                <Stat label="SafaKing earned" value={money(detail.row.platform)} />
+              </div>
+
+              <div>
+                <SectionTitle>Work, most recent first</SectionTitle>
+                <Table
+                  headers={['Ref', 'Date', 'Time', 'Customer', 'Where', 'Style', 'Safas', 'Amount', 'Their Payout', 'Status', 'Paid']}
+                  empty="No jobs in this range."
+                  rows={detail.jobs.map((b) => [
+                    <span key="r" className="font-mono font-bold">{shortRef(b.id)}</span>,
+                    b.event_date, b.booking_start_time ?? b.event_time ?? '—',
+                    <span key="c" className="font-bold text-maroon-950">{b.customer_name}</span>,
+                    cleanVenue(b.city_venue), b.safa_style, countFromVenue(b.city_venue),
+                    money(b.amount), money(b.artist_payout_amount ?? b.amount),
+                    <span key="s" className="capitalize font-bold">{b.status}</span>,
+                    b.payment_release_status === 'released'
+                      ? <span key="p" className="text-emerald-700 font-bold">Released</span>
+                      : <span key="p" className="text-amber-700 font-bold">Pending</span>,
+                  ])}
+                />
+              </div>
+
+              {detail.complaints.length > 0 && (
+                <div>
+                  <SectionTitle>Complaints</SectionTitle>
+                  <Table
+                    headers={['Date', 'Subject', 'Severity', 'Status']}
+                    empty="None."
+                    rows={detail.complaints.map((c) => [
+                      dayOf(c.created_at),
+                      <span key="s" className="font-bold text-maroon-950">{c.subject}</span>,
+                      <span key="v" className={c.severity === 'high' ? 'text-rose-700 font-black uppercase' : 'capitalize'}>{c.severity}</span>,
+                      <span key="t" className="capitalize font-bold">{c.status.replace(/_/g, ' ')}</span>,
+                    ])}
+                  />
+                </div>
+              )}
+
+              {detail.reviews.length > 0 && (
+                <div>
+                  <SectionTitle>What customers said</SectionTitle>
+                  <div className="space-y-2">
+                    {detail.reviews.map((r) => (
+                      <div key={r.id} className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200">
+                        <p className="text-[11px] font-black text-amber-800">
+                          {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                          <span className="text-gray-400 font-normal"> · {dayOf(r.created_at)}</span>
+                        </p>
+                        {r.comment && <p className="text-[13px] text-gray-800 mt-1 leading-relaxed">{r.comment}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

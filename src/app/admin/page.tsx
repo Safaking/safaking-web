@@ -8,7 +8,8 @@ import {
   Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
-  Phone, User, Navigation, MessageCircle, Search, ZoomIn,
+  Phone, User, Navigation, MessageCircle, Search, ZoomIn, MessageSquareWarning,
+  ThumbsUp, Clock,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -22,6 +23,7 @@ import { VerificationQueue } from '@/components/verification/VerificationQueue';
 import { CancellationDesk } from '@/components/protection/CancellationDesk';
 import { ReportsCentre } from '@/components/admin/ReportsCentre';
 import { ExpenseLedger } from '@/components/admin/ExpenseLedger';
+import { ComplaintsPanel } from '@/components/admin/ComplaintsPanel';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 import { TrainingManager } from '@/components/admin/TrainingManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
@@ -30,7 +32,7 @@ import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts' | 'expenses';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts' | 'expenses' | 'complaints';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'liveops', label: 'Live Ops', icon: Siren },
@@ -39,6 +41,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'rentals', label: 'Rentals', icon: CalendarRange },
   { id: 'bookings', label: 'Artist Bookings', icon: Calendar },
   { id: 'artist_apps', label: 'Artist Applications', icon: Crown },
+  { id: 'complaints', label: 'Complaints', icon: MessageSquareWarning },
   { id: 'verification', label: 'Verification', icon: ShieldCheck },
   { id: 'protection', label: 'Cancellations', icon: ShieldAlert },
   { id: 'products', label: 'Products', icon: Package },
@@ -52,6 +55,16 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'messages', label: 'Messages', icon: Mail },
   { id: 'users', label: 'Users & Roles', icon: Users },
   { id: 'settings', label: 'Pricing Settings', icon: SlidersHorizontal },
+];
+
+/**
+ * What a manager can open. Everything else — roles, pricing, KYC approval,
+ * money out, the artist roster — stays with the admin, so an employee can run
+ * the day without anyone handing out the owner's login.
+ */
+const MANAGER_TABS: Tab[] = [
+  'liveops', 'analytics', 'orders', 'rentals', 'bookings', 'complaints',
+  'messages', 'academy', 'careers', 'training',
 ];
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
@@ -250,6 +263,10 @@ const THEAD =
 
 export default function AdminPanelPage() {
   const { profile, logout } = useAuth();
+  // A manager gets the operational half of this panel; the admin gets all of
+  // it, plus the say-so on anything a manager did.
+  const isManager = profile?.role === 'manager';
+  const visibleTabs = isManager ? TABS.filter((t) => MANAGER_TABS.includes(t.id)) : TABS;
   const [activeTab, setActiveTab] = useState<Tab>('orders');
 
   const [orders, setOrders] = useState<DBOrder[]>([]);
@@ -656,7 +673,17 @@ export default function AdminPanelPage() {
     await patchRow<DBArtistBooking>(
       'artist_bookings',
       bookingId,
-      { artist_id: artistId, artist_name: artist?.full_name ?? null, status: 'offered' },
+      {
+        artist_id: artistId,
+        artist_name: artist?.full_name ?? null,
+        status: 'offered',
+        assigned_by: profile?.id ?? null,
+        // A manager's pick waits for the owner; an admin assigning IS the
+        // approval. The database refuses to let a manager set this itself.
+        ...(isManager
+          ? {}
+          : { assignment_approved_at: new Date().toISOString(), assignment_approved_by: profile?.id ?? null }),
+      },
       setBookings
     );
 
@@ -675,6 +702,19 @@ export default function AdminPanelPage() {
         }),
       }).catch(() => {});
     }
+  };
+
+  /** Admin sign-off on an artist — the last word on who goes to a wedding. */
+  const approveAssignment = async (booking: DBArtistBooking) => {
+    await patchRow<DBArtistBooking>(
+      'artist_bookings',
+      booking.id,
+      {
+        assignment_approved_at: new Date().toISOString(),
+        assignment_approved_by: profile?.id ?? null,
+      },
+      setBookings
+    );
   };
 
   const saveSetting = async (key: string, raw: string) => {
@@ -1002,7 +1042,7 @@ export default function AdminPanelPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-amber-200/70 mb-8 overflow-x-auto gap-2">
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -1018,7 +1058,13 @@ export default function AdminPanelPage() {
           ))}
         </div>
 
-        {loading ? (
+        {isManager && !MANAGER_TABS.includes(activeTab) ? (
+          <div className="p-16 text-center bg-white rounded-3xl border border-amber-200/60">
+            <ShieldAlert size={28} className="text-amber-500 mx-auto mb-3" />
+            <p className="text-sm font-bold text-gray-700">This section is admin-only.</p>
+            <p className="text-xs text-gray-500 mt-1">Ask the owner if you need something from here.</p>
+          </div>
+        ) : loading ? (
           <div className="p-16 text-center bg-white rounded-3xl border border-amber-200/60">
             <Loader2 size={30} className="text-amber-500 mx-auto mb-3 animate-spin" />
             <p className="text-sm font-bold text-gray-600">Loading control data…</p>
@@ -1201,6 +1247,20 @@ export default function AdminPanelPage() {
                                 </option>
                               ))}
                             </select>
+                            {booking.artist_id && !booking.assignment_approved_at && (
+                              isManager ? (
+                                <p className="mt-1.5 text-[10px] font-bold text-amber-800 leading-tight max-w-[10rem]">
+                                  Waiting for the owner to approve this artist.
+                                </p>
+                              ) : (
+                                <button
+                                  onClick={() => approveAssignment(booking)}
+                                  className="mt-1.5 w-full px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider"
+                                >
+                                  Approve artist
+                                </button>
+                              )
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1992,6 +2052,14 @@ export default function AdminPanelPage() {
 
             {/* ---- ANALYTICS ---- */}
             {activeTab === 'expenses' && <ExpenseLedger />}
+
+            {activeTab === 'complaints' && profile && (
+              <ComplaintsPanel
+                role={profile.role}
+                userId={profile.id}
+                userName={profile.full_name || profile.email || 'Staff'}
+              />
+            )}
 
             {activeTab === 'analytics' && (
               <ReportsCentre adminName={profile?.full_name || profile?.email || 'admin'} />

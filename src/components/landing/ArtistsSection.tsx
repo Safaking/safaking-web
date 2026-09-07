@@ -55,6 +55,7 @@ import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
 import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
+import { LocationPin, PinnedLocation } from '@/components/booking/LocationPin';
 import { getActiveContract, recordContractAcceptance } from '@/lib/client-update';
 
 interface ArtistsSectionProps {
@@ -92,6 +93,7 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
   // Asked once, at booking time — it is the only place we ever learn which
   // marketing actually brings weddings in.
   const [leadSource, setLeadSource] = useState('');
+  const [pin, setPin] = useState<PinnedLocation>({ lat: null, lng: null, note: '' });
 
   // A second function (Haldi, Sangeet, etc.) on a different date/time/venue.
   const [hasSecondEvent, setHasSecondEvent] = useState(false);
@@ -172,6 +174,9 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
       // city_venue above.
       safa_style: selectedStyle,
       lead_source: leadSource || null,
+      customer_lat: pin.lat,
+      customer_lng: pin.lng,
+      location_note: pin.note.trim() || null,
       second_event_name: hasSecondEvent ? secondEventName.trim() || null : null,
       second_event_date: hasSecondEvent ? secondEventDate || null : null,
       second_event_time: hasSecondEvent ? secondEventTime || null : null,
@@ -229,6 +234,7 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
 
     setCustomerName('');
     setLeadSource('');
+    setPin({ lat: null, lng: null, note: '' });
     setContractAccepted(false);
     setCustomerPhone('');
     setCustomerPhoneAlt('');
@@ -746,6 +752,8 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                           <span>₹{balanceAmount.toLocaleString()}</span>
                         </div>
                       </div>
+
+                      <LocationPin value={pin} onChange={setPin} theme="dark" />
 
                       <select
                         value={leadSource}

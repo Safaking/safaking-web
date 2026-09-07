@@ -31,6 +31,7 @@ const SIGNUP_ROLE: Exclude<UserRole, 'admin'> = 'customer';
 /** Where each role lands after signing in, when no explicit redirect was given. */
 const HOME_FOR_ROLE: Record<UserRole, string> = {
   admin: '/admin',
+  manager: '/admin',
   artist: '/artist-portal',
   customer: '/',
 };
