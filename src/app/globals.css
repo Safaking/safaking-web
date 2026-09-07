@@ -150,4 +150,39 @@ button, a {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  /*
+   * Admin reports: when a report is on screen, print ONLY the report — the
+   * sidebar, tab rail and filter bar are navigation, not part of the sheet a
+   * manager carries around. Visibility (rather than display) is used so the
+   * report keeps its layout instead of reflowing.
+   */
+  body:has(#report-print-area) * {
+    visibility: hidden;
+  }
+
+  body:has(#report-print-area) #report-print-area,
+  body:has(#report-print-area) #report-print-area * {
+    visibility: visible;
+  }
+
+  #report-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  #report-print-area .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  #report-print-area table {
+    width: 100%;
+    font-size: 9pt;
+  }
+
+  .no-print {
+    display: none !important;
+  }
 }

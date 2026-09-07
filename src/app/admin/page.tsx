@@ -20,7 +20,7 @@ import { getWhatsAppClickLink } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
 import { VerificationQueue } from '@/components/verification/VerificationQueue';
 import { CancellationDesk } from '@/components/protection/CancellationDesk';
-import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
+import { ReportsCentre } from '@/components/admin/ReportsCentre';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 import { TrainingManager } from '@/components/admin/TrainingManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
@@ -1989,7 +1989,9 @@ export default function AdminPanelPage() {
             {activeTab === 'protection' && <CancellationDesk />}
 
             {/* ---- ANALYTICS ---- */}
-            {activeTab === 'analytics' && <AnalyticsPanel />}
+            {activeTab === 'analytics' && (
+              <ReportsCentre adminName={profile?.full_name || profile?.email || 'admin'} />
+            )}
 
             {/* ---- LIVE OPS ---- */}
             {activeTab === 'liveops' && <LiveOpsBoard />}
