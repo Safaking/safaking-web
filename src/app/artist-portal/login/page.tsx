@@ -62,6 +62,11 @@ function ArtistLoginContent() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [teamSize, setTeamSize] = useState('');
   const [perSafaRate, setPerSafaRate] = useState('');
+  // What the artist actually takes home. SafaKing's charge is added ON TOP of
+  // the artist's rate rather than deducted from it, so the artist keeps their
+  // full quote — but nothing on the form said so, and "what do I get after
+  // your cut?" is the first thing every applicant asks.
+  const [platformRate, setPlatformRate] = useState(0.2);
   const [portfolioLink, setPortfolioLink] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -120,6 +125,17 @@ function ArtistLoginContent() {
     }
     setNotice('Signed in — checking your artist status…');
   };
+
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'platform_charge_rate')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.value != null) setPlatformRate(Number(data.value));
+      });
+  }, []);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -555,6 +571,35 @@ function ArtistLoginContent() {
                     />
                   </div>
                 </div>
+
+                {Number(perSafaRate) > 0 && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-1.5">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                      What you take home
+                    </p>
+                    <div className="flex justify-between text-[11px] text-maroon-900">
+                      <span>Customer is charged (per safa)</span>
+                      <span className="font-bold">
+                        ₹{Math.round(Number(perSafaRate) * (1 + platformRate))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-maroon-700/70">
+                      <span>SafaKing platform charge ({Math.round(platformRate * 100)}%)</span>
+                      <span>
+                        ₹{Math.round(Number(perSafaRate) * (1 + platformRate)) - Number(perSafaRate)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs font-black text-emerald-900 pt-1.5 border-t border-emerald-200">
+                      <span>You receive (per safa)</span>
+                      <span>₹{Number(perSafaRate)}</span>
+                    </div>
+                    <p className="text-[10px] text-emerald-800/80 leading-relaxed pt-0.5">
+                      Our charge is added on top of your rate — nothing is cut from your side. Tie
+                      100 safas at ₹{Number(perSafaRate)} and you are paid ₹
+                      {(Number(perSafaRate) * 100).toLocaleString('en-IN')}.
+                    </p>
+                  </div>
+                )}
 
                 <div className="relative">
                   <LinkIcon size={15} className={iconClass} />
