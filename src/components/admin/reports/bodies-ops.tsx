@@ -544,47 +544,88 @@ export function Cancellations({ ctx }: { ctx: Ctx }) {
         ref: `BK-${shortRef(b.id)}`, kind: 'Safa Tying', date: b.event_date,
         customer: b.customer_name, phone: b.customer_phone,
         artist: b.artist_name ?? '—', by: b.status === 'declined' ? 'Artist declined' : 'Cancelled',
-        value: Number(b.amount ?? 0), note: b.notes ?? '',
+        value: Number(b.amount ?? 0), reason: b.cancellation_reason ?? '',
+        who: d.nameOf(b.cancelled_by), when: dayOf(b.cancelled_at),
       }));
     const rentals = d.rentals
       .filter((r) => r.status === 'cancelled' && inRange(r.start_date))
       .map((r) => ({
         ref: `RT-${shortRef(r.id)}`, kind: 'Rental', date: r.start_date,
         customer: r.customer_name, phone: r.customer_phone,
-        artist: r.artist_name ?? '—', by: 'Cancelled', value: Number(r.total_amount ?? 0), note: '',
+        artist: r.artist_name ?? '—', by: 'Cancelled', value: Number(r.total_amount ?? 0),
+        reason: r.cancellation_reason ?? '', who: d.nameOf(r.cancelled_by), when: dayOf(r.cancelled_at),
       }));
-    return [...bookings, ...rentals].filter((x) => matches(x.customer, x.phone, x.artist, x.ref));
+    const orders = d.orders
+      .filter((o) => o.status === 'cancelled' && inRange(dayOf(o.created_at)))
+      .map((o) => ({
+        ref: `OR-${shortRef(o.id)}`, kind: 'Shop order', date: dayOf(o.created_at),
+        customer: o.customer_name, phone: o.customer_phone, artist: '—', by: 'Cancelled',
+        value: Number(o.total_amount ?? 0), reason: o.cancellation_reason ?? '',
+        who: d.nameOf(o.cancelled_by), when: dayOf(o.cancelled_at),
+      }));
+    return [...bookings, ...rentals, ...orders]
+      .filter((x) => matches(x.customer, x.phone, x.artist, x.ref, x.reason));
   }, [d, inRange, matches]);
 
   const lost = rows.reduce((s, r) => s + r.value, 0);
   const liveTotal = d.bookings.filter((b) => inRange(b.event_date)).length;
   const rate = liveTotal > 0 ? Math.round((rows.length / liveTotal) * 100) : 0;
+  const withReason = rows.filter((r) => r.reason).length;
+
+  const byReason = useMemo(() => {
+    const map = new Map<string, { reason: string; count: number; value: number }>();
+    rows.forEach((r) => {
+      const key = r.reason.trim() || 'No reason recorded';
+      const e = map.get(key) ?? { reason: key, count: 0, value: 0 };
+      e.count += 1; e.value += r.value;
+      map.set(key, e);
+    });
+    return [...map.values()].sort((a, b) => b.value - a.value);
+  }, [rows]);
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         <Stat label="Cancelled / declined" value={rows.length} tone={rows.length ? 'warn' : 'good'} />
         <Stat label="Value lost" value={money(lost)} tone={lost ? 'bad' : 'plain'} />
         <Stat label="Cancellation rate" value={`${rate}%`} note="of bookings in this range" />
+        <Stat label="Reason recorded"
+          value={rows.length ? `${Math.round((withReason / rows.length) * 100)}%` : '—'}
+          note="the field is new" />
       </div>
-      <Caveat>
-        Nothing on the booking form captures a <b>reason</b> for a cancellation, so this report can
-        show what was lost but not why. Add a reason field and this becomes the report that tells
-        you which artist or which service is bleeding.
-      </Caveat>
+
+      <SectionTitle>Why they were lost</SectionTitle>
       <Table
-        headers={['Ref', 'Type', 'Event Date', 'Customer', 'Mobile', 'Artist', 'What happened', 'Value lost']}
+        headers={['Reason', 'Times', 'Value lost', 'Share']}
         empty="Nothing cancelled in this range."
-        rows={rows.map((x) => [
-          <span key="r" className="font-mono font-bold">{x.ref}</span>,
-          x.kind, x.date,
-          <span key="c" className="font-bold text-maroon-950">{x.customer}</span>,
-          x.phone, x.artist,
-          <span key="b" className={x.by.includes('declined') ? 'text-rose-700 font-bold' : ''}>{x.by}</span>,
-          money(x.value),
+        rows={byReason.map((r) => [
+          <span key="r" className={r.reason === 'No reason recorded' ? 'italic text-gray-400 font-bold' : 'font-bold text-maroon-950'}>
+            {r.reason}
+          </span>,
+          r.count, money(r.value),
+          lost > 0 ? `${Math.round((r.value / lost) * 100)}%` : '—',
         ])}
-        footer={['Total', '', '', '', '', '', '', money(lost)]}
       />
+
+      <div className="mt-7">
+        <SectionTitle>One by one</SectionTitle>
+        <Table
+          headers={['Ref', 'Type', 'Event Date', 'Customer', 'Mobile', 'Artist', 'What happened', 'Reason', 'Cancelled by', 'On', 'Value lost']}
+          empty="Nothing cancelled in this range."
+          rows={rows.map((x) => [
+            <span key="r" className="font-mono font-bold">{x.ref}</span>,
+            x.kind, x.date,
+            <span key="c" className="font-bold text-maroon-950">{x.customer}</span>,
+            x.phone, x.artist,
+            <span key="b" className={x.by.includes('declined') ? 'text-rose-700 font-bold' : ''}>{x.by}</span>,
+            <span key="rs" className={x.reason ? 'block max-w-[18rem]' : 'italic text-gray-400'}>
+              {x.reason || 'not recorded'}
+            </span>,
+            x.who, x.when || '—', money(x.value),
+          ])}
+          footer={['Total', '', '', '', '', '', '', '', '', '', money(lost)]}
+        />
+      </div>
     </>
   );
 }

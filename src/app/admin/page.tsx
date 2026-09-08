@@ -16,6 +16,7 @@ import {
   supabase, friendlyError,
   DBOrder, DBArtistBooking, DBArtistApplication, DBDeliverablePincode, DBSupplierApplication, DBAcademyEnrollment,
   DBJobApplication, DBProduct, DBRentalBooking, DBAppSetting, UserProfile, UserRole,
+  PAYMENT_MODES, PAYMENT_MODE_LABEL,
 } from '@/lib/supabase';
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
@@ -755,6 +756,30 @@ export default function AdminPanelPage() {
     );
   };
 
+  /**
+   * A cancellation without a reason is a number nobody can act on — the
+   * Cancellation Report can say what was lost but not why, which is the half
+   * that changes a decision. Asked once, here, at the moment it happens.
+   */
+  const askCancelReason = (name: string) =>
+    window.prompt(`Why is ${name}'s booking being cancelled? This shows in the Cancellation Report.`, '');
+
+  /** Fixed values, so the Collection Report can actually split cash from UPI. */
+  const PaymentModeSelect = ({ value, onChange }: {
+    value: string | null | undefined;
+    onChange: (mode: string) => void;
+  }) => (
+    <select
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value)}
+      title="How did the money reach us?"
+      className="mt-1 w-full px-2 py-1 rounded-lg border border-amber-200/70 bg-white text-[10px] font-bold text-maroon-950"
+    >
+      <option value="">Paid by…</option>
+      {PAYMENT_MODES.map((m) => <option key={m} value={m}>{PAYMENT_MODE_LABEL[m]}</option>)}
+    </select>
+  );
+
   /** Admin sign-off on an artist — the last word on who goes to a wedding. */
   const approveAssignment = async (booking: DBArtistBooking) => {
     await patchRow<DBArtistBooking>(
@@ -1198,6 +1223,14 @@ export default function AdminPanelPage() {
                                     💬
                                   </a>
                                 </div>
+                                <PaymentModeSelect
+                                  value={order.payment_mode}
+                                  onChange={(payment_mode) =>
+                                    patchRow<DBOrder>(
+                                      'orders', order.id, { payment_mode: payment_mode || null }, setOrders
+                                    )
+                                  }
+                                />
                                 {!isFullyPaid && (
                                   <button
                                     onClick={() =>
@@ -1279,7 +1312,45 @@ export default function AdminPanelPage() {
                             </span>
                           </td>
                           <td className="p-4">
-                            <Badge status={booking.status} />
+                            <StatusSelect
+                              value={booking.status}
+                              options={BOOKING_STATUSES}
+                              onChange={(status) => {
+                                if (status === 'cancelled') {
+                                  const reason = askCancelReason(booking.customer_name);
+                                  if (reason === null) return;
+                                  patchRow<DBArtistBooking>(
+                                    'artist_bookings', booking.id,
+                                    { status, cancellation_reason: reason.trim() || null },
+                                    setBookings
+                                  );
+                                  return;
+                                }
+                                patchRow<DBArtistBooking>('artist_bookings', booking.id, { status }, setBookings);
+                              }}
+                            />
+                            {booking.artist_id && (
+                              <span className={`block mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider text-center ${
+                                booking.assignment_approved_at
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-amber-100 text-amber-900'
+                              }`}>
+                                {booking.assignment_approved_at ? 'Artist approved' : 'Needs approval'}
+                              </span>
+                            )}
+                            <PaymentModeSelect
+                              value={booking.payment_mode}
+                              onChange={(payment_mode) =>
+                                patchRow<DBArtistBooking>(
+                                  'artist_bookings', booking.id, { payment_mode: payment_mode || null }, setBookings
+                                )
+                              }
+                            />
+                            {booking.cancellation_reason && (
+                              <span className="block text-[10px] text-rose-700 font-bold mt-1 max-w-[11rem]">
+                                Reason: {booking.cancellation_reason}
+                              </span>
+                            )}
                           </td>
                           <td className="p-4">
                             <LiveStage jobId={booking.id} />
@@ -2046,12 +2117,33 @@ export default function AdminPanelPage() {
                             <StatusSelect
                               value={rental.status}
                               options={RENTAL_STATUSES}
-                              onChange={(status) =>
+                              onChange={(status) => {
+                                if (status === 'cancelled') {
+                                  const reason = askCancelReason(rental.customer_name);
+                                  if (reason === null) return;
+                                  patchRow<DBRentalBooking>(
+                                    'rental_bookings', rental.id,
+                                    { status, cancellation_reason: reason.trim() || null },
+                                    setRentals
+                                  );
+                                  return;
+                                }
+                                patchRow<DBRentalBooking>('rental_bookings', rental.id, { status }, setRentals);
+                              }}
+                            />
+                            <PaymentModeSelect
+                              value={rental.payment_mode}
+                              onChange={(payment_mode) =>
                                 patchRow<DBRentalBooking>(
-                                  'rental_bookings', rental.id, { status }, setRentals
+                                  'rental_bookings', rental.id, { payment_mode: payment_mode || null }, setRentals
                                 )
                               }
                             />
+                            {rental.cancellation_reason && (
+                              <span className="block text-[10px] text-rose-700 font-bold mt-1 max-w-[12rem]">
+                                Reason: {rental.cancellation_reason}
+                              </span>
+                            )}
                             {rental.notes && (
                               <span className="block text-[10px] text-rose-600 font-bold mt-1 max-w-[12rem]">
                                 {rental.notes}

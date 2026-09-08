@@ -90,6 +90,12 @@ export interface DBOrder {
   shipping_address: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   lead_source?: string | null;
+  /** How the money arrived — feeds the Collection Report's cash/UPI/card split. */
+  payment_mode?: string | null;
+  /** Why it was called off. The trigger stamps who and when. */
+  cancellation_reason?: string | null;
+  cancelled_by?: string | null;
+  cancelled_at?: string | null;
   created_at?: string;
 }
 
@@ -138,6 +144,12 @@ export interface DBArtistBooking {
   assigned_by?: string | null;
   assignment_approved_at?: string | null;
   assignment_approved_by?: string | null;
+  /** How the money arrived — feeds the Collection Report's cash/UPI/card split. */
+  payment_mode?: string | null;
+  /** Why it was called off. The trigger stamps who and when. */
+  cancellation_reason?: string | null;
+  cancelled_by?: string | null;
+  cancelled_at?: string | null;
   created_at?: string;
 }
 
@@ -245,6 +257,12 @@ export interface DBRentalBooking {
   assigned_by?: string | null;
   assignment_approved_at?: string | null;
   assignment_approved_by?: string | null;
+  /** How the money arrived — feeds the Collection Report's cash/UPI/card split. */
+  payment_mode?: string | null;
+  /** Why it was called off. The trigger stamps who and when. */
+  cancellation_reason?: string | null;
+  cancelled_by?: string | null;
+  cancelled_at?: string | null;
   created_at?: string;
 }
 
@@ -350,3 +368,11 @@ export interface DBComplaintMessage {
   internal: boolean;
   created_at?: string;
 }
+
+/** How a payment reached us. Fixed values so the Collection Report can split them. */
+export const PAYMENT_MODES = ['cash', 'upi', 'card', 'bank', 'gateway', 'other'] as const;
+
+export const PAYMENT_MODE_LABEL: Record<string, string> = {
+  cash: 'Cash', upi: 'UPI', card: 'Card', bank: 'Bank transfer',
+  gateway: 'Online (gateway)', other: 'Other',
+};
