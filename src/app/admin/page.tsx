@@ -519,9 +519,17 @@ export default function AdminPanelPage() {
       return;
     }
 
-    await patchRow<DBArtistApplication>('artist_applications', application.id, { status }, setArtistApps);
+    // Rejections and un-approvals write straight through; an approval has to
+    // earn the status first (below), because marking it approved and then
+    // failing to build the profile leaves an artist who looks approved on
+    // this screen, cannot be assigned, and never appears on /artists — which
+    // is exactly the state one live application is in right now.
+    if (status !== 'approved') {
+      await patchRow<DBArtistApplication>('artist_applications', application.id, { status }, setArtistApps);
+      return;
+    }
 
-    if (status === 'approved' && application.user_id) {
+    if (application.user_id) {
       // Profile row first, role second. The role flip is what unlocks the
       // portal — doing it before the artist_profiles upsert meant a failed
       // upsert left an artist with portal access but no profile row (no
@@ -556,10 +564,15 @@ export default function AdminPanelPage() {
         { onConflict: 'id' }
       );
       if (profileErr) {
-        setError(friendlyError(profileErr));
+        setError(
+          `Could not create ${application.full_name}'s artist profile, so the application has NOT ` +
+            `been approved: ${friendlyError(profileErr)}`
+        );
         return;
       }
 
+      // The profile exists — only now is this application truly approved.
+      await patchRow<DBArtistApplication>('artist_applications', application.id, { status }, setArtistApps);
       await patchRow<UserProfile>('profiles', application.user_id, { role: 'artist' }, setUsers);
 
       // Best-effort — the approval itself is already saved above, so a failed
@@ -1394,6 +1407,24 @@ export default function AdminPanelPage() {
                           </td>
                           <td className="p-4">
                             <Badge status={artist.status} />
+                            {artist.status === 'approved' &&
+                              artist.user_id &&
+                              !artistProfiles.some((ap) => ap.id === artist.user_id) && (
+                                <span
+                                  className="block mt-1.5 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[9px] font-black uppercase tracking-wider text-center"
+                                  title="This application is marked approved but no artist profile was created — set it back to pending and approve it again."
+                                >
+                                  No profile — re-approve
+                                </span>
+                              )}
+                            {artist.status === 'approved' && !artist.user_id && (
+                              <span
+                                className="block mt-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[9px] font-black uppercase tracking-wider text-center"
+                                title="Applied while signed out, so there is no account to grant portal access to. Ask them to sign in and re-apply."
+                              >
+                                No account linked
+                              </span>
+                            )}
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
