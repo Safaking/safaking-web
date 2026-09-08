@@ -363,6 +363,34 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
 
   const current = REPORTS.find((x) => x.id === report)!;
 
+  /**
+   * The latest thing the artist actually did on each job — 'assigned' tells
+   * you a name was picked, not whether anyone has left home.
+   */
+  const stageByJob = useMemo(() => {
+    const map = new Map<string, { stage: string; at: string }>();
+    [...checkins]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .forEach((c) => {
+        const key = c.booking_id ?? c.rental_id;
+        if (key && !map.has(key)) map.set(key, { stage: c.stage, at: c.created_at });
+      });
+    return map;
+  }, [checkins]);
+
+  const STAGE_LABEL: Record<string, string> = {
+    en_route: 'On the way', arrived: 'Arrived', started: 'Tying',
+    completed: 'Finished', no_show: 'NO SHOW',
+  };
+
+  const stageTone = (stage: string | undefined) =>
+    stage === 'no_show' ? 'bg-rose-100 text-rose-800'
+    : stage === 'completed' ? 'bg-emerald-100 text-emerald-800'
+    : stage === 'started' ? 'bg-royal-100 text-royal-800'
+    : stage === 'arrived' ? 'bg-amber-100 text-amber-800'
+    : stage === 'en_route' ? 'bg-blue-100 text-blue-800'
+    : 'bg-gray-100 text-gray-500';
+
   /* ------------------------------------------------- report: control sheet */
 
   const control = useMemo(() => {
@@ -387,6 +415,18 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
       (r) => ['dispatched', 'active'].includes(r.status) && r.end_date < onDate
     );
 
+    // Where every artist actually is right now, for the morning huddle.
+    const stageOf = (id: string) => stageByJob.get(id)?.stage;
+    const liveIds = jobsToday.map((j) => j.id);
+    const liveCounts = {
+      notStarted: liveIds.filter((id) => !stageOf(id)).length,
+      enRoute: liveIds.filter((id) => stageOf(id) === 'en_route').length,
+      arrived: liveIds.filter((id) => stageOf(id) === 'arrived').length,
+      working: liveIds.filter((id) => stageOf(id) === 'started').length,
+      finished: liveIds.filter((id) => stageOf(id) === 'completed').length,
+      noShow: liveIds.filter((id) => stageOf(id) === 'no_show').length,
+    };
+
     const actions: string[] = [];
     if (unassigned.length > 0) actions.push(`${unassigned.length} job(s) today still have no artist assigned.`);
     const tomorrowUnassigned = bookings.filter((b) => b.event_date === tomorrow && live(b.status) && !b.artist_id);
@@ -396,6 +436,11 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
     if (kycPending.length > 0) actions.push(`${kycPending.length} artist(s) cannot be assigned until their KYC is approved.`);
     const unpaidCompleted = bookings.filter((b) => b.status === 'completed' && b.payment_release_status !== 'released');
     if (unpaidCompleted.length > 0) actions.push(`${unpaidCompleted.length} completed job(s) are waiting on artist payment release.`);
+    if (liveCounts.noShow > 0) actions.push(`${liveCounts.noShow} artist(s) marked NO SHOW today — arrange a replacement now.`);
+    const awaitingApproval = bookings.filter(
+      (b) => b.artist_id && !(b as BookingRow & { assignment_approved_at?: string | null }).assignment_approved_at && live(b.status)
+    );
+    if (awaitingApproval.length > 0) actions.push(`${awaitingApproval.length} artist assignment(s) are waiting for your approval.`);
 
     return {
       tomorrow,
@@ -412,9 +457,10 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
       deliveryToday: rentals.filter((r) => r.start_date === onDate).length,
       returnToday: rentals.filter((r) => r.end_date === onDate).length,
       overdueReturns: overdueReturns.length,
+      live: liveCounts,
       actions,
     };
-  }, [bookings, rentals, orders, artists, onDate]);
+  }, [bookings, rentals, orders, artists, onDate, stageByJob]);
 
   /* ----------------------------------------------------- report: ops sheet */
 
@@ -438,6 +484,8 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
         artistPhone: phoneOf(b.artist_id),
         pay: b.payment_status ?? '—',
         status: b.status,
+        stage: stageByJob.get(b.id)?.stage,
+        stageAt: stageByJob.get(b.id)?.at,
       }));
 
     const fromRentals = rentals
@@ -459,10 +507,12 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
         artistPhone: r.needs_artist ? phoneOf(r.artist_id) : '—',
         pay: r.payment_status,
         status: r.status,
+        stage: stageByJob.get(r.id)?.stage,
+        stageAt: stageByJob.get(r.id)?.at,
       }));
 
     return [...fromBookings, ...fromRentals].filter((x) => matches(x.customer, x.phone, x.artist, x.place, x.ref));
-  }, [bookings, rentals, onDate, phoneOf, matches]);
+  }, [bookings, rentals, onDate, phoneOf, matches, stageByJob]);
 
   /* ----------------------------------------------- report: booking register */
 
@@ -835,8 +885,9 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
 
     if (report === 'ops') {
       downloadCSV(name,
-        ['Ref', 'Customer', 'Mobile', 'Type', 'When', 'Location', 'Service', 'Qty', 'Artist', 'Artist Mobile', 'Payment', 'Status'],
-        opsRows.map((x) => [x.ref, x.customer, x.phone, x.type, x.when, x.place, x.service, x.qty, x.artist, x.artistPhone, x.pay, x.status]));
+        ['Ref', 'Customer', 'Mobile', 'Type', 'When', 'Location', 'Landmark', 'Service', 'Qty', 'Artist', 'Artist Mobile', 'Live Status', 'Payment', 'Status'],
+        opsRows.map((x) => [x.ref, x.customer, x.phone, x.type, x.when, x.place, x.landmark, x.service, x.qty,
+          x.artist, x.artistPhone, x.stage ? STAGE_LABEL[x.stage] ?? x.stage : 'Not started', x.pay, x.status]));
     } else if (report === 'bookings') {
       downloadCSV(name,
         ['Ref', 'Booked On', 'Event Date', 'Customer', 'Phone', 'Venue', 'Style', 'Safas', 'Artist', 'Amount', 'Advance', 'Balance', 'Payment', 'Status'],
@@ -1069,6 +1120,18 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
               </section>
 
               <section>
+                <SectionTitle>Where the artists are right now</SectionTitle>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                  <Stat label="Not started" value={control.live.notStarted} tone={control.live.notStarted ? 'warn' : 'plain'} />
+                  <Stat label="On the way" value={control.live.enRoute} />
+                  <Stat label="Arrived" value={control.live.arrived} />
+                  <Stat label="Tying" value={control.live.working} />
+                  <Stat label="Finished" value={control.live.finished} tone="good" />
+                  <Stat label="No show" value={control.live.noShow} tone={control.live.noShow ? 'bad' : 'plain'} />
+                </div>
+              </section>
+
+              <section>
                 <SectionTitle>Payment</SectionTitle>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <Stat label="Advance recorded today" value={money(control.collectedToday)} tone="good" />
@@ -1107,7 +1170,7 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
 
           {report === 'ops' && (
             <Table
-              headers={['Ref', 'Customer', 'Mobile', 'Type', 'When', 'Location', 'Service', 'Qty', 'Artist', 'Artist Mobile', 'Payment', 'Status']}
+              headers={['Ref', 'Customer', 'Mobile', 'Type', 'When', 'Location', 'Service', 'Qty', 'Artist', 'Artist Mobile', 'Live Status', 'Payment', 'Status']}
               empty="No jobs scheduled for this date."
               rows={opsRows.map((x) => [
                 <span key="r" className="font-mono font-bold">{x.ref}</span>,
@@ -1126,6 +1189,12 @@ export function ReportsCentre({ adminName }: { adminName: string }) {
                 x.service, x.qty,
                 <span key="a" className={x.artist.includes('UNASSIGNED') ? 'font-black text-rose-700' : 'font-bold'}>{x.artist}</span>,
                 x.artistPhone,
+                <span key="ls" className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${stageTone(x.stage)}`}>
+                  {x.stage ? STAGE_LABEL[x.stage] ?? x.stage : 'Not started'}
+                  {x.stageAt ? <span className="block font-normal normal-case text-[9px] opacity-70">
+                    {new Date(x.stageAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+                  </span> : null}
+                </span>,
                 <span key="p" className="capitalize">{(x.pay ?? '').replace(/_/g, ' ')}</span>,
                 <span key="s" className="capitalize font-bold">{x.status}</span>,
               ])}

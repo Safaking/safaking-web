@@ -48,9 +48,13 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
         .lte('start_date', tomorrow),
       supabase
         .from('artist_bookings')
-        .select('id, customer_name, city_venue, event_date')
+        .select('id, customer_name, city_venue, event_date, assignment_approved_at')
         .eq('artist_id', artistId)
         .eq('status', 'assigned')
+        // An assignment the office has not signed off on is not yet this
+        // artist's job — checking in on it would tell the customer someone
+        // is coming who might still be swapped.
+        .not('assignment_approved_at', 'is', null)
         .gte('event_date', today)
         .lte('event_date', tomorrow),
       supabase
@@ -133,9 +137,15 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
     };
 
     ping();
-    const timer = setInterval(ping, 90_000);
+    // On the way, the customer is watching the dot move, so a 90-second gap
+    // reads as "stuck in traffic". Once tying has started the position stops
+    // changing and the slower beat is enough.
+    const enRoute = active.some((j) => j.stage === 'en_route');
+    const timer = setInterval(ping, enRoute ? 45_000 : 90_000);
     return () => clearInterval(timer);
   }, [jobs, shareLocation, artistId]);
+
+  const trackingLive = shareLocation && jobs.some((j) => j.stage === 'en_route' || j.stage === 'started');
 
   const mark = async (job: TodayJob, stage: CheckinStage) => {
     const key = job.rentalId ?? job.bookingId ?? '';
@@ -223,6 +233,20 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
           <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed">{error}</p>
+          </div>
+        )}
+
+        {trackingLive && (
+          <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300">
+            <span className="relative flex h-2.5 w-2.5 mt-1 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600" />
+            </span>
+            <p className="text-[11px] text-emerald-900 leading-relaxed">
+              <span className="font-black">Live tracking is on.</span> The customer can see how far
+              away you are. Keep this page open on your phone until the job is done — location
+              stops the moment you close it.
+            </p>
           </div>
         )}
 
