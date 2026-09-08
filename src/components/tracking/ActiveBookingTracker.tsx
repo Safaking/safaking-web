@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Sparkles, MapPin, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getLatestArtistLocation, LatestLocation } from '@/lib/client-update';
+import { supabase as db } from '@/lib/supabase';
 
 interface ActiveBooking {
   id: string;
@@ -17,6 +18,8 @@ interface ActiveBooking {
   otpVerifiedAt: string | null;
   happyCodeVerifiedAt: string | null;
   paymentReleaseStatus: string;
+  /** Latest check-in the artist posted, if any. */
+  stage: string | null;
 }
 
 /**
@@ -70,17 +73,34 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
         id: r.id, kind: 'rental' as const, status: r.status, approvedAt: r.assignment_approved_at, eventDate: r.start_date,
         venue: r.venue_address, arrivalOtp: r.arrival_otp, completionCode: r.completion_code,
         otpVerifiedAt: r.otp_verified_at, happyCodeVerifiedAt: r.happy_code_verified_at,
-        paymentReleaseStatus: r.payment_release_status,
+        paymentReleaseStatus: r.payment_release_status, stage: null,
       })),
       ...(bookingsRes.data ?? []).map((b) => ({
         id: b.id, kind: 'booking' as const, status: b.status, approvedAt: b.assignment_approved_at, eventDate: b.event_date,
         venue: b.city_venue, arrivalOtp: b.arrival_otp, completionCode: b.completion_code,
         otpVerifiedAt: b.otp_verified_at, happyCodeVerifiedAt: b.happy_code_verified_at,
-        paymentReleaseStatus: b.payment_release_status,
+        paymentReleaseStatus: b.payment_release_status, stage: null,
       })),
     ];
 
-    setBookings(list);
+    // The artist's own check-ins are what tell the customer whether someone
+    // has actually set off — a status of 'assigned' says nothing about today.
+    const ids = list.map((x) => x.id);
+    const stages = new Map<string, string>();
+    if (ids.length > 0) {
+      const { data: checkins } = await db
+        .from('booking_checkins')
+        .select('rental_id, booking_id, stage, created_at')
+        .or(`rental_id.in.(${ids.join(',')}),booking_id.in.(${ids.join(',')})`)
+        .order('created_at', { ascending: false });
+
+      for (const row of checkins ?? []) {
+        const key = (row.rental_id ?? row.booking_id) as string;
+        if (key && !stages.has(key)) stages.set(key, row.stage as string);
+      }
+    }
+
+    setBookings(list.map((x) => ({ ...x, stage: stages.get(x.id) ?? null })));
 
     const locs = await Promise.all(
       list.map((b) => getLatestArtistLocation(b.kind, b.id).then((loc) => [b.id, loc] as const))
@@ -125,8 +145,16 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
         // Which artist is coming is deliberately not shown: an artist
         // accepting is not the final word — SafaKing signs off on it and may
         // still swap them, so naming one here would only mislead.
+        const liveStage =
+          b.stage === 'en_route' ? 'Artist is on the way'
+          : b.stage === 'arrived' ? 'Artist has arrived'
+          : b.stage === 'started' ? 'Tying in progress'
+          : b.stage === 'no_show' ? 'We are arranging a replacement'
+          : null;
+
         const stageLabel =
           b.paymentReleaseStatus === 'released' ? null
+          : liveStage && b.stage !== 'completed' ? liveStage
           : b.status === 'completed' || b.status === 'returned' ? 'Completed'
           : b.status === 'pending' ? 'Request received — artist being arranged'
           : b.status === 'offered' ? 'Artist being arranged'
@@ -180,6 +208,23 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
                     {b.completionCode}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {liveStage && (
+              <div className="flex items-center gap-2">
+                {['en_route', 'arrived', 'started'].map((st, i) => {
+                  const order = ['en_route', 'arrived', 'started'];
+                  const done = order.indexOf(b.stage ?? '') >= i;
+                  return (
+                    <div key={st} className="flex-1">
+                      <div className={`h-1.5 rounded-full ${done ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                      <p className={`text-[9px] font-black uppercase tracking-wider mt-1 ${done ? 'text-emerald-700' : 'text-gray-400'}`}>
+                        {st === 'en_route' ? 'On the way' : st === 'arrived' ? 'Arrived' : 'Tying'}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
 

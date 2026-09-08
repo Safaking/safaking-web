@@ -299,6 +299,8 @@ export default function AdminPanelPage() {
   // are about to let into people's weddings — a 80px thumbnail is not enough
   // to judge it, so it opens full size.
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; name: string } | null>(null);
+  /** Latest check-in stage per job — 'assigned' says nothing about today. */
+  const [jobStage, setJobStage] = useState<Record<string, { stage: string; at: string }>>({});
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
 
@@ -366,7 +368,7 @@ export default function AdminPanelPage() {
     setLoading(true);
     setError(null);
 
-    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap] = await Promise.all([
+    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap, ck] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
@@ -379,13 +381,21 @@ export default function AdminPanelPage() {
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: true }),
       supabase.from('app_settings').select('*').order('key', { ascending: true }),
       supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events'),
+      supabase.from('booking_checkins').select('rental_id, booking_id, stage, created_at').order('created_at', { ascending: false }),
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
     const isMissingTable = (err: { code?: string } | null) =>
       err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap].find((x) => x.error && !isMissingTable(x.error))?.error;
+    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap, ck].find((x) => x.error && !isMissingTable(x.error))?.error;
+
+    const stages: Record<string, { stage: string; at: string }> = {};
+    for (const row of (ck.data ?? []) as { rental_id: string | null; booking_id: string | null; stage: string; created_at: string }[]) {
+      const key = row.rental_id ?? row.booking_id;
+      if (key && !stages[key]) stages[key] = { stage: row.stage, at: row.created_at };
+    }
+    setJobStage(stages);
 
     if (coreError || secondaryError) {
       setError(friendlyError(coreError || secondaryError));
@@ -702,6 +712,33 @@ export default function AdminPanelPage() {
         }),
       }).catch(() => {});
     }
+  };
+
+  const STAGE_LABEL: Record<string, string> = {
+    en_route: 'On the way', arrived: 'Arrived', started: 'Tying',
+    completed: 'Finished', no_show: 'NO SHOW',
+  };
+
+  /** What the artist is actually doing on this job, from their own check-ins. */
+  const LiveStage = ({ jobId }: { jobId: string }) => {
+    const entry = jobStage[jobId];
+    if (!entry) {
+      return <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Not started</span>;
+    }
+    const tone =
+      entry.stage === 'no_show' ? 'bg-rose-100 text-rose-800'
+      : entry.stage === 'completed' ? 'bg-emerald-100 text-emerald-800'
+      : entry.stage === 'started' ? 'bg-royal-100 text-royal-800'
+      : entry.stage === 'arrived' ? 'bg-amber-100 text-amber-800'
+      : 'bg-blue-100 text-blue-800';
+    return (
+      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${tone}`}>
+        {STAGE_LABEL[entry.stage] ?? entry.stage}
+        <span className="block font-normal normal-case text-[9px] opacity-70">
+          {new Date(entry.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+        </span>
+      </span>
+    );
   };
 
   /** Admin sign-off on an artist — the last word on who goes to a wedding. */
@@ -1206,6 +1243,7 @@ export default function AdminPanelPage() {
                         <th className={TH}>City / Venue</th>
                         <th className={TH}>Safa Style</th>
                         <th className={TH}>Status</th>
+                        <th className={TH}>Live Status</th>
                         <th className={TH}>Assign Artist</th>
                       </tr>
                     </thead>
@@ -1228,6 +1266,9 @@ export default function AdminPanelPage() {
                           </td>
                           <td className="p-4">
                             <Badge status={booking.status} />
+                          </td>
+                          <td className="p-4">
+                            <LiveStage jobId={booking.id} />
                           </td>
                           <td className="p-4">
                             <select
