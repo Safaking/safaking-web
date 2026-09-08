@@ -5,6 +5,15 @@ import { KeyRound, Sparkles, MapPin, ShieldCheck, Loader2, AlertCircle } from 'l
 import { supabase } from '@/lib/supabase';
 import { getLatestArtistLocation, LatestLocation } from '@/lib/client-update';
 import { supabase as db } from '@/lib/supabase';
+import dynamic from 'next/dynamic';
+import type { MapPoint } from '@/components/liveops/LiveMap';
+
+// Leaflet reaches for `window` on import, so the map only ever loads in the
+// browser — and only for customers who actually have a live job on screen.
+const LiveMap = dynamic(
+  () => import('@/components/liveops/LiveMap').then((m) => m.LiveMap),
+  { ssr: false, loading: () => <div className="h-[220px] rounded-2xl bg-royal-50 animate-pulse" /> }
+);
 
 interface ActiveBooking {
   id: string;
@@ -20,6 +29,8 @@ interface ActiveBooking {
   paymentReleaseStatus: string;
   /** Latest check-in the artist posted, if any. */
   stage: string | null;
+  venueLat: number | null;
+  venueLng: number | null;
 }
 
 /**
@@ -47,7 +58,7 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
       supabase
         .from('rental_bookings')
         .select(
-          'id, status, start_date, venue_address, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status, assignment_approved_at'
+          'id, status, start_date, venue_address, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status, assignment_approved_at, customer_lat, customer_lng'
         )
         .eq('customer_id', userId)
         .in('status', ['pending', 'confirmed', 'dispatched', 'active', 'returned', 'completed'])
@@ -55,7 +66,7 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
       supabase
         .from('artist_bookings')
         .select(
-          'id, status, event_date, city_venue, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status, assignment_approved_at'
+          'id, status, event_date, city_venue, arrival_otp, completion_code, otp_verified_at, happy_code_verified_at, payment_release_status, assignment_approved_at, customer_lat, customer_lng'
         )
         .eq('customer_id', userId)
         .in('status', ['pending', 'offered', 'assigned', 'completed'])
@@ -74,12 +85,14 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
         venue: r.venue_address, arrivalOtp: r.arrival_otp, completionCode: r.completion_code,
         otpVerifiedAt: r.otp_verified_at, happyCodeVerifiedAt: r.happy_code_verified_at,
         paymentReleaseStatus: r.payment_release_status, stage: null,
+        venueLat: r.customer_lat, venueLng: r.customer_lng,
       })),
       ...(bookingsRes.data ?? []).map((b) => ({
         id: b.id, kind: 'booking' as const, status: b.status, approvedAt: b.assignment_approved_at, eventDate: b.event_date,
         venue: b.city_venue, arrivalOtp: b.arrival_otp, completionCode: b.completion_code,
         otpVerifiedAt: b.otp_verified_at, happyCodeVerifiedAt: b.happy_code_verified_at,
         paymentReleaseStatus: b.payment_release_status, stage: null,
+        venueLat: b.customer_lat, venueLng: b.customer_lng,
       })),
     ];
 
@@ -244,12 +257,28 @@ export function ActiveBookingTracker({ userId }: { userId: string }) {
 
             {/* Live location */}
             {loc && (
-              <div className="flex items-center gap-2 text-xs text-gray-600 bg-royal-50 rounded-xl p-3">
-                <MapPin size={14} className="text-royal-700 shrink-0" />
-                <span>
-                  Last seen {new Date(loc.recorded_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
-                  {loc.eta_minutes != null ? ` · about ${loc.eta_minutes} min away` : ''}
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-gray-600 bg-royal-50 rounded-xl p-3">
+                  <MapPin size={14} className="text-royal-700 shrink-0" />
+                  <span>
+                    Last seen {new Date(loc.recorded_at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+                    {loc.eta_minutes != null ? (
+                      <> · <b className="text-maroon-900">about {loc.eta_minutes} min away</b></>
+                    ) : ''}
+                  </span>
+                </div>
+
+                {loc.latitude != null && loc.longitude != null && b.stage !== 'completed' && (
+                  <LiveMap
+                    height={220}
+                    points={[
+                      { lat: loc.latitude, lng: loc.longitude, kind: 'artist', label: 'Your artist', sub: 'Last known position' },
+                      ...(b.venueLat != null && b.venueLng != null
+                        ? [{ lat: b.venueLat, lng: b.venueLng, kind: 'venue' as const, label: 'Your venue' }]
+                        : []),
+                    ]}
+                  />
+                )}
               </div>
             )}
           </div>
