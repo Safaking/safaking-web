@@ -2135,7 +2135,10 @@ export default function AdminPanelPage() {
             )}
 
             {activeTab === 'analytics' && (
-              <ReportsCentre adminName={profile?.full_name || profile?.email || 'admin'} />
+              <ReportsCentre
+                adminName={profile?.full_name || profile?.email || 'admin'}
+                role={profile?.role ?? 'admin'}
+              />
             )}
 
             {/* ---- LIVE OPS ---- */}
