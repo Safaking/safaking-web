@@ -85,8 +85,11 @@ export default function ArtistDirectoryPage() {
                   <div className="min-w-0 flex-1">
                     <h2 className="font-display font-bold text-base text-maroon-950 flex items-center gap-1.5">
                       <span className="truncate">{artist.display_name}</span>
+                      {/* Green shield means "we have checked their ID" — the
+                          view derives it from the KYC state, so it cannot
+                          drift away from what was actually verified. */}
                       {artist.verified && (
-                        <ShieldCheck size={14} className="text-emerald-600 shrink-0" aria-label="Verified" />
+                        <ShieldCheck size={14} className="text-emerald-600 shrink-0" aria-label="KYC verified" />
                       )}
                     </h2>
                     <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
