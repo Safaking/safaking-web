@@ -152,3 +152,41 @@ export async function getBrowserCoords(timeoutMs = 8000): Promise<{ lat: number;
   const coords = await getDeviceCoords(timeoutMs);
   return coords ? { lat: coords.latitude, lng: coords.longitude } : null;
 }
+
+/**
+ * Straight-line distance in kilometres (haversine).
+ *
+ * Deliberately not a road distance: a routing API costs money per call and
+ * would be billed on every 45-second ping. For "how far away is my artist"
+ * the error is small enough to be useful and honest — the label says
+ * "about", and the customer can see the map for themselves.
+ */
+export function distanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * Rough minutes away, from straight-line distance.
+ *
+ * 22 km/h is a deliberately pessimistic Indian-city average that also absorbs
+ * the fact that roads are longer than the crow's flight — an artist who shows
+ * up early is a good surprise; one who is late after we promised 5 minutes is
+ * a complaint.
+ */
+export function estimateEtaMinutes(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): number {
+  const km = distanceKm(from, to);
+  return Math.max(1, Math.round((km / 22) * 60));
+}

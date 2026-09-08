@@ -25,6 +25,7 @@ import { ReportsCentre } from '@/components/admin/ReportsCentre';
 import { ExpenseLedger } from '@/components/admin/ExpenseLedger';
 import { ComplaintsPanel } from '@/components/admin/ComplaintsPanel';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
+import { LiveOpsMap } from '@/components/liveops/LiveOpsMap';
 import { TrainingManager } from '@/components/admin/TrainingManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
@@ -2107,7 +2108,12 @@ export default function AdminPanelPage() {
             )}
 
             {/* ---- LIVE OPS ---- */}
-            {activeTab === 'liveops' && <LiveOpsBoard />}
+            {activeTab === 'liveops' && (
+              <div className="space-y-6">
+                <LiveOpsMap />
+                <LiveOpsBoard />
+              </div>
+            )}
 
             {/* ---- TRAINING ACADEMY ---- */}
             {activeTab === 'training' && <TrainingManager />}

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { MapPin, CheckCircle2, Loader2, AlertCircle, Navigation, KeyRound } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { checkIn, CheckinStage, STAGE_FLOW } from '@/lib/liveops';
-import { verifyArrivalCode, verifyCompletionCode, pingArtistLocation, getBrowserCoords } from '@/lib/client-update';
+import { verifyArrivalCode, verifyCompletionCode, pingArtistLocation, getBrowserCoords, estimateEtaMinutes } from '@/lib/client-update';
 
 interface TodayJob {
   rentalId: string | null;
@@ -14,6 +14,9 @@ interface TodayJob {
   date: string;
   safaCount: number | null;
   stage: CheckinStage | null;
+  /** The venue pin the customer dropped, if they did — used for the ETA. */
+  lat: number | null;
+  lng: number | null;
 }
 
 /**
@@ -41,14 +44,14 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
     const [rentals, bookings, checkins] = await Promise.all([
       supabase
         .from('rental_bookings')
-        .select('id, customer_name, venue_address, start_date, safa_count')
+        .select('id, customer_name, venue_address, start_date, safa_count, customer_lat, customer_lng')
         .eq('artist_id', artistId)
         .in('status', ['confirmed', 'dispatched', 'active'])
         .gte('start_date', today)
         .lte('start_date', tomorrow),
       supabase
         .from('artist_bookings')
-        .select('id, customer_name, city_venue, event_date, assignment_approved_at')
+        .select('id, customer_name, city_venue, event_date, assignment_approved_at, customer_lat, customer_lng')
         .eq('artist_id', artistId)
         .eq('status', 'assigned')
         // An assignment the office has not signed off on is not yet this
@@ -88,6 +91,7 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
         date: r.start_date,
         safaCount: r.safa_count,
         stage: latest.get(r.id) ?? null,
+        lat: r.customer_lat, lng: r.customer_lng,
       })),
       ...(bookings.data ?? []).map((b) => ({
         rentalId: null,
@@ -97,6 +101,7 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
         date: b.event_date,
         safaCount: null,
         stage: latest.get(b.id) ?? null,
+        lat: b.customer_lat, lng: b.customer_lng,
       })),
     ];
 
@@ -129,6 +134,12 @@ export function ArtistCheckin({ artistId }: { artistId: string }) {
             bookingId: job.bookingId,
             lat: coords.lat,
             lng: coords.lng,
+            // Only when the customer actually pinned the venue — an ETA to a
+            // pincode centroid would be a made-up number.
+            etaMinutes:
+              job.lat != null && job.lng != null
+                ? estimateEtaMinutes(coords, { lat: job.lat, lng: job.lng })
+                : null,
           });
         } catch {
           // Best-effort; the next tick tries again.
