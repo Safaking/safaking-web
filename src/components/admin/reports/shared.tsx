@@ -29,6 +29,10 @@ export interface BookingRow {
   customer_lng: number | null;
   location_note: string | null;
   assignment_approved_at: string | null;
+  payment_mode: string | null;
+  cancellation_reason: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
   notes: string | null;
   created_at: string | null;
 }
@@ -63,6 +67,10 @@ export interface RentalRow {
   customer_lng: number | null;
   location_note: string | null;
   assignment_approved_at: string | null;
+  payment_mode: string | null;
+  cancellation_reason: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
   created_at: string | null;
 }
 
@@ -78,6 +86,10 @@ export interface OrderRow {
   status: string;
   shipping_address: string | null;
   lead_source: string | null;
+  payment_mode: string | null;
+  cancellation_reason: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
   created_at: string | null;
 }
 
@@ -172,6 +184,13 @@ export const STAGE_LABEL: Record<string, string> = {
   en_route: 'On the way', arrived: 'Arrived', started: 'Tying',
   completed: 'Finished', no_show: 'NO SHOW',
 };
+
+export const PAYMENT_MODE_LABEL: Record<string, string> = {
+  cash: 'Cash', upi: 'UPI', card: 'Card', bank: 'Bank transfer',
+  gateway: 'Online (gateway)', other: 'Other',
+};
+
+export const PAYMENT_MODE_ORDER = ['cash', 'upi', 'card', 'bank', 'gateway', 'other'] as const;
 
 export const EXPENSE_LABEL: Record<string, string> = {
   salary: 'Salary & wages', artist_payment: 'Artist payment', marketing: 'Marketing & ads',

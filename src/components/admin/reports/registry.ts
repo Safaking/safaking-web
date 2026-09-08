@@ -63,13 +63,13 @@ export const REPORTS: ReportDef[] = [
   { id: 'bookings', code: 'R-03', label: 'Booking Register', hint: 'All bookings, complete status', group: 'Operations', icon: Calendar, filter: 'range', searchable: true, statuses: BOOKING_STATUSES },
   { id: 'upcoming', code: 'R-04', label: 'Upcoming Bookings', hint: 'What is still ahead, by date', group: 'Operations', icon: CalendarClock, filter: 'none', searchable: true },
   { id: 'pending', code: 'R-05', label: 'Pending Bookings', hint: 'Unassigned, unapproved, unconfirmed', group: 'Operations', icon: LayoutList, filter: 'none', searchable: true },
-  { id: 'cancellations', code: 'R-06', label: 'Cancellation Report', hint: 'What was lost, and what it was worth', group: 'Operations', icon: CircleSlash, filter: 'range', searchable: true },
+  { id: 'cancellations', code: 'R-06', label: 'Cancellation Report', hint: 'What was lost, and why', group: 'Operations', icon: CircleSlash, filter: 'range', searchable: true },
   { id: 'rentals', code: 'R-21', label: 'Rental Register', hint: 'Issue, return, deposit', group: 'Operations', icon: CalendarRange, filter: 'range', searchable: true, statuses: RENTAL_STATUSES },
   { id: 'returns', code: 'R-22', label: 'Return Pending', hint: 'Out and overdue', group: 'Operations', icon: PackageCheck, filter: 'none', searchable: true },
   { id: 'labels', code: '—', label: 'Address Labels', hint: 'Print, cut, stick on the parcel', group: 'Operations', icon: Tag, filter: 'range', searchable: true },
 
   // ---- L3 · Finance -------------------------------------------------------
-  { id: 'collection', code: 'R-29', label: 'Collection Report', hint: 'What came in, day by day', group: 'Finance', icon: HandCoins, filter: 'range', adminOnly: true },
+  { id: 'collection', code: 'R-29', label: 'Collection Report', hint: 'Cash, UPI, card — and day by day', group: 'Finance', icon: HandCoins, filter: 'range', adminOnly: true },
   { id: 'receivable', code: 'R-32', label: 'Receivable Ageing', hint: '0–7, 8–30, 31–60, 61+ days', group: 'Finance', icon: Receipt, filter: 'none', searchable: true, adminOnly: true },
   { id: 'payable', code: 'R-33', label: 'Artist Payable Ageing', hint: 'What we owe, and how long we have owed it', group: 'Finance', icon: Wallet, filter: 'none', searchable: true, adminOnly: true },
   { id: 'refunds', code: 'R-35', label: 'Refund Report', hint: 'Refunded bookings and deposits', group: 'Finance', icon: Undo2, filter: 'range', adminOnly: true },

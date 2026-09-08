@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import {
   Stat, Table, SectionTitle, Caveat, money, dayOf, shortRef, daysSince, ageBucket,
-  AGE_BUCKETS, DEAD, PAID_STATES, EXPENSE_LABEL,
+  AGE_BUCKETS, DEAD, PAID_STATES, EXPENSE_LABEL, PAYMENT_MODE_LABEL, PAYMENT_MODE_ORDER,
 } from './shared';
 import type { Ctx } from './ctx';
 
@@ -12,58 +12,97 @@ import type { Ctx } from './ctx';
 export function Collection({ ctx }: { ctx: Ctx }) {
   const { d, inRange } = ctx;
 
-  const rows = useMemo(() => {
-    const map = new Map<string, { day: string; tying: number; rental: number; sales: number; count: number }>();
-    const bucket = (day: string) => {
-      if (!map.has(day)) map.set(day, { day, tying: 0, rental: 0, sales: 0, count: 0 });
-      return map.get(day)!;
-    };
-    const take = (created: string | null, amount: number, into: 'tying' | 'rental' | 'sales') => {
+  const { rows, byMode, totals } = useMemo(() => {
+    type Receipt = { day: string; amount: number; mode: string; stream: 'tying' | 'rental' | 'sales' };
+    const receipts: Receipt[] = [];
+
+    const take = (created: string | null, amount: number, mode: string | null, stream: Receipt['stream']) => {
       const day = dayOf(created);
       if (!day || !inRange(day) || amount <= 0) return;
-      const row = bucket(day);
-      row[into] += amount;
-      row.count += 1;
+      receipts.push({ day, amount, mode: mode || 'unrecorded', stream });
     };
 
     d.bookings.filter((b) => PAID_STATES.includes(b.payment_status ?? ''))
-      .forEach((b) => take(b.created_at, Number(b.advance_amount ?? 0), 'tying'));
+      .forEach((b) => take(b.created_at, Number(b.advance_amount ?? 0), b.payment_mode, 'tying'));
     d.rentals.filter((r) => PAID_STATES.includes(r.payment_status))
-      .forEach((r) => take(r.created_at, Number(r.advance_amount ?? 0), 'rental'));
+      .forEach((r) => take(r.created_at, Number(r.advance_amount ?? 0), r.payment_mode, 'rental'));
     d.orders.filter((o) => PAID_STATES.includes(o.payment_status ?? ''))
-      .forEach((o) => take(o.created_at, Number(o.advance_amount ?? 0), 'sales'));
+      .forEach((o) => take(o.created_at, Number(o.advance_amount ?? 0), o.payment_mode, 'sales'));
 
-    return [...map.values()].sort((a, b) => b.day.localeCompare(a.day));
+    const dayMap = new Map<string, { day: string; tying: number; rental: number; sales: number; count: number }>();
+    receipts.forEach((r) => {
+      const row = dayMap.get(r.day) ?? { day: r.day, tying: 0, rental: 0, sales: 0, count: 0 };
+      row[r.stream] += r.amount;
+      row.count += 1;
+      dayMap.set(r.day, row);
+    });
+
+    const modeMap = new Map<string, { mode: string; count: number; amount: number }>();
+    receipts.forEach((r) => {
+      const row = modeMap.get(r.mode) ?? { mode: r.mode, count: 0, amount: 0 };
+      row.count += 1;
+      row.amount += r.amount;
+      modeMap.set(r.mode, row);
+    });
+
+    const order = [...PAYMENT_MODE_ORDER, 'unrecorded'];
+    return {
+      rows: [...dayMap.values()].sort((a, b) => b.day.localeCompare(a.day)),
+      byMode: [...modeMap.values()].sort((a, b) => order.indexOf(a.mode) - order.indexOf(b.mode)),
+      totals: receipts.reduce((s, r) => s + r.amount, 0),
+    };
   }, [d, inRange]);
 
   const t = rows.reduce((a, r) => ({
     tying: a.tying + r.tying, rental: a.rental + r.rental, sales: a.sales + r.sales, count: a.count + r.count,
   }), { tying: 0, rental: 0, sales: 0, count: 0 });
 
+  const unrecorded = byMode.find((m) => m.mode === 'unrecorded');
+
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <Stat label="Collected" value={money(t.tying + t.rental + t.sales)} tone="good" />
+        <Stat label="Collected" value={money(totals)} tone="good" />
         <Stat label="Safa tying" value={money(t.tying)} />
         <Stat label="Rental" value={money(t.rental)} />
         <Stat label="Shop sales" value={money(t.sales)} />
       </div>
-      <Caveat>
-        <b>Payment mode is not recorded anywhere</b>, so cash, UPI, card and gateway cannot be split
-        (spec R-29 asks for that breakdown). Every figure here is an <i>advance marked paid</i>.
-        Adding a payment-mode field to bookings and orders is a small change that would complete
-        this report and unlock reconciliation (R-30) once Razorpay is connected.
-      </Caveat>
+
+      <SectionTitle>By payment mode</SectionTitle>
       <Table
-        headers={['Date', 'Receipts', 'Safa Tying', 'Rental', 'Shop Sales', 'Total']}
+        headers={['Payment mode', 'Receipts', 'Amount', 'Share']}
         empty="Nothing collected in this range."
-        rows={rows.map((r) => [
-          <span key="d" className="font-bold text-maroon-950">{r.day}</span>,
-          r.count, money(r.tying), money(r.rental), money(r.sales),
-          <span key="t" className="font-black">{money(r.tying + r.rental + r.sales)}</span>,
+        rows={byMode.map((m) => [
+          <span key="m" className={m.mode === 'unrecorded' ? 'italic text-gray-400 font-bold' : 'font-bold text-maroon-950'}>
+            {m.mode === 'unrecorded' ? 'Not recorded' : PAYMENT_MODE_LABEL[m.mode] ?? m.mode}
+          </span>,
+          m.count, money(m.amount),
+          totals > 0 ? `${Math.round((m.amount / totals) * 100)}%` : '—',
         ])}
-        footer={['Total', t.count, money(t.tying), money(t.rental), money(t.sales), money(t.tying + t.rental + t.sales)]}
+        footer={['Total', t.count, money(totals), '100%']}
       />
+
+      {unrecorded && unrecorded.amount > 0 && (
+        <p className="text-[11px] text-gray-500 mt-3 mb-6 p-3 rounded-xl bg-amber-50/60 border border-amber-200/70">
+          {money(unrecorded.amount)} came in without a payment mode on the record. Set it in the
+          <b> Paid by </b> box on the booking, rental or order and it moves out of this row — the
+          field is new, so everything taken before it existed sits here.
+        </p>
+      )}
+
+      <div className="mt-7">
+        <SectionTitle>Day by day</SectionTitle>
+        <Table
+          headers={['Date', 'Receipts', 'Safa Tying', 'Rental', 'Shop Sales', 'Total']}
+          empty="Nothing collected in this range."
+          rows={rows.map((r) => [
+            <span key="d" className="font-bold text-maroon-950">{r.day}</span>,
+            r.count, money(r.tying), money(r.rental), money(r.sales),
+            <span key="t" className="font-black">{money(r.tying + r.rental + r.sales)}</span>,
+          ])}
+          footer={['Total', t.count, money(t.tying), money(t.rental), money(t.sales), money(totals)]}
+        />
+      </div>
     </>
   );
 }
