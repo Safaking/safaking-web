@@ -545,7 +545,7 @@ export default function AdminPanelPage() {
       // This is exactly what left an already-approved artist (Nakul Joshi)
       // invisible on /artists: the trigger never ran, so no artist_profiles
       // row existed for the public listing to show.
-      const { error: profileErr } = await supabase.from('artist_profiles').upsert(
+      const { data: newProfile, error: profileErr } = await supabase.from('artist_profiles').upsert(
         {
           id: application.user_id,
           display_name: application.full_name,
@@ -566,13 +566,26 @@ export default function AdminPanelPage() {
           active: true,
         },
         { onConflict: 'id' }
-      );
+      ).select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events').single();
       if (profileErr) {
         setError(
           `Could not create ${application.full_name}'s artist profile, so the application has NOT ` +
             `been approved: ${friendlyError(profileErr)}`
         );
         return;
+      }
+
+      // Keep the loaded roster in step with what was just created. Without
+      // this the row keeps showing "no profile — fix now" against a profile
+      // that exists, and the assignment dropdown still refuses the artist,
+      // until somebody reloads the page.
+      if (newProfile) {
+        const created = newProfile as ArtistDispatchProfile;
+        setArtistProfiles((prev) =>
+          prev.some((ap) => ap.id === created.id)
+            ? prev.map((ap) => (ap.id === created.id ? created : ap))
+            : [...prev, created]
+        );
       }
 
       // The profile exists — only now is this application truly approved.
