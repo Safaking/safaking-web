@@ -73,6 +73,19 @@ export function ContractCheckbox({
         />
         <span className={`text-[11px] ${isDark ? 'text-royal-100/80' : 'text-gray-700'}`}>
           I have read and accept these booking terms, including the return and payment policy.
+          {' '}
+          {/* The refund ladder is the thing customers most want to check before
+              paying an advance, and it lives one click away rather than inside
+              this small scroll box. */}
+          <a
+            href="/policies#cancellation"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className={`font-bold underline ${isDark ? 'text-royal-300' : 'text-maroon-800'}`}
+          >
+            Cancellation &amp; refund policy ↗
+          </a>
         </span>
       </label>
     </div>
