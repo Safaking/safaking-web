@@ -21,6 +21,7 @@ import {
 import { getWhatsAppClickLink } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
 import { VerificationQueue } from '@/components/verification/VerificationQueue';
+import { KycChaseList } from '@/components/verification/KycChaseList';
 import { CancellationDesk } from '@/components/protection/CancellationDesk';
 import { ReportsCentre } from '@/components/admin/ReportsCentre';
 import { ExpenseLedger } from '@/components/admin/ExpenseLedger';
@@ -2264,7 +2265,12 @@ export default function AdminPanelPage() {
             )}
 
             {/* ---- VERIFICATION ---- */}
-            {activeTab === 'verification' && <VerificationQueue />}
+            {activeTab === 'verification' && (
+              <div className="space-y-6">
+                <KycChaseList />
+                <VerificationQueue />
+              </div>
+            )}
 
             {/* ---- BOOKING PROTECTION ---- */}
             {activeTab === 'protection' && <CancellationDesk />}
