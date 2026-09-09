@@ -303,6 +303,9 @@ export default function AdminPanelPage() {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; name: string } | null>(null);
   /** Latest check-in stage per job — 'assigned' says nothing about today. */
   const [jobStage, setJobStage] = useState<Record<string, { stage: string; at: string }>>({});
+  /** Application waiting to be attached to an account (applied signed out). */
+  const [linkingApp, setLinkingApp] = useState<DBArtistApplication | null>(null);
+  const [linkSearch, setLinkSearch] = useState('');
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
 
@@ -754,6 +757,42 @@ export default function AdminPanelPage() {
         </span>
       </span>
     );
+  };
+
+  /**
+   * Attaches an application that was submitted signed-out to a real account.
+   *
+   * Approval hangs an artist profile off an account, so an application with
+   * no account can never be approved — and telling a ten-year artist who
+   * already filled the form to fill it again is not a fix.
+   */
+  const linkApplication = async (application: DBArtistApplication, userId: string) => {
+    const { error: linkErr } = await supabase.rpc('link_artist_application', {
+      p_application_id: application.id,
+      p_user_id: userId,
+    });
+
+    if (linkErr) {
+      setError(friendlyError(linkErr));
+      return;
+    }
+
+    setArtistApps((prev) =>
+      prev.map((a) => (a.id === application.id ? { ...a, user_id: userId } : a))
+    );
+    setLinkingApp(null);
+    setLinkSearch('');
+    setError(null);
+  };
+
+  /**
+   * Builds the artist profile for an application that says approved but never
+   * got one — the status used to be written before the profile was created,
+   * so a failure left exactly this shape behind.
+   */
+  const repairApproval = async (application: DBArtistApplication) => {
+    if (!application.user_id) return;
+    await updateArtistApplicationStatus({ ...application, status: 'pending' }, 'approved');
   };
 
   /**
@@ -1481,20 +1520,22 @@ export default function AdminPanelPage() {
                             {artist.status === 'approved' &&
                               artist.user_id &&
                               !artistProfiles.some((ap) => ap.id === artist.user_id) && (
-                                <span
-                                  className="block mt-1.5 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[9px] font-black uppercase tracking-wider text-center"
-                                  title="This application is marked approved but no artist profile was created — set it back to pending and approve it again."
+                                <button
+                                  onClick={() => repairApproval(artist)}
+                                  className="block mt-1.5 w-full px-2 py-1 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 text-[9px] font-black uppercase tracking-wider"
+                                  title="Marked approved but no artist profile exists — click to build it now."
                                 >
-                                  No profile — re-approve
-                                </span>
+                                  No profile — fix now
+                                </button>
                               )}
-                            {artist.status === 'approved' && !artist.user_id && (
-                              <span
-                                className="block mt-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[9px] font-black uppercase tracking-wider text-center"
-                                title="Applied while signed out, so there is no account to grant portal access to. Ask them to sign in and re-apply."
+                            {!artist.user_id && (
+                              <button
+                                onClick={() => { setLinkingApp(artist); setLinkSearch(artist.phone); }}
+                                className="block mt-1.5 w-full px-2 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-[9px] font-black uppercase tracking-wider"
+                                title="Applied while signed out — attach this application to their account so it can be approved."
                               >
-                                No account linked
-                              </span>
+                                No account — link it
+                              </button>
                             )}
                           </td>
                           <td className="p-4">
@@ -2706,6 +2747,120 @@ export default function AdminPanelPage() {
           </motion.div>
         </div>
       )}
+
+      {/* Attach a signed-out application to a real account */}
+      {linkingApp && (() => {
+        const digits = (v: string | null | undefined) => (v ?? '').replace(/\D/g, '');
+        const appTail = digits(linkingApp.phone).slice(-10);
+        const q = linkSearch.trim().toLowerCase();
+
+        const candidates = users
+          .filter((u) =>
+            !q ||
+            (u.full_name ?? '').toLowerCase().includes(q) ||
+            (u.email ?? '').toLowerCase().includes(q) ||
+            digits(u.phone).includes(digits(q))
+          )
+          // The same phone number is a near-certain match; float it to the top.
+          .sort((a, b) => {
+            const am = digits(a.phone).slice(-10) === appTail ? 0 : 1;
+            const bm = digits(b.phone).slice(-10) === appTail ? 0 : 1;
+            return am - bm;
+          })
+          .slice(0, 12);
+
+        return (
+          <div className="fixed inset-0 z-[60] bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[88vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between">
+                <div>
+                  <h3 className="font-display font-black text-base text-royal-100 uppercase tracking-widest">
+                    Link to an account
+                  </h3>
+                  <p className="text-[11px] text-royal-200/60 mt-0.5">
+                    {linkingApp.full_name} · {linkingApp.phone}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setLinkingApp(null); setLinkSearch(''); }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="p-7 space-y-4">
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  This application was submitted without signing in, so there is no account to
+                  attach the artist profile to. Pick their account below — linking does not approve
+                  them, it only makes approval possible.
+                </p>
+
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    autoFocus
+                    value={linkSearch}
+                    onChange={(e) => setLinkSearch(e.target.value)}
+                    placeholder="Search by name, phone or email…"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-amber-200/70 text-sm font-medium text-maroon-950 outline-none focus:ring-2 focus:ring-maroon-800/15"
+                  />
+                </div>
+
+                {candidates.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900">
+                    <p className="text-xs leading-relaxed">
+                      No account matches that. Ask {linkingApp.full_name} to sign up at{' '}
+                      <span className="font-black">safaking.in/artist-portal/login?tab=join</span>{' '}
+                      using <span className="font-black">{linkingApp.phone}</span> — an account with
+                      that number claims this application automatically, and you can approve it
+                      straight away.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {candidates.map((u) => {
+                      const same = digits(u.phone).slice(-10) === appTail;
+                      return (
+                        <button
+                          key={u.id}
+                          onClick={() => linkApplication(linkingApp, u.id)}
+                          className={`w-full text-left p-3.5 rounded-2xl border transition-colors ${
+                            same
+                              ? 'bg-emerald-50 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-white border-amber-200/70 hover:bg-amber-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm text-maroon-950 truncate">
+                                {u.full_name || u.email}
+                              </p>
+                              <p className="text-[11px] text-gray-500 truncate">
+                                {u.email}{u.phone ? ` · ${u.phone}` : ''} · {u.role}
+                              </p>
+                            </div>
+                            {same && (
+                              <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider">
+                                Same number
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
 
       {/* Full-size photo viewer — sits above the application modal */}
       {zoomedPhoto && (
