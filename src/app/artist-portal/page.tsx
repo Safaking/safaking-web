@@ -18,6 +18,15 @@ import { ArtistCheckin } from '@/components/liveops/ArtistCheckin';
 import { ArtistLeadBoard } from '@/components/marketplace/ArtistLeadBoard';
 import { ArtistComplaints } from '@/components/complaints/ArtistComplaints';
 
+/**
+ * The one rule an artist is most tempted to break: taking a SafaKing
+ * customer's next booking privately. It runs across the top of every visit
+ * rather than living once in an agreement they ticked months ago.
+ */
+const PLATFORM_RULE =
+  'SafaKing से आई बुकिंग के customer से सीधे booking लेना, या आगे की booking के लिए उनसे सीधे संपर्क करना मना है — इसे platform policy का उल्लंघन माना जाएगा। हर booking और भुगतान केवल SafaKing के ज़रिए।' +
+  '   ·   Never take a booking directly from a SafaKing customer, or ask them to book you directly in future — it is a violation of platform policy.';
+
 export default function ArtistPortalPage() {
   const { profile, user, logout } = useAuth();
   const [bookings, setBookings] = useState<DBArtistBooking[]>([]);
@@ -164,6 +173,20 @@ export default function ArtistPortalPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+        <div
+          role="note"
+          aria-label={PLATFORM_RULE}
+          className="sk-ticker mb-6 flex items-center gap-3 rounded-2xl border-2 border-rose-300 bg-rose-50 py-2.5 pl-3 pr-2 overflow-hidden"
+        >
+          <span className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest">
+            नियम
+          </span>
+          <div className="sk-ticker-track min-w-0 flex-1">
+            <p className="sk-ticker-text text-[13px] font-bold text-rose-900">{PLATFORM_RULE}</p>
+            <p className="sk-ticker-text text-[13px] font-bold text-rose-900" aria-hidden="true">{PLATFORM_RULE}</p>
+          </div>
+        </div>
 
         {kycStatus && kycStatus !== 'verified' && (
           <div className="flex items-start gap-3 p-5 mb-8 rounded-3xl bg-amber-50 border-2 border-amber-300 text-amber-900 shadow-sm">

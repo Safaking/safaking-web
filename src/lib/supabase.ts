@@ -31,6 +31,9 @@ export interface UserProfile {
   email?: string | null;
   role: UserRole;
   city?: string | null;
+  /** Staff only: shown beside their name in the admin panel. */
+  designation?: string | null;
+  avatar_url?: string | null;
   created_at?: string;
 }
 

@@ -221,6 +221,12 @@ export default function PoliciesPage() {
                   Artists are instructed never to take payment directly from you beyond the balance
                   shown on your booking. If anyone asks for more, tell us.
                 </li>
+                <li>
+                  An artist who reaches you through SafaKing is <b>not allowed to take a booking from
+                  you directly</b> — for this event or any future one. If an artist offers to, please
+                  tell us. Booking through SafaKing is also what keeps your refund, replacement and
+                  complaint protections in place; a private arrangement has none of them.
+                </li>
               </ul>
             </Section>
 
