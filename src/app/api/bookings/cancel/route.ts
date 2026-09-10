@@ -2,36 +2,46 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase-admin';
+import { CANCEL_REASON_LABEL, isCancelReason, reasonsFor } from '@/lib/cancellation-reasons';
 
 export const runtime = 'nodejs';
 
 interface CancelBody {
   rentalId?: string;
   bookingId?: string;
-  reason: string;
+  reasonCode?: string;
+  reason?: string;
+}
+
+interface Quote {
+  event_at: string | null;
+  hours_before: number;
+  days_before: number;
+  refund_percent: number;
+  rule_label: string;
+  paid_amount: number;
+  tax_amount: number;
+  non_refundable_fee: number;
+  eligible_amount: number;
+  refund_amount: number;
+  paid: boolean;
 }
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-/** Whole days between today and the event. Negative once the date has passed. */
-function daysUntil(eventDate: string): number {
-  const today = new Date();
-  const start = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const event = new Date(`${eventDate}T00:00:00Z`).getTime();
-  return Math.floor((event - start) / 86_400_000);
-}
-
 /**
- * Requests cancellation of a paid booking.
+ * Cancels a booking and records what is owed back.
  *
- * The refund percentage is read from refund_rules on the server and frozen onto
- * the cancellation row, so a later policy edit cannot change what someone was
- * already promised, and the client cannot propose its own figure.
+ * The refund is not calculated here. quote_cancellation() in the database
+ * works it out from the event's real start time, the active tiers and the
+ * amount actually paid less taxes and non-refundable charges — the same call
+ * the customer's preview makes, so the number they were shown is the number
+ * that gets recorded, and neither side can supply its own.
  *
- * Money is NOT moved here. An admin approves the refund in the panel, which is
- * what actually calls Razorpay — cancellation and payout stay separate steps.
+ * Money is NOT moved here. Refunds go through verify -> approve -> send ->
+ * reconcile in /api/bookings/refund, with different people at each gate.
  */
 export async function POST(request: Request) {
   let body: CancelBody;
@@ -41,13 +51,14 @@ export async function POST(request: Request) {
     return bad('Malformed request body.');
   }
 
-  const { rentalId, bookingId, reason } = body;
+  const { rentalId, bookingId } = body;
+  const reasonCode = body.reasonCode ?? '';
+  const note = body.reason?.trim() ?? '';
 
   if (!rentalId && !bookingId) return bad('Nothing to cancel.');
   if (rentalId && bookingId) return bad('Cancel one booking at a time.');
-  if (!reason?.trim() || reason.trim().length < 5) {
-    return bad('Tell us briefly why you are cancelling.');
-  }
+  if (!isCancelReason(reasonCode)) return bad('Choose why you are cancelling.');
+  if (reasonCode === 'other' && note.length < 5) return bad('Tell us briefly why you are cancelling.');
 
   let admin;
   try {
@@ -57,85 +68,67 @@ export async function POST(request: Request) {
     return bad('Cancellations are not configured yet. Please contact us.', 503);
   }
 
-  // ---- Who is asking -------------------------------------------------------
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: () => {},
-      },
-    }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   );
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) return bad('Sign in to cancel a booking.', 401);
 
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-  const isAdmin = profile?.role === 'admin';
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const role = (profile?.role as string | undefined) ?? 'customer';
+  const isStaff = role === 'admin' || role === 'manager';
 
-  // ---- Load the booking and confirm the requester is a party to it ---------
+  const kind = rentalId ? 'rental' : 'booking';
   const table = rentalId ? 'rental_bookings' : 'artist_bookings';
   const id = rentalId ?? bookingId!;
-  const dateColumn = rentalId ? 'start_date' : 'event_date';
 
-  const { data: booking, error: loadErr } = await admin
+  const { data: row, error: loadErr } = await admin
     .from(table)
-    .select(`id, customer_id, artist_id, status, payment_status, advance_amount, ${dateColumn}`)
+    .select('id, customer_id, artist_id, status')
     .eq('id', id)
     .maybeSingle();
-
-  if (loadErr || !booking) return bad('That booking could not be found.', 404);
-
-  const row = booking as unknown as {
-    customer_id: string | null; artist_id: string | null;
-    status: string; payment_status: string | null; advance_amount: number | null;
-    start_date?: string; event_date?: string;
-  };
+  if (loadErr || !row) return bad('That booking could not be found.', 404);
 
   const isCustomer = row.customer_id === user.id;
   const isArtist = row.artist_id === user.id;
+  if (!isCustomer && !isArtist && !isStaff) return bad('You are not a party to this booking.', 403);
 
-  if (!isCustomer && !isArtist && !isAdmin) {
-    return bad('You are not a party to this booking.', 403);
-  }
-  if (row.status === 'cancelled') return bad('That booking is already cancelled.');
+  if (['cancelled', 'declined'].includes(row.status)) return bad('That booking is already cancelled.');
   if (['completed', 'returned'].includes(row.status)) {
-    return bad('That event is already finished. Raise a dispute instead.');
+    return bad('That event is already finished. Raise a complaint from My Bookings instead.');
   }
 
-  const eventDate = row.start_date ?? row.event_date ?? null;
-  if (!eventDate) return bad('That booking has no event date.', 500);
+  const actingAs = isCustomer ? 'customer' : isArtist ? 'artist' : 'staff';
+  if (!reasonsFor(actingAs).includes(reasonCode)) return bad('That reason does not apply here.');
 
-  // ---- Refund entitlement, decided by the database -------------------------
-  const daysBefore = daysUntil(eventDate);
-
-  const { data: percentRow, error: percentErr } = await admin.rpc('refund_percent_for', {
-    p_days_before: daysBefore,
+  const { data: quoteData, error: quoteErr } = await admin.rpc('quote_cancellation', {
+    p_kind: kind,
+    p_id: id,
   });
-  if (percentErr) return bad(`Could not read the refund policy: ${percentErr.message}`, 500);
+  if (quoteErr || !quoteData) {
+    return bad(`Could not calculate the refund: ${quoteErr?.message ?? 'no quote'}`, 500);
+  }
+  const quote = quoteData as Quote;
 
-  const advanceAmount = row.advance_amount ?? 0;
-  const paid = ['advance_paid', 'fully_paid'].includes(row.payment_status ?? '');
+  // An artist pulling out is not the customer's doing, so the customer gets
+  // the full eligible amount back, however late it is.
+  const artistFault = isArtist && !isCustomer;
+  const refundPercent = artistFault ? 100 : quote.refund_percent;
+  const refundAmount = artistFault ? quote.eligible_amount : quote.refund_amount;
+  const ruleLabel = artistFault
+    ? 'The artist could not serve this booking — full eligible amount refunded'
+    : quote.rule_label;
 
-  // An artist pulling out is not the customer's fault, so the customer is made
-  // whole regardless of how late it is.
-  const refundPercent = isArtist && !isCustomer ? 100 : Number(percentRow ?? 0);
-  const refundAmount = paid ? Math.round((advanceAmount * refundPercent) / 100) : 0;
-
-  const requestedRole = isAdmin && !isCustomer && !isArtist
-    ? 'admin'
-    : isArtist && !isCustomer
-    ? 'artist'
-    : 'customer';
+  // SafaKing failing a booking is 100% by policy — but an employee cannot hand
+  // out 100% on their own word. It is recorded at the policy figure with an
+  // exception attached, which a second manager or the owner must approve.
+  const staffFault = actingAs === 'staff' && reasonCode === 'safaking_fault' && quote.paid;
+  const now = new Date().toISOString();
 
   const { data: cancellation, error: insertErr } = await admin
     .from('cancellations')
@@ -143,48 +136,65 @@ export async function POST(request: Request) {
       rental_id: rentalId ?? null,
       booking_id: bookingId ?? null,
       requested_by: user.id,
-      requested_role: requestedRole,
-      reason: reason.trim(),
-      event_date: eventDate,
-      days_before: daysBefore,
+      requested_role: isCustomer ? 'customer' : isArtist ? 'artist' : role,
+      reason: [CANCEL_REASON_LABEL[reasonCode], note].filter(Boolean).join(' — '),
+      reason_code: reasonCode,
+      event_date: quote.event_at ? quote.event_at.slice(0, 10) : null,
+      days_before: quote.days_before,
+      hours_before: quote.hours_before,
+      rule_label: ruleLabel,
       refund_percent: refundPercent,
-      advance_amount: advanceAmount,
+      advance_amount: quote.paid_amount,
+      paid_amount: quote.paid_amount,
+      tax_amount: quote.tax_amount,
+      non_refundable_fee: quote.non_refundable_fee,
+      eligible_amount: quote.eligible_amount,
       refund_amount: refundAmount,
-      // Unpaid bookings need no refund decision, so they settle immediately.
-      status: paid ? 'requested' : 'no_refund',
+      status: quote.paid && refundAmount > 0 ? 'requested' : 'no_refund',
+      ...(staffFault
+        ? {
+            exception_percent: 100,
+            exception_reason: 'SafaKing could not serve this booking',
+            exception_requested_by: user.id,
+            exception_requested_at: now,
+          }
+        : {}),
     })
     .select('id')
     .single();
 
   if (insertErr) {
-    if (insertErr.code === '23505') {
-      return bad('A cancellation for this booking is already being reviewed.');
-    }
+    if (insertErr.code === '23505') return bad('A cancellation for this booking is already being reviewed.');
     return bad(`Could not record the cancellation: ${insertErr.message}`, 500);
   }
 
-  // The cancellations row now exists, so the paid-booking guard will allow this.
-  const { error: statusErr } = await admin
-    .from(table)
-    .update({ status: 'cancelled' })
-    .eq('id', id);
-
+  // With the cancellation on record the paid-booking guard allows this, and the
+  // artist's schedule, offers and check-in all drop the booking.
+  const { error: statusErr } = await admin.from(table).update({ status: 'cancelled' }).eq('id', id);
   if (statusErr) {
     await admin.from('cancellations').delete().eq('id', cancellation.id);
     return bad(`Could not cancel the booking: ${statusErr.message}`, 500);
   }
 
+  const money = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
   return NextResponse.json({
     cancellationId: cancellation.id,
-    daysBefore,
+    hoursBefore: quote.hours_before,
+    daysBefore: quote.days_before,
+    ruleLabel,
     refundPercent,
+    paidAmount: quote.paid_amount,
+    taxAmount: quote.tax_amount,
+    nonRefundableFee: quote.non_refundable_fee,
+    eligibleAmount: quote.eligible_amount,
     refundAmount,
-    advanceAmount,
-    needsRefund: paid && refundAmount > 0,
-    message: !paid
+    needsRefund: quote.paid && refundAmount > 0,
+    exceptionPending: staffFault,
+    message: !quote.paid
       ? 'Booking cancelled. Nothing had been paid, so there is nothing to refund.'
       : refundAmount > 0
-      ? `Booking cancelled. ₹${refundAmount.toLocaleString()} (${refundPercent}% of your advance) will be refunded once approved.`
-      : 'Booking cancelled. Under the cancellation policy this date is not eligible for a refund.',
+      ? `Booking cancelled. ${money(refundAmount)} will be refunded to your original payment method once two members of our team have checked and approved it.`
+      : `Booking cancelled. ${ruleLabel}.`,
   });
 }

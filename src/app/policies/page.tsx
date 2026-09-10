@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { BUSINESS } from '@/lib/business';
 
 interface RefundRule {
+  min_hours_before: number | null;
   min_days_before: number;
   refund_percent: number;
   label: string;
@@ -52,8 +53,8 @@ export default function PoliciesPage() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('refund_rules').select('min_days_before, refund_percent, label')
-        .eq('active', true).order('min_days_before', { ascending: false }),
+      supabase.from('refund_rules').select('min_hours_before, min_days_before, refund_percent, label')
+        .eq('active', true).order('min_hours_before', { ascending: false }),
       supabase.from('app_settings').select('key, value'),
       supabase.from('contracts').select('audience, title, body, version').eq('active', true),
     ]).then(([r, s, c]) => {
@@ -144,20 +145,22 @@ export default function PoliciesPage() {
 
             <Section id="cancellation" icon={CalendarX2} title="Cancellation & refund">
               <p className="mb-4">
-                How much of the <b>advance</b> comes back depends on how much notice we get — an
-                artist who has held your date has turned other work away for it.
+                How much of the <b>eligible amount</b> comes back depends on how many hours before the
+                event you cancel — an artist who has held your date has turned other work away for it.
+                The system works it out from your event&apos;s start time; nobody at SafaKing can change
+                the percentage on their own.
               </p>
               <div className="overflow-x-auto rounded-2xl border border-amber-200/70">
                 <table className="w-full text-left border-collapse">
                   <thead className="bg-royal-50 border-b-2 border-royal-200">
                     <tr>
                       <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-maroon-900/70">Notice given</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-maroon-900/70 text-right">Advance refunded</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-maroon-900/70 text-right">Refund of eligible amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rules.map((r, i) => (
-                      <tr key={r.min_days_before} className={i % 2 ? 'bg-amber-50/30' : 'bg-white'}>
+                      <tr key={r.label} className={i % 2 ? 'bg-amber-50/30' : 'bg-white'}>
                         <td className="px-4 py-3 text-[13px] text-gray-800">{r.label}</td>
                         <td className={`px-4 py-3 text-[15px] font-black tabular-nums text-right ${
                           r.refund_percent >= 100 ? 'text-emerald-700'
@@ -171,13 +174,30 @@ export default function PoliciesPage() {
                 </table>
               </div>
               <ul className="mt-4">
-                <li>Refunds reach the original payment method, usually within 5–7 working days of approval.</li>
+                <li>
+                  The <b>eligible amount</b> is what you paid, less <b>GST and other taxes</b> and any
+                  genuinely non-refundable payment or banking charges. Those are never refunded, and
+                  any such charge is shown on your booking before you pay.
+                </li>
                 <li>
                   If <b>we</b> cannot serve a confirmed booking — no artist available, or a
-                  replacement cannot reach you — you get <b>100% back</b> regardless of the
-                  notice period above.
+                  replacement cannot reach you — you get <b>100% of the unserved amount back</b>,
+                  regardless of the notice period above.
                 </li>
-                <li>To cancel, call us on {BUSINESS.phone} or raise it from <b>My Bookings</b>.</li>
+                <li>
+                  <b>To cancel:</b> sign in → <b>My Bookings</b> → <b>Cancel this booking</b> → choose
+                  a reason. Your refund is calculated on the spot and shown before you confirm, and
+                  you get a confirmation straight away.
+                </li>
+                <li>
+                  Every refund is <b>checked by one member of our team and approved by another</b>
+                  before it is sent, back to your original payment method wherever possible. A
+                  different amount is only possible as an exception approved by a manager or the owner.
+                </li>
+                <li>
+                  Once a booking is cancelled, the artist and service for it are released. Only need to
+                  change the date? Use a reschedule instead — see below — or call us on {BUSINESS.phone}.
+                </li>
               </ul>
             </Section>
 

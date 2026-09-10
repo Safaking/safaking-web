@@ -16,6 +16,7 @@ import {
   RentalQuote,
 } from '@/lib/checkout';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
+import { CancellationTerms } from '@/components/booking/CancellationTerms';
 import { LocationPin, PinnedLocation } from '@/components/booking/LocationPin';
 import { getActiveContract, recordContractAcceptance } from '@/lib/client-update';
 
@@ -606,6 +607,7 @@ export default function RentPage() {
                     <option key={src} value={src}>{src}</option>
                   ))}
                 </select>
+                <CancellationTerms />
                 <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="light" />
               </>
             )}
