@@ -9,7 +9,7 @@ import {
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
   Phone, User, Navigation, MessageCircle, Search, ZoomIn, MessageSquareWarning,
-  ThumbsUp, Clock,
+  ThumbsUp, Clock, Camera,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -78,7 +78,17 @@ const RENTAL_STATUSES = [
   'pending', 'confirmed', 'dispatched', 'active', 'returned', 'completed', 'cancelled',
 ] as const;
 const BOOKING_STATUSES = ['pending', 'offered', 'assigned', 'declined', 'completed', 'cancelled'] as const;
-const ROLES: UserRole[] = ['customer', 'artist', 'admin'];
+// 'manager' was built into the database and the panel but left out of this
+// list, so nobody could actually be made a manager from the screen.
+const ROLES: UserRole[] = ['customer', 'artist', 'manager', 'admin'];
+
+/** Roles that get a staff photo and designation. */
+const STAFF_ROLES_UI: UserRole[] = ['admin', 'manager'];
+
+const DESIGNATIONS = [
+  'Owner', 'Manager', 'Operations Coordinator', 'Accountant',
+  'Sales Executive', 'Delivery Staff', 'Trainer',
+];
 
 interface ArtistDispatchProfile {
   id: string;
@@ -307,6 +317,18 @@ export default function AdminPanelPage() {
   /** Application waiting to be attached to an account (applied signed out). */
   const [linkingApp, setLinkingApp] = useState<DBArtistApplication | null>(null);
   const [linkSearch, setLinkSearch] = useState('');
+  /** Staff member whose photo and designation are being edited. */
+  const [editingStaff, setEditingStaff] = useState<UserProfile | null>(null);
+  const [staffDesignation, setStaffDesignation] = useState('');
+  const [staffPhoto, setStaffPhoto] = useState<File | null>(null);
+  const [savingStaff, setSavingStaff] = useState(false);
+  const staffPhotoPreview = useMemo(
+    () => (staffPhoto ? URL.createObjectURL(staffPhoto) : null),
+    [staffPhoto]
+  );
+  useEffect(() => () => {
+    if (staffPhotoPreview) URL.revokeObjectURL(staffPhotoPreview);
+  }, [staffPhotoPreview]);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
 
@@ -771,6 +793,49 @@ export default function AdminPanelPage() {
         </span>
       </span>
     );
+  };
+
+  const openStaffEditor = (account: UserProfile) => {
+    setEditingStaff(account);
+    setStaffDesignation(account.designation ?? '');
+    setStaffPhoto(null);
+  };
+
+  const saveStaffProfile = async () => {
+    if (!editingStaff || !profile) return;
+    setSavingStaff(true);
+    setError(null);
+    let avatarUrl = editingStaff.avatar_url ?? null;
+
+    if (staffPhoto) {
+      if (staffPhoto.size > 5 * 1024 * 1024) {
+        setError('The photo must be under 5 MB.');
+        setSavingStaff(false);
+        return;
+      }
+      const ext = staffPhoto.name.split('.').pop()?.toLowerCase() || 'jpg';
+      // Storage only lets someone write inside their own folder, so the
+      // uploader's id leads the path and the staff member's id names the file.
+      const path = `${profile.id}/staff/${editingStaff.id}-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('portfolio')
+        .upload(path, staffPhoto, { contentType: staffPhoto.type });
+      if (uploadErr) {
+        setError(`Could not upload the photo: ${uploadErr.message}`);
+        setSavingStaff(false);
+        return;
+      }
+      avatarUrl = supabase.storage.from('portfolio').getPublicUrl(path).data.publicUrl;
+    }
+
+    await patchRow<UserProfile>(
+      'profiles',
+      editingStaff.id,
+      { designation: staffDesignation.trim() || null, avatar_url: avatarUrl },
+      setUsers
+    );
+    setSavingStaff(false);
+    setEditingStaff(null);
   };
 
   /**
@@ -2345,8 +2410,38 @@ export default function AdminPanelPage() {
                     <tbody className="divide-y divide-amber-100 text-xs">
                       {filteredUsers.map((account) => (
                         <tr key={account.id} className="hover:bg-amber-50/30 transition-colors">
-                          <td className="p-4 font-bold text-maroon-950">
-                            {account.full_name || '—'}
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              {account.avatar_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={account.avatar_url}
+                                  alt={account.full_name || 'Staff photo'}
+                                  className="w-9 h-9 rounded-full object-cover border border-amber-200 shrink-0"
+                                />
+                              ) : (
+                                <span className="w-9 h-9 rounded-full bg-royal-100 text-maroon-900 font-black text-xs flex items-center justify-center shrink-0">
+                                  {(account.full_name || account.email || '?').trim().charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-bold text-maroon-950 truncate">{account.full_name || '—'}</p>
+                                {account.designation && (
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-royal-700 truncate">
+                                    {account.designation}
+                                  </p>
+                                )}
+                                {STAFF_ROLES_UI.includes(account.role) && (!isManager || account.id === profile?.id) && (
+                                  <button
+                                    onClick={() => openStaffEditor(account)}
+                                    className="mt-0.5 text-[10px] font-bold text-maroon-800 hover:underline flex items-center gap-1"
+                                  >
+                                    <Camera size={10} />
+                                    {account.avatar_url || account.designation ? 'Edit photo & designation' : 'Add photo & designation'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="p-4 text-gray-600">{account.email}</td>
                           <td className="p-4 text-gray-600">{account.phone || '—'}</td>
@@ -2762,6 +2857,91 @@ export default function AdminPanelPage() {
                   💬 WhatsApp
                 </a>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Staff photo and designation */}
+      {editingStaff && (
+        <div className="fixed inset-0 z-[60] bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.94, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden"
+          >
+            <div className="bg-maroon-950 px-7 py-5 flex items-center justify-between">
+              <div className="min-w-0">
+                <h3 className="font-display font-black text-base text-royal-100 uppercase tracking-widest">
+                  Staff profile
+                </h3>
+                <p className="text-[11px] text-royal-200/60 mt-0.5 truncate">
+                  {editingStaff.full_name || editingStaff.email} · {editingStaff.role}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingStaff(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white shrink-0"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-7 space-y-5">
+              <div className="flex items-center gap-4">
+                {staffPhotoPreview || editingStaff.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={staffPhotoPreview || editingStaff.avatar_url || ''}
+                    alt="Staff photo preview"
+                    className="w-20 h-20 rounded-2xl object-cover border-2 border-amber-200 shrink-0"
+                  />
+                ) : (
+                  <span className="w-20 h-20 rounded-2xl bg-royal-100 text-maroon-900 font-display font-black text-2xl flex items-center justify-center shrink-0">
+                    {(editingStaff.full_name || editingStaff.email || '?').trim().charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <label className="cursor-pointer px-4 py-2.5 rounded-xl border border-amber-200/70 hover:bg-amber-50 text-[11px] font-bold text-maroon-900 flex items-center gap-2">
+                  <Camera size={14} />
+                  {staffPhoto ? 'Choose a different photo' : 'Choose photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setStaffPhoto(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">
+                  Designation
+                </span>
+                <input
+                  list="staff-designations"
+                  value={staffDesignation}
+                  onChange={(e) => setStaffDesignation(e.target.value)}
+                  placeholder="e.g. Operations Coordinator"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-amber-200/80 text-sm font-medium text-maroon-950 outline-none focus:ring-2 focus:ring-maroon-800/15"
+                />
+                <datalist id="staff-designations">
+                  {DESIGNATIONS.map((d) => <option key={d} value={d} />)}
+                </datalist>
+              </label>
+
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                Shown beside their name in the admin panel, so everyone can see who is working the
+                screen and in what role.
+              </p>
+
+              <button
+                onClick={saveStaffProfile}
+                disabled={savingStaff}
+                className="w-full py-3 rounded-xl bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 text-royal-300 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
+              >
+                {savingStaff ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Save size={14} /> Save</>}
+              </button>
             </div>
           </motion.div>
         </div>

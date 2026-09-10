@@ -193,3 +193,46 @@ button, a {
     page-break-inside: avoid;
   }
 }
+
+/*
+ * Artist portal rule banner. Two identical copies side by side, each sliding
+ * its own width, make a seamless loop. Hover pauses it for reading; reduced
+ * motion shows it once, still, and wrapped.
+ */
+.sk-ticker-track {
+  display: flex;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent);
+}
+
+.sk-ticker-text {
+  flex-shrink: 0;
+  padding-right: 4rem;
+  white-space: nowrap;
+  animation: sk-ticker 40s linear infinite;
+}
+
+.sk-ticker:hover .sk-ticker-text {
+  animation-play-state: paused;
+}
+
+@keyframes sk-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-ticker-track {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .sk-ticker-text {
+    animation: none;
+    white-space: normal;
+    padding-right: 0;
+  }
+  .sk-ticker-text[aria-hidden="true"] {
+    display: none;
+  }
+}
