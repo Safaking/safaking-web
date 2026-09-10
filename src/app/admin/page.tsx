@@ -68,6 +68,8 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
 const MANAGER_TABS: Tab[] = [
   'liveops', 'analytics', 'orders', 'rentals', 'bookings', 'complaints',
   'messages', 'academy', 'careers', 'training',
+  // Maker–checker needs at least two people who can work a refund.
+  'protection',
 ];
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;

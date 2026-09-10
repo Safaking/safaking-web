@@ -55,6 +55,7 @@ import { sendWhatsAppNotification } from '@/lib/whatsapp';
 
 import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
+import { CancellationTerms } from '@/components/booking/CancellationTerms';
 import { LocationPin, PinnedLocation } from '@/components/booking/LocationPin';
 import { getActiveContract, recordContractAcceptance } from '@/lib/client-update';
 
@@ -765,6 +766,8 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                           <option key={src} value={src} className="text-maroon-950">{src}</option>
                         ))}
                       </select>
+
+                      <CancellationTerms theme="dark" />
 
                       <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="dark" />
 
