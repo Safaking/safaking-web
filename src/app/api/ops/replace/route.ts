@@ -34,8 +34,10 @@ async function requireAdmin() {
   const { data: profile } = await admin
     .from('profiles').select('role').eq('id', user.id).maybeSingle();
 
-  if (profile?.role !== 'admin') {
-    return { user, admin, error: bad('Administrators only.', 403) };
+  // Managers may rescue a booking too: changing the artist clears the owner's
+  // approval (supabase/028), so the swap still waits for the owner's sign-off.
+  if (profile?.role !== 'admin' && profile?.role !== 'manager') {
+    return { user, admin, error: bad('SafaKing staff only.', 403) };
   }
   return { user, admin, error: null };
 }

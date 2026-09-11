@@ -1,5 +1,6 @@
 'use client';
 
+import { ArtistStanding, STANDING_ORDER, recommendStanding } from '@/lib/artist-standing';
 import React, { useMemo } from 'react';
 import { MapPin, AlertTriangle } from 'lucide-react';
 import {
@@ -35,6 +36,10 @@ function Where({ address, landmark, lat, lng }: {
 
 /* ------------------------------------------------- R-02 Daily Control ---- */
 
+/** A complaint ticket's own deadline has gone by. */
+const pastDue = (iso: string | null | undefined) => !!iso && new Date(iso).getTime() < Date.now();
+const isOpenComplaint = (status: string) => !['resolved', 'dismissed'].includes(status);
+
 export function DailyControl({ ctx }: { ctx: Ctx }) {
   const { d, onDate } = ctx;
 
@@ -67,6 +72,9 @@ export function DailyControl({ ctx }: { ctx: Ctx }) {
         .reduce((s, x) => s + Number(x.balance_amount ?? 0), 0),
       deliveryToday: d.rentals.filter((r) => r.start_date === onDate).length,
       returnPending: d.rentals.filter((r) => ['dispatched', 'active'].includes(r.status) && r.end_date < onDate).length,
+      p1Open: d.complaints.filter((x) => x.priority === 'P1' && isOpenComplaint(x.status)).length,
+      complaintsOverdue: d.complaints.filter((x) => isOpenComplaint(x.status) && pastDue(x.sla_due_at)).length,
+      incidentsOpen: d.incidents.filter((i) => !i.resolved_at).length,
       live: {
         notStarted: ids.filter((id) => !stageOf(id)).length,
         enRoute: ids.filter((id) => stageOf(id) === 'en_route').length,
@@ -108,6 +116,15 @@ export function DailyControl({ ctx }: { ctx: Ctx }) {
           <Stat label="Tying" value={c.live.working} />
           <Stat label="Finished" value={c.live.finished} tone="good" />
           <Stat label="No show" value={c.live.noShow} tone={c.live.noShow ? 'bad' : 'plain'} />
+        </div>
+      </section>
+
+      <section>
+        <SectionTitle>Complaints &amp; incidents</SectionTitle>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <Stat label="P1 critical open" value={c.p1Open} tone={c.p1Open ? 'bad' : 'good'} onClick={() => ctx.goTo('ratings')} />
+          <Stat label="Complaints past SLA" value={c.complaintsOverdue} tone={c.complaintsOverdue ? 'bad' : 'plain'} onClick={() => ctx.goTo('ratings')} />
+          <Stat label="Artist incidents open" value={c.incidentsOpen} tone={c.incidentsOpen ? 'bad' : 'plain'} />
         </div>
       </section>
 
@@ -170,6 +187,28 @@ export function Exceptions({ ctx, compact = false }: { ctx: Ctx; compact?: boole
       who: 'Manager', go: () => ctx.goTo('ops'),
     });
 
+    const openIncidents = d.incidents.filter((i) => !i.resolved_at);
+    if (openIncidents.length) out.push({
+      severity: 'high', what: 'Artist incident open',
+      detail: `${openIncidents.length} pull-out, no-show or late arrival not yet settled. See Live Ops`,
+      who: 'Manager',
+    });
+
+    // Points in the last 90 days, the same rule as artist_standing_recommendation().
+    const since = shiftDays(today, -90);
+    const points = new Map<string, number>();
+    d.incidents
+      .filter((i) => i.created_at.slice(0, 10) > since)
+      .forEach((i) => points.set(i.artist_id, (points.get(i.artist_id) ?? 0) + Number(i.points ?? 0)));
+    const behind = d.artists.filter((a) =>
+      STANDING_ORDER.indexOf(recommendStanding(points.get(a.id) ?? 0))
+        > STANDING_ORDER.indexOf((a.standing as ArtistStanding | null) ?? 'good'));
+    if (behind.length) out.push({
+      severity: 'medium', what: 'Standing review due',
+      detail: `${behind.length} artist(s) have had enough incidents in 90 days for a stricter standing. Review in Users & Roles`,
+      who: 'Admin', go: () => ctx.goTo('artists'),
+    });
+
     const overdue = d.rentals.filter((r) => ['dispatched', 'active'].includes(r.status) && r.end_date < today);
     if (overdue.length) out.push({
       severity: 'high', what: 'Overdue return',
@@ -191,11 +230,19 @@ export function Exceptions({ ctx, compact = false }: { ctx: Ctx; compact?: boole
       who: 'Finance', go: () => ctx.goTo('payable'),
     });
 
-    const openComplaints = d.complaints.filter((c) => !['resolved', 'dismissed'].includes(c.status));
-    const stale = openComplaints.filter((c) => daysSince(c.created_at) > 3);
+    const openComplaints = d.complaints.filter((c) => isOpenComplaint(c.status));
+    // Each ticket carries its own clock (P1 2 hours ... P4 7 days); rows from
+    // before tickets existed fall back to the old 3-day rule.
+    const stale = openComplaints.filter((c) => (c.sla_due_at ? pastDue(c.sla_due_at) : daysSince(c.created_at) > 3));
+    const openP1 = openComplaints.filter((c) => c.priority === 'P1');
+    if (openP1.length) out.push({
+      severity: 'high', what: 'Critical complaint (P1)',
+      detail: `${openP1.length} P1 ticket(s) open: an artist did not come, or an event is going wrong`,
+      who: 'Manager', go: () => ctx.goTo('ratings'),
+    });
     if (stale.length) out.push({
       severity: 'high', what: 'Complaint past SLA',
-      detail: `${stale.length} complaint(s) open for more than 3 days`,
+      detail: `${stale.length} complaint(s) past their response deadline`,
       who: 'Manager', go: () => ctx.goTo('ratings'),
     });
     else if (openComplaints.length) out.push({

@@ -3,6 +3,7 @@
 import {
   supabase, friendlyError, DBComplaint, DBComplaintMessage, ComplaintStatus, UserRole,
 } from '@/lib/supabase';
+import { COMPLAINT_CATEGORY_LABEL, ComplaintCategory } from '@/lib/complaint-triage';
 
 export const COMPLAINT_STATUS_LABEL: Record<ComplaintStatus, string> = {
   open: 'Open',
@@ -52,9 +53,10 @@ export async function raiseComplaint(input: {
   customerId: string;
   customerName: string;
   customerPhone?: string | null;
-  subject: string;
+  subject?: string;
   description: string;
-  severity?: 'low' | 'normal' | 'high';
+  /** Drives the priority the database assigns — the customer never picks P1–P4. */
+  category: ComplaintCategory;
 }): Promise<DBComplaint> {
   const { data, error } = await supabase
     .from('complaints')
@@ -65,9 +67,9 @@ export async function raiseComplaint(input: {
       customer_id: input.customerId,
       customer_name: input.customerName,
       customer_phone: input.customerPhone ?? null,
-      subject: input.subject.trim(),
+      subject: (input.subject?.trim() || COMPLAINT_CATEGORY_LABEL[input.category]),
       description: input.description.trim(),
-      severity: input.severity ?? 'normal',
+      category: input.category,
       status: 'open',
     })
     .select('*')

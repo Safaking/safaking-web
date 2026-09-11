@@ -103,6 +103,7 @@ export interface ArtistRow {
   active: boolean;
   blacklisted: boolean;
   per_safa_rate: number | null;
+  standing?: string | null;
 }
 
 export interface PersonRow {
@@ -131,7 +132,20 @@ export interface ComplaintRow {
   subject: string;
   status: string;
   severity: string;
+  /** From supabase/036 — absent on a database that has not run it. */
+  priority?: string | null;
+  sla_due_at?: string | null;
+  ticket_id?: string | null;
   created_at: string | null;
+}
+
+export interface IncidentRow {
+  id: string;
+  artist_id: string;
+  kind: string;
+  points: number;
+  resolved_at: string | null;
+  created_at: string;
 }
 
 export interface ReviewRow {
