@@ -1,6 +1,6 @@
+import { getStaff } from '@/lib/staff-auth';
+import { DEPARTMENT_LABEL, Permission } from '@/lib/departments';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { refundPayment, toPaise } from '@/lib/razorpay';
 
@@ -83,20 +83,23 @@ export async function POST(request: Request) {
     return bad('Refunds are not configured yet.', 503);
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return bad('Sign in.', 401);
+  const { staff, error: staffErr } = await getStaff();
+  if (staffErr) return staffErr;
 
-  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  const role = profile?.role as string | undefined;
-  if (role !== 'admin' && role !== 'manager') return bad('Only SafaKing staff can work refunds.', 403);
+  // Maker-checker decides who; the department decides which team (037).
+  const needs: Record<string, Permission> = {
+    verify: 'refund_verify',
+    approve: 'refund_approve',
+    reject: 'refund_approve',
+    process: 'refund_send',
+    reconcile: 'refund_send',
+    propose_exception: 'refund_verify',
+    approve_exception: 'refund_exception',
+    reject_exception: 'refund_exception',
+  };
+  if (!staff.can(needs[action] ?? 'refund_approve')) {
+    return bad(`${DEPARTMENT_LABEL[staff.unit]} cannot do this step of a refund.`, 403);
+  }
 
   const { data: c, error: loadErr } = await admin
     .from('cancellations')
@@ -105,7 +108,7 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (loadErr || !c) return bad('Cancellation not found.', 404);
 
-  const me = user.id;
+  const me = staff.userId;
   const now = new Date().toISOString();
   const note = body.note?.trim() || null;
 

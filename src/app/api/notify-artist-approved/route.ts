@@ -1,6 +1,5 @@
+import { getStaff } from '@/lib/staff-auth';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { sendArtistApprovedEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
@@ -14,22 +13,9 @@ function bad(message: string, status = 400) {
 // which throws when SUPABASE_SERVICE_ROLE_KEY isn't configured and would
 // turn every approval email into a 500.
 async function requireAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: bad('Sign in.', 401) };
-
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'admin') {
-    return { error: bad('Administrators only.', 403) };
-  }
+  const { staff, error } = await getStaff();
+  if (error) return { error };
+  if (!staff.can('artists')) return { error: bad('Only the owner or the Artist Manager approves artists.', 403) };
   return { error: null };
 }
 

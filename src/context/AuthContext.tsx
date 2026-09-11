@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, friendlyError, UserProfile, UserRole } from '@/lib/supabase';
+import { logAuthEvent } from '@/lib/auth-events';
 
 export interface SignUpInput {
   email: string;
@@ -93,7 +94,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return error.message;
+      if (error) {
+        void logAuthEvent('failed_password', { email });
+        return error.message;
+      }
+      void logAuthEvent('sign_in');
       if (data.user) await loadProfile(data.user.id);
       return null;
     },
@@ -137,6 +142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Logged while the session still exists, so the row knows who it was.
+    await logAuthEvent('sign_out');
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);

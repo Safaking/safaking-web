@@ -1,3 +1,4 @@
+import { getStaff } from '@/lib/staff-auth';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
@@ -77,7 +78,12 @@ export async function POST(request: Request) {
   if (!user) return bad('Sign in.', 401);
 
   const { data: me } = await admin.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
-  const isStaff = me?.role === 'admin' || me?.role === 'manager';
+  let isStaff = false;
+  if (me?.role === 'admin' || me?.role === 'manager') {
+    const { staff, error: staffErr } = await getStaff();
+    if (staffErr) return staffErr;
+    isStaff = staff.can('bookings');
+  }
 
   // ---- The booking ---------------------------------------------------------
   type Row = {

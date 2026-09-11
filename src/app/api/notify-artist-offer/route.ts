@@ -1,6 +1,5 @@
+import { getStaff } from '@/lib/staff-auth';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { sendArtistBookingOfferEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
@@ -13,22 +12,9 @@ function bad(message: string, status = 400) {
 // profiles row) — not the service-role client, which throws when
 // SUPABASE_SERVICE_ROLE_KEY isn't set and would 500 every offer email.
 async function requireAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: bad('Sign in.', 401) };
-
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'admin') {
-    return { error: bad('Administrators only.', 403) };
-  }
+  const { staff, error } = await getStaff();
+  if (error) return { error };
+  if (!staff.can('assign_artist')) return { error: bad('Your department cannot offer bookings to artists.', 403) };
   return { error: null };
 }
 

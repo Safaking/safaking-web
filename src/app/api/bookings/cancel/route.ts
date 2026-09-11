@@ -1,3 +1,4 @@
+import { getStaff } from '@/lib/staff-auth';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
@@ -81,7 +82,13 @@ export async function POST(request: Request) {
 
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
   const role = (profile?.role as string | undefined) ?? 'customer';
-  const isStaff = role === 'admin' || role === 'manager';
+  let isStaff = false;
+  if (role === 'admin' || role === 'manager') {
+    const { staff, error: staffErr } = await getStaff();
+    if (staffErr) return staffErr;
+    if (!staff.can('bookings')) return bad('Your department cannot cancel bookings.', 403);
+    isStaff = true;
+  }
 
   const kind = rentalId ? 'rental' : 'booking';
   const table = rentalId ? 'rental_bookings' : 'artist_bookings';

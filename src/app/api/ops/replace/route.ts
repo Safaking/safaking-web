@@ -1,6 +1,5 @@
+import { getStaff } from '@/lib/staff-auth';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase-admin';
 
 export const runtime = 'nodejs';
@@ -19,27 +18,12 @@ function bad(message: string, status = 400) {
  * which is not a decision to hand to either party in the dispute.
  */
 async function requireAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { user: null, admin: null, error: bad('Sign in.', 401) };
-
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from('profiles').select('role').eq('id', user.id).maybeSingle();
-
-  // Managers may rescue a booking too: changing the artist clears the owner's
-  // approval (supabase/028), so the swap still waits for the owner's sign-off.
-  if (profile?.role !== 'admin' && profile?.role !== 'manager') {
-    return { user, admin, error: bad('SafaKing staff only.', 403) };
+  const { staff, error } = await getStaff();
+  if (error) return { user: null, admin: null, error };
+  if (!staff.can('assign_artist')) {
+    return { user: null, admin: null, error: bad('Your department cannot change the artist on a booking.', 403) };
   }
-  return { user, admin, error: null };
+  return { user: { id: staff.userId }, admin: createAdminClient(), error: null };
 }
 
 async function loadBooking(

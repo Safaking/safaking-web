@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { MfaChallenge } from "@/components/auth/MfaChallenge";
 import { CartProvider } from "@/context/CartContext";
 import { MobileTabBar } from "@/components/landing/MobileTabBar";
 import { NativeChrome } from "@/components/landing/NativeChrome";
@@ -84,6 +85,7 @@ export default function RootLayout({
             {children}
             <MobileTabBar />
           </CartProvider>
+          <MfaChallenge />
         </AuthProvider>
       </body>
     </html>
