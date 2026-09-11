@@ -12,6 +12,10 @@ import {
   listComplaints, listComplaintMessages, postComplaintMessage, updateComplaint,
   COMPLAINT_STATUS_LABEL, COMPLAINT_STATUS_TONE, OPEN_STATUSES,
 } from '@/lib/complaints';
+import {
+  COMPLAINT_CATEGORY_LABEL, ComplaintCategory, ComplaintPriority, PRIORITY_LABEL, PRIORITY_RANK,
+  PRIORITY_TONE, slaState,
+} from '@/lib/complaint-triage';
 
 const AUTHOR_ICON: Record<string, typeof User> = {
   customer: User, artist: Crown, manager: Shield, admin: Shield, system: AlertCircle,
@@ -94,9 +98,14 @@ export function ComplaintsPanel({ role, userId, userName }: {
         : c.status === filter
       )
       .filter((c) =>
-        !q || c.subject.toLowerCase().includes(q) || c.customer_name.toLowerCase().includes(q) ||
+        !q || (c.ticket_id ?? '').toLowerCase().includes(q) ||
+        c.subject.toLowerCase().includes(q) || c.customer_name.toLowerCase().includes(q) ||
         (c.artist_id ? (artistNames[c.artist_id] ?? '').toLowerCase().includes(q) : false)
-      );
+      )
+      // Most urgent first, then whichever clock runs out soonest.
+      .sort((a, b) =>
+        (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)
+        || (a.sla_due_at ?? '').localeCompare(b.sla_due_at ?? ''));
   }, [rows, filter, search, artistNames]);
 
   const active = rows.find((c) => c.id === openId) ?? null;
@@ -162,7 +171,29 @@ export function ComplaintsPanel({ role, userId, userName }: {
     });
   };
 
+  const changePriority = async (priority: ComplaintPriority) => {
+    if (!active || priority === active.priority) return;
+    const why = window.prompt(`Why move ${active.ticket_id ?? 'this complaint'} to ${PRIORITY_LABEL[priority]}? The SLA clock moves with it.`);
+    if (why === null || !why.trim()) return;
+    setBusy(true);
+    try {
+      await updateComplaint(active.id, { priority, priority_reason: why.trim() });
+      await postComplaintMessage({
+        complaintId: active.id, authorId: userId, authorRole: role, authorName: userName,
+        body: `Priority changed to ${PRIORITY_LABEL[priority]}: ${why.trim()}`, internal: true,
+      }).catch(() => {});
+      await load();
+      setMessages(await listComplaintMessages(active.id));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change the priority.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openCount = rows.filter((c) => OPEN_STATUSES.includes(c.status)).length;
+  const overdueCount = rows.filter((c) => slaState(c.sla_due_at, c.status).overdue).length;
   const escalatedCount = rows.filter((c) => c.status === 'escalated').length;
 
   if (loading) {
@@ -183,10 +214,14 @@ export function ComplaintsPanel({ role, userId, userName }: {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-2xl border border-amber-200/70 bg-white p-4">
           <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Open</p>
           <p className="font-display font-black text-2xl text-maroon-950">{openCount}</p>
+        </div>
+        <div className={`rounded-2xl border p-4 ${overdueCount ? 'border-rose-300 bg-rose-50' : 'border-amber-200/70 bg-white'}`}>
+          <p className={`text-[10px] font-black uppercase tracking-wider ${overdueCount ? 'text-rose-700' : 'text-gray-500'}`}>Past SLA</p>
+          <p className={`font-display font-black text-2xl ${overdueCount ? 'text-rose-700' : 'text-maroon-950'}`}>{overdueCount}</p>
         </div>
         <div className="rounded-2xl border border-maroon-200 bg-maroon-50 p-4">
           <p className="text-[10px] font-black uppercase tracking-wider text-maroon-800/70">Escalated to admin</p>
@@ -242,11 +277,22 @@ export function ComplaintsPanel({ role, userId, userName }: {
                 {c.artist_id ? ` · about ${artistNames[c.artist_id] ?? 'artist'}` : ''}
                 {c.created_at ? ` · ${c.created_at.slice(0, 10)}` : ''}
               </p>
-              {c.severity === 'high' && (
-                <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[9px] font-black uppercase">
-                  High severity
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${PRIORITY_TONE[c.priority] ?? PRIORITY_TONE.P3}`}>
+                  {PRIORITY_LABEL[c.priority] ?? c.priority}
                 </span>
-              )}
+                {c.ticket_id && (
+                  <span className={`font-mono text-[9px] font-bold ${openId === c.id ? 'text-royal-300' : 'text-gray-500'}`}>{c.ticket_id}</span>
+                )}
+                {(() => {
+                  const sla = slaState(c.sla_due_at, c.status);
+                  return sla.label ? (
+                    <span className={`text-[9px] font-black uppercase ${
+                      sla.overdue ? 'text-rose-500' : openId === c.id ? 'text-royal-200/70' : 'text-gray-400'
+                    }`}>{sla.label}</span>
+                  ) : null;
+                })()}
+              </div>
             </button>
           ))}
         </div>
@@ -261,7 +307,32 @@ export function ComplaintsPanel({ role, userId, userName }: {
           ) : (
             <>
               <div className="px-6 py-5 bg-gradient-to-r from-maroon-950 to-maroon-900">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  {active.ticket_id && <span className="font-mono text-[11px] font-black text-royal-300">{active.ticket_id}</span>}
+                  <span className="text-[10px] uppercase tracking-wider text-royal-200/70">
+                    {COMPLAINT_CATEGORY_LABEL[active.category as ComplaintCategory] ?? active.category}
+                  </span>
+                  <select
+                    value={active.priority}
+                    onChange={(e) => changePriority(e.target.value as ComplaintPriority)}
+                    disabled={busy}
+                    title="Change priority — the SLA clock moves with it"
+                    className="ml-auto px-2 py-1 rounded-lg text-[10px] font-black bg-white/10 text-royal-100 border border-white/20 no-print"
+                  >
+                    {(['P1', 'P2', 'P3', 'P4'] as ComplaintPriority[]).map((p) => (
+                      <option key={p} value={p} className="text-maroon-950">{PRIORITY_LABEL[p]}</option>
+                    ))}
+                  </select>
+                </div>
                 <p className="font-display font-black text-lg text-royal-100">{active.subject}</p>
+                {(() => {
+                  const sla = slaState(active.sla_due_at, active.status);
+                  return sla.label ? (
+                    <p className={`text-[11px] font-bold mt-0.5 ${sla.overdue ? 'text-rose-300' : 'text-royal-200/70'}`}>
+                      {sla.label}{active.priority_reason ? ` · ${active.priority_reason}` : ''}
+                    </p>
+                  ) : null;
+                })()}
                 <p className="text-[11px] text-royal-200/70 mt-1">
                   {active.customer_name}{active.customer_phone ? ` · ${active.customer_phone}` : ''}
                   {active.artist_id ? ` · Artist: ${artistNames[active.artist_id] ?? '—'}` : ''}

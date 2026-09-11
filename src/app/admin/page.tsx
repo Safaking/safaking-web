@@ -9,7 +9,7 @@ import {
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
   Phone, User, Navigation, MessageCircle, Search, ZoomIn, MessageSquareWarning,
-  ThumbsUp, Clock, Camera,
+  Camera,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -28,6 +28,10 @@ import { ExpenseLedger } from '@/components/admin/ExpenseLedger';
 import { ComplaintsPanel } from '@/components/admin/ComplaintsPanel';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 import { LiveOpsMap } from '@/components/liveops/LiveOpsMap';
+import { ArtistIncidentsPanel } from '@/components/liveops/ArtistIncidentsPanel';
+import {
+  ArtistStanding, STANDING_LABEL, STANDING_ORDER, STANDING_TONE, INCIDENT_LABEL, IncidentKind, blocksWork,
+} from '@/lib/artist-standing';
 import { TrainingManager } from '@/components/admin/TrainingManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
@@ -103,6 +107,9 @@ interface ArtistDispatchProfile {
   verification_status: 'unverified' | 'pending' | 'verified' | 'rejected' | null;
   rating: number | null;
   total_events: number;
+  /** Warning -> restriction -> review -> suspension (supabase/036). */
+  standing?: ArtistStanding | null;
+  restricted_until?: string | null;
 }
 
 /**
@@ -321,6 +328,17 @@ export default function AdminPanelPage() {
   const [linkSearch, setLinkSearch] = useState('');
   /** Staff member whose photo and designation are being edited. */
   const [editingStaff, setEditingStaff] = useState<UserProfile | null>(null);
+  // Standing: the system suggests a level, a person decides it, with a note.
+  const [standingFor, setStandingFor] = useState<{ profile: ArtistDispatchProfile; name: string } | null>(null);
+  const [standingLevel, setStandingLevel] = useState<ArtistStanding>('good');
+  const [standingUntil, setStandingUntil] = useState('');
+  const [standingNote, setStandingNote] = useState('');
+  const [standingInfo, setStandingInfo] = useState<{
+    rec: { points: number; incidents: number; recommended: ArtistStanding } | null;
+    incidents: { id: string; kind: IncidentKind; reason: string; points: number; created_at: string }[];
+  }>({ rec: null, incidents: [] });
+  const [standingSaving, setStandingSaving] = useState(false);
+  const [standingError, setStandingError] = useState<string | null>(null);
   const [staffDesignation, setStaffDesignation] = useState('');
   const [staffPhoto, setStaffPhoto] = useState<File | null>(null);
   const [savingStaff, setSavingStaff] = useState(false);
@@ -410,7 +428,7 @@ export default function AdminPanelPage() {
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: true }),
       supabase.from('app_settings').select('*').order('key', { ascending: true }),
-      supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events'),
+      supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events, standing, restricted_until'),
       supabase.from('booking_checkins').select('rental_id, booking_id, stage, created_at').order('created_at', { ascending: false }),
     ]);
 
@@ -591,7 +609,7 @@ export default function AdminPanelPage() {
           active: true,
         },
         { onConflict: 'id' }
-      ).select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events').single();
+      ).select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events, standing, restricted_until').single();
       if (profileErr) {
         setError(
           `Could not create ${application.full_name}'s artist profile, so the application has NOT ` +
@@ -655,13 +673,15 @@ export default function AdminPanelPage() {
    */
   const isAssignable = useCallback(
     (profile: ArtistDispatchProfile | undefined) =>
-      !!profile && profile.verification_status === 'verified' && profile.active && !profile.blacklisted,
+      !!profile && profile.verification_status === 'verified' && profile.active && !profile.blacklisted
+        && !blocksWork(profile.standing, profile.restricted_until),
     []
   );
 
   /** Why an artist can't be assigned, for the dropdown label. */
   const blockedReason = useCallback((profile: ArtistDispatchProfile | undefined) => {
     if (!profile) return 'no artist profile';
+    if (blocksWork(profile.standing, profile.restricted_until)) return STANDING_LABEL[profile.standing ?? 'good'].toLowerCase();
     if (profile.blacklisted) return 'blacklisted';
     if (!profile.active) return 'inactive';
     if (profile.verification_status !== 'verified') {
@@ -720,6 +740,57 @@ export default function AdminPanelPage() {
       return;
     }
     setArtistProfiles((prev) => prev.map((p) => (p.id === artistId ? { ...p, ...patch } : p)));
+  };
+
+  const openStanding = async (ap: ArtistDispatchProfile, name: string) => {
+    setStandingFor({ profile: ap, name });
+    setStandingLevel(ap.standing ?? 'good');
+    setStandingUntil(
+      ap.restricted_until ? new Date(ap.restricted_until).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) : ''
+    );
+    setStandingNote('');
+    setStandingError(null);
+    setStandingInfo({ rec: null, incidents: [] });
+    const [rec, inc] = await Promise.all([
+      supabase.rpc('artist_standing_recommendation', { p_artist_id: ap.id }),
+      supabase
+        .from('artist_incidents')
+        .select('id, kind, reason, points, created_at')
+        .eq('artist_id', ap.id)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+    setStandingInfo({ rec: rec.data ?? null, incidents: inc.data ?? [] });
+  };
+
+  const saveStanding = async () => {
+    if (!standingFor) return;
+    if (!standingNote.trim()) {
+      setStandingError('Write down why. The artist sees this, and it goes in the audit log.');
+      return;
+    }
+    if (standingLevel === 'restricted' && !standingUntil) {
+      setStandingError('Pick the date the restriction ends.');
+      return;
+    }
+    setStandingSaving(true);
+    setStandingError(null);
+    const patch = {
+      standing: standingLevel,
+      restricted_until: standingLevel === 'restricted' ? `${standingUntil}T23:59:59+05:30` : null,
+      standing_note: standingNote.trim(),
+    };
+    const artistId = standingFor.profile.id;
+    const { error: standingErr } = await supabase.from('artist_profiles').update(patch).eq('id', artistId);
+    setStandingSaving(false);
+    if (standingErr) {
+      setStandingError(friendlyError(standingErr));
+      return;
+    }
+    setArtistProfiles((prev) =>
+      prev.map((p) => (p.id === artistId ? { ...p, standing: patch.standing, restricted_until: patch.restricted_until } : p))
+    );
+    setStandingFor(null);
   };
 
   const assignArtist = async (bookingId: string, artistId: string) => {
@@ -2364,6 +2435,7 @@ export default function AdminPanelPage() {
             {activeTab === 'liveops' && (
               <div className="space-y-6">
                 <LiveOpsMap />
+                <ArtistIncidentsPanel />
                 <LiveOpsBoard />
               </div>
             )}
@@ -2497,6 +2569,13 @@ export default function AdminPanelPage() {
                                   >
                                     {ap.verification_status === 'verified' ? 'KYC ✓' : 'KYC — cannot be assigned'}
                                   </span>
+                                  <button
+                                    onClick={() => openStanding(ap, account.full_name || 'This artist')}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${STANDING_TONE[ap.standing ?? 'good']}`}
+                                    title="Standing: click to see incidents or change it"
+                                  >
+                                    {STANDING_LABEL[ap.standing ?? 'good']}
+                                  </button>
                                   {ap.blacklisted ? (
                                     <button
                                       onClick={() => setArtistFlags(ap.id, { blacklisted: false })}
@@ -2865,6 +2944,131 @@ export default function AdminPanelPage() {
       )}
 
       {/* Staff photo and designation */}
+      {standingFor && (
+        <div className="fixed inset-0 z-[60] bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.94, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+          >
+            <div className="bg-maroon-950 px-7 py-5 flex items-center justify-between shrink-0">
+              <div className="min-w-0">
+                <h3 className="font-display font-black text-base text-royal-100 uppercase tracking-widest">
+                  Artist standing
+                </h3>
+                <p className="text-[11px] text-royal-200/60 mt-0.5 truncate">
+                  {standingFor.name} · now {STANDING_LABEL[standingFor.profile.standing ?? 'good']}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStandingFor(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white shrink-0"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-7 space-y-5 overflow-y-auto">
+              {standingInfo.rec ? (
+                <div
+                  className={`rounded-2xl border p-4 ${
+                    standingInfo.rec.recommended === (standingFor.profile.standing ?? 'good')
+                      ? 'border-emerald-200 bg-emerald-50'
+                      : 'border-rose-200 bg-rose-50'
+                  }`}
+                >
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">System suggestion</p>
+                  <p className="font-bold text-sm text-maroon-950 mt-1">{STANDING_LABEL[standingInfo.rec.recommended]}</p>
+                  <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">
+                    {standingInfo.rec.points} point{standingInfo.rec.points === 1 ? '' : 's'} from{' '}
+                    {standingInfo.rec.incidents} incident{standingInfo.rec.incidents === 1 ? '' : 's'} in the last 90 days.
+                    No-show 3 · pulled out after accepting 2 · complaint upheld 2 · late 1.
+                    1+ warning, 3+ restriction, 5+ review, 7+ suspension.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">Loading their record…</p>
+              )}
+
+              {standingInfo.incidents.length > 0 && (
+                <ul className="space-y-1.5">
+                  {standingInfo.incidents.map((i) => (
+                    <li key={i.id} className="text-[11px] text-gray-700 border-l-2 border-rose-200 pl-2.5">
+                      <span className="font-bold">{INCIDENT_LABEL[i.kind]}</span> (+{i.points}) ·{' '}
+                      {new Date(i.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} — {i.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <label className="block">
+                <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Set standing</span>
+                <select
+                  value={standingLevel}
+                  onChange={(e) => setStandingLevel(e.target.value as ArtistStanding)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-amber-200/80 text-sm font-bold text-maroon-950 bg-white"
+                >
+                  {STANDING_ORDER.map((s) => {
+                    const ownerOnly = s === 'suspended' && profile?.role !== 'admin' && standingFor.profile.standing !== 'suspended';
+                    return (
+                      <option key={s} value={s} disabled={ownerOnly}>
+                        {STANDING_LABEL[s]}{ownerOnly ? ' (owner only)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+
+              {standingLevel === 'restricted' && (
+                <label className="block">
+                  <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">
+                    Restricted until
+                  </span>
+                  <input
+                    type="date"
+                    value={standingUntil}
+                    onChange={(e) => setStandingUntil(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-amber-200/80 text-sm font-bold text-maroon-950"
+                  />
+                </label>
+              )}
+
+              <label className="block">
+                <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">
+                  Why (the artist sees this)
+                </span>
+                <textarea
+                  rows={3}
+                  value={standingNote}
+                  onChange={(e) => setStandingNote(e.target.value)}
+                  placeholder="e.g. Two pull-outs after accepting in August"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-amber-200/80 text-sm text-maroon-950 resize-none"
+                />
+              </label>
+
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                Restriction, review and suspension stop this artist from being assigned or sending quotes. A
+                warning goes on their record but does not block work.
+              </p>
+
+              {standingError && (
+                <p className="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-xl p-3">{standingError}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={saveStanding}
+                disabled={standingSaving}
+                className="w-full py-3 rounded-2xl bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 text-royal-300 text-xs font-bold uppercase tracking-widest"
+              >
+                {standingSaving ? 'Saving…' : 'Save standing'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {editingStaff && (
         <div className="fixed inset-0 z-[60] bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div

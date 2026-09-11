@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError, DBArtistBooking } from '@/lib/supabase';
+import { ArtistStanding, STANDING_LABEL, blocksWork } from '@/lib/artist-standing';
 import { verifyCompletionCode } from '@/lib/client-update';
 import { VerificationPanel } from '@/components/verification/VerificationPanel';
 import { DigitalIdCard } from '@/components/verification/DigitalIdCard';
@@ -37,6 +38,10 @@ export default function ArtistPortalPage() {
   // rather than leaving an approved artist waiting for offers that the
   // dispatch board will never let an admin send them.
   const [kycStatus, setKycStatus] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [standing, setStanding] = useState<{ level: ArtistStanding; until: string | null; note: string | null }>({
+    level: 'good', until: null, note: null,
+  });
 
   const fetchBookings = useCallback(async () => {
     if (!user) return;
@@ -68,10 +73,17 @@ export default function ArtistPortalPage() {
     if (!user) return;
     supabase
       .from('artist_profiles')
-      .select('verification_status')
+      .select('verification_status, standing, restricted_until, standing_note')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data }) => setKycStatus((data?.verification_status as string) ?? 'unverified'));
+      .then(({ data }) => {
+        setKycStatus((data?.verification_status as string) ?? 'unverified');
+        setStanding({
+          level: (data?.standing as ArtistStanding) ?? 'good',
+          until: (data?.restricted_until as string) ?? null,
+          note: (data?.standing_note as string) ?? null,
+        });
+      });
   }, [user]);
 
   // Completion goes through the customer's completion code, never a bare
@@ -119,6 +131,39 @@ export default function ArtistPortalPage() {
       setBookings(previous);
       setError(friendlyError(updateErr));
     }
+  };
+
+  /**
+   * Pulling out of a booking already accepted. It used to be a phone call that
+   * left no trace; now the reason is recorded, operations and the customer are
+   * told, backups are searched for, and it counts toward the artist's standing
+   * — which is why it asks for a reason and says so plainly first.
+   */
+  const withdraw = async (b: DBArtistBooking) => {
+    const reason = window.prompt(
+      `You accepted ${b.customer_name}'s booking on ${b.event_date}.\n\n` +
+      'Pulling out now is recorded against your standing, and SafaKing will arrange another artist for the customer.\n\n' +
+      "Why can't you make it?"
+    );
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      setError('Please explain in a little more detail (at least 10 characters).');
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    const res = await fetch('/api/artist/incident', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: b.id, kind: 'withdrew_after_accept', reason: reason.trim() }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(body?.error ?? 'Could not record that. Please call SafaKing.');
+      return;
+    }
+    setNotice(body.message);
+    await fetchBookings();
   };
 
   const pendingOffers = bookings.filter((b) => b.status === 'offered');
@@ -187,6 +232,34 @@ export default function ArtistPortalPage() {
             <p className="sk-ticker-text text-[13px] font-bold text-rose-900" aria-hidden="true">{PLATFORM_RULE}</p>
           </div>
         </div>
+
+        {/* A lapsed restriction is simply good standing again. */}
+        {standing.level !== 'good' && !(standing.level === 'restricted' && !blocksWork(standing.level, standing.until)) && (
+          <div
+            className={`flex items-start gap-3 p-5 mb-8 rounded-3xl border-2 shadow-sm ${
+              blocksWork(standing.level, standing.until)
+                ? 'bg-rose-50 border-rose-300 text-rose-900'
+                : 'bg-amber-50 border-amber-300 text-amber-900'
+            }`}
+          >
+            <ShieldAlert size={22} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="font-display font-black text-base">
+                {STANDING_LABEL[standing.level]}
+                {standing.level === 'restricted' && standing.until
+                  ? ` until ${new Date(standing.until).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}`
+                  : ''}
+              </p>
+              <p className="text-xs leading-relaxed mt-1">
+                {blocksWork(standing.level, standing.until)
+                  ? 'You cannot be given new bookings or send quotes right now.'
+                  : 'This is a formal warning. Another pull-out, no-show or late arrival can lead to a restriction.'}
+                {standing.note ? <> Reason: <span className="font-bold">{standing.note}</span>.</> : null}{' '}
+                Call SafaKing if you think this is wrong.
+              </p>
+            </div>
+          </div>
+        )}
 
         {kycStatus && kycStatus !== 'verified' && (
           <div className="flex items-start gap-3 p-5 mb-8 rounded-3xl bg-amber-50 border-2 border-amber-300 text-amber-900 shadow-sm">
@@ -299,6 +372,13 @@ export default function ArtistPortalPage() {
           </div>
         )}
 
+        {notice && (
+          <div className="flex items-start gap-2 p-4 mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+            <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">{notice}</p>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-start gap-2 p-4 mb-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -408,12 +488,22 @@ export default function ArtistPortalPage() {
                     </button>
                   </div>
                 ) : b.status !== 'completed' && b.status !== 'declined' ? (
+                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
                   <button
                     onClick={() => markCompleted(b.id)}
                     className="w-full md:w-auto px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-widest rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-colors"
                   >
                     <CheckCircle2 size={16} /> Mark Completed
                   </button>
+                    {b.status === 'assigned' && (
+                      <button
+                        onClick={() => withdraw(b)}
+                        className="w-full md:w-auto px-5 py-3.5 bg-white border-2 border-rose-300 hover:bg-rose-50 text-rose-700 font-bold text-xs uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <XCircle size={16} /> Can&apos;t make it
+                      </button>
+                    )}
+                  </div>
                 ) : null}
               </motion.div>
             ))

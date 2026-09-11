@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase, friendlyError } from '@/lib/supabase';
 import type {
   BookingRow, RentalRow, OrderRow, ArtistRow, PersonRow, ExpenseRow,
-  ComplaintRow, ReviewRow, CheckinRow, LeadRow, AuditRow,
+  ComplaintRow, ReviewRow, CheckinRow, LeadRow, AuditRow, IncidentRow,
 } from './shared';
 
 export interface ReportData {
@@ -15,6 +15,7 @@ export interface ReportData {
   people: PersonRow[];
   expenses: ExpenseRow[];
   complaints: ComplaintRow[];
+  incidents: IncidentRow[];
   reviews: ReviewRow[];
   checkins: CheckinRow[];
   leads: LeadRow[];
@@ -31,7 +32,7 @@ export interface ReportData {
 }
 
 /** A table this build can work without says so, instead of blanking the tab. */
-const OPTIONAL = ['expenses', 'complaints', 'audit_log', 'leads'];
+const OPTIONAL = ['expenses', 'complaints', 'audit_log', 'leads', 'artist_incidents'];
 
 /**
  * Everything the reports need, pulled once.
@@ -48,6 +49,7 @@ export function useReportData(): ReportData {
   const [artists, setArtists] = useState<ArtistRow[]>([]);
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
+  const [incidents, setIncidents] = useState<IncidentRow[]>([]);
   const [complaints, setComplaints] = useState<ComplaintRow[]>([]);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [checkins, setCheckins] = useState<CheckinRow[]>([]);
@@ -63,24 +65,25 @@ export function useReportData(): ReportData {
     setLoading(true);
     setError(null);
 
-    const [b, r, o, a, p, e, cm, rv, ci, ld, au] = await Promise.all([
+    const [b, r, o, a, p, e, cm, rv, ci, ld, au, inc] = await Promise.all([
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
-      supabase.from('artist_profiles').select('id, display_name, base_city, rating, total_events, verification_status, active, blacklisted, per_safa_rate'),
+      supabase.from('artist_profiles').select('id, display_name, base_city, rating, total_events, verification_status, active, blacklisted, per_safa_rate, standing'),
       supabase.from('profiles').select('id, full_name, phone, email, role, created_at'),
       supabase.from('expenses').select('*').order('expense_date', { ascending: false }),
-      supabase.from('complaints').select('id, artist_id, customer_name, subject, status, severity, created_at'),
+      supabase.from('complaints').select('*'),
       supabase.from('reviews').select('id, subject_id, rating, comment, visible, created_at'),
       supabase.from('booking_checkins').select('booking_id, rental_id, artist_id, stage, created_at'),
       supabase.from('leads').select('id, customer_id, customer_name, pincode, event_date, safa_count, status, created_at'),
       supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(1000),
+      supabase.from('artist_incidents').select('id, artist_id, kind, points, resolved_at, created_at'),
     ]);
 
     const isMissing = (err: { code?: string } | null) => err?.code === 'PGRST205' || err?.code === '42P01';
     const gone: string[] = [];
     const named: [string, { error: { code?: string; message?: string } | null }][] = [
-      ['expenses', e], ['complaints', cm], ['audit_log', au], ['leads', ld],
+      ['expenses', e], ['complaints', cm], ['audit_log', au], ['leads', ld], ['artist_incidents', inc],
     ];
     named.forEach(([name, res]) => { if (res.error && isMissing(res.error)) gone.push(name); });
 
@@ -96,6 +99,7 @@ export function useReportData(): ReportData {
     setPeople((p.data as PersonRow[]) ?? []);
     setExpenses((e.data as ExpenseRow[]) ?? []);
     setComplaints((cm.data as ComplaintRow[]) ?? []);
+    setIncidents((inc.data as IncidentRow[]) ?? []);
     setReviews((rv.data as ReviewRow[]) ?? []);
     setCheckins((ci.data as CheckinRow[]) ?? []);
     setLeads((ld.data as LeadRow[]) ?? []);
@@ -130,7 +134,7 @@ export function useReportData(): ReportData {
   );
 
   return {
-    bookings, rentals, orders, artists, people, expenses, complaints, reviews,
+    bookings, rentals, orders, artists, people, expenses, complaints, incidents, reviews,
     checkins, leads, audit, stageByJob, phoneOf, nameOf,
     loading, error, missing: missing.filter((m) => OPTIONAL.includes(m)), generatedAt, reload,
   };

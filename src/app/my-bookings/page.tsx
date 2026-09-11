@@ -15,6 +15,9 @@ import {
 import { Stars } from '@/components/reviews/Stars';
 import { ActiveBookingTracker } from '@/components/tracking/ActiveBookingTracker';
 import { raiseComplaint } from '@/lib/complaints';
+import {
+  CUSTOMER_COMPLAINT_CATEGORIES, COMPLAINT_CATEGORY_LABEL, ComplaintCategory,
+} from '@/lib/complaint-triage';
 
 /**
  * Post-event review prompt.
@@ -39,7 +42,10 @@ export default function MyBookingsPage() {
   // office. Keeping them apart means an unhappy customer does not have to
   // choose between being heard and being fair.
   const [complaintFor, setComplaintFor] = useState<string | null>(null);
-  const [complaintSubject, setComplaintSubject] = useState('');
+  // The category decides the priority our team sees — the customer describes
+  // what happened, the system decides how urgent it is.
+  const [complaintCategory, setComplaintCategory] = useState<ComplaintCategory | ''>('');
+  const [ticketIds, setTicketIds] = useState<Record<string, string>>({});
   const [complaintBody, setComplaintBody] = useState('');
   const [complaintSent, setComplaintSent] = useState<string[]>([]);
 
@@ -63,26 +69,27 @@ export default function MyBookingsPage() {
   }, [authLoading, load]);
 
   const sendComplaint = async (booking: ReviewableBooking) => {
-    if (!user || !complaintSubject.trim() || !complaintBody.trim()) {
-      setError('Please tell us what went wrong.');
+    if (!user || !complaintCategory || !complaintBody.trim()) {
+      setError('Please choose what went wrong and describe it.');
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      await raiseComplaint({
+      const ticket = await raiseComplaint({
         bookingId: booking.bookingId,
         rentalId: booking.rentalId,
         artistId: booking.artistId,
         customerId: user.id,
         customerName: user.user_metadata?.full_name ?? user.email ?? 'Customer',
         customerPhone: user.phone ?? null,
-        subject: complaintSubject,
+        category: complaintCategory,
         description: complaintBody,
       });
+      if (ticket.ticket_id) setTicketIds((prev) => ({ ...prev, [keyOf(booking)]: ticket.ticket_id! }));
       setComplaintSent((prev) => [...prev, keyOf(booking)]);
       setComplaintFor(null);
-      setComplaintSubject('');
+      setComplaintCategory('');
       setComplaintBody('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send your complaint.');
@@ -227,8 +234,9 @@ export default function MyBookingsPage() {
 
                   {complaintSent.includes(key) ? (
                     <p className="mt-3 text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-                      Your complaint has reached our team. We will contact you — you can also see
-                      our reply here.
+                      Your complaint has reached our team
+                      {ticketIds[key] ? <> — your ticket number is <b className="font-mono">{ticketIds[key]}</b>. Quote it if you call us</> : ''}.
+                      We will contact you, and you can also see our reply here.
                     </p>
                   ) : (
                     <button
@@ -242,12 +250,16 @@ export default function MyBookingsPage() {
 
                   {complaintFor === key && (
                     <div className="mt-3 pt-4 border-t border-rose-100 space-y-3">
-                      <input
-                        placeholder="What went wrong? (e.g. Artist arrived late)"
-                        value={complaintSubject}
-                        onChange={(e) => setComplaintSubject(e.target.value)}
+                      <select
+                        value={complaintCategory}
+                        onChange={(e) => setComplaintCategory(e.target.value as ComplaintCategory)}
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-rose-500/20"
-                      />
+                      >
+                        <option value="">What went wrong?</option>
+                        {CUSTOMER_COMPLAINT_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>{COMPLAINT_CATEGORY_LABEL[c]}</option>
+                        ))}
+                      </select>
                       <textarea
                         rows={3}
                         placeholder="Tell us what happened, in your words."
