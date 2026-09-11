@@ -45,6 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
+  // Whose profile is already loaded, so a token refresh does not refetch it.
+  const loadedFor = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -68,21 +70,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     mounted.current = true;
 
-    const applySession = async (session: Session | null) => {
-      if (session?.user) {
-        setUser(session.user);
-        await loadProfile(session.user.id);
-      } else {
-        setUser(null);
+    // One source: onAuthStateChange fires INITIAL_SESSION on subscribe, so a
+    // separate getSession() call only loaded the same profile a second time —
+    // an extra trip to the database on every page.
+    const applySession = (event: string, session: Session | null) => {
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
+      if (!nextUser) {
+        loadedFor.current = null;
         setProfile(null);
+        if (mounted.current) setLoading(false);
+        return;
       }
-      if (mounted.current) setLoading(false);
+      if (loadedFor.current === nextUser.id && event !== 'USER_UPDATED') {
+        if (mounted.current) setLoading(false);
+        return;
+      }
+      loadedFor.current = nextUser.id;
+      // Deferred: awaiting Supabase inside the auth callback can deadlock it.
+      setTimeout(() => {
+        loadProfile(nextUser.id).finally(() => {
+          if (mounted.current) setLoading(false);
+        });
+      }, 0);
     };
 
-    supabase.auth.getSession().then(({ data }) => applySession(data.session));
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      applySession(session);
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      applySession(event, session);
     });
 
     return () => {
@@ -99,7 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return error.message;
       }
       void logAuthEvent('sign_in');
-      if (data.user) await loadProfile(data.user.id);
+      if (data.user) {
+        loadedFor.current = data.user.id;
+        await loadProfile(data.user.id);
+      }
       return null;
     },
     [loadProfile]
