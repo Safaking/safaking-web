@@ -35,6 +35,12 @@ export interface UserProfile {
   designation?: string | null;
   avatar_url?: string | null;
   created_at?: string;
+  /** For a manager: which department they work in (supabase/037). */
+  department?: 'operations' | 'support' | 'artist_ops' | 'finance' | null;
+  /** Stamped by the auth system when the password actually changes. */
+  password_changed_at?: string | null;
+  /** When they accepted the individual-login policy. */
+  security_ack_at?: string | null;
 }
 
 export interface DBProduct {

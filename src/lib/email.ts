@@ -129,3 +129,24 @@ export async function sendCustomerReplacementEmail({ to, name, eventDate }: { to
     `,
   });
 }
+
+/** Owner: a staff account signed in from a device it has never used. */
+export async function sendNewDeviceSignInEmail({
+  to, staffName, userAgent, place, ip,
+}: { to: string; staffName: string; userAgent: string; place: string; ip: string | null }) {
+  return sendEmail({
+    to,
+    subject: `New device sign-in: ${staffName}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+        <h2 style="color:#7a1f2b">New device sign-in</h2>
+        <p><strong>${escapeHtml(staffName)}</strong> signed in to the SafaKing admin panel from a device they have not used before.</p>
+        <p style="background:#f7f1e3;border-radius:8px;padding:12px;font-size:13px">
+          ${escapeHtml(place)}${ip ? ` &middot; ${escapeHtml(ip)}` : ''}<br/>
+          <span style="color:#666">${escapeHtml(userAgent)}</span>
+        </p>
+        <p>If this was not them, sign them out of every device from Admin &rarr; Security, and ask them to change their password.</p>
+      </div>
+    `,
+  });
+}

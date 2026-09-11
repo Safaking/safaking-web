@@ -1,6 +1,5 @@
+import { getStaff } from '@/lib/staff-auth';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase-admin';
 
 export const runtime = 'nodejs';
@@ -10,24 +9,12 @@ function bad(message: string, status = 400) {
 }
 
 async function requireAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-  );
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { user: null, admin: null, error: bad('Sign in.', 401) };
-
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'admin') {
-    return { user, admin, error: bad('Administrators only.', 403) };
+  const { staff, error } = await getStaff();
+  if (error) return { user: null, admin: null, error };
+  if (!staff.can('assign_artist')) {
+    return { user: null, admin: null, error: bad('Your department cannot put a team on a booking.', 403) };
   }
-  return { user, admin, error: null };
+  return { user: { id: staff.userId }, admin: createAdminClient(), error: null };
 }
 
 /**

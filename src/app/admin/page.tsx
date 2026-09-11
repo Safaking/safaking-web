@@ -9,7 +9,7 @@ import {
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
   Phone, User, Navigation, MessageCircle, Search, ZoomIn, MessageSquareWarning,
-  Camera,
+  Camera, KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -29,6 +29,8 @@ import { ComplaintsPanel } from '@/components/admin/ComplaintsPanel';
 import { LiveOpsBoard } from '@/components/liveops/LiveOpsBoard';
 import { LiveOpsMap } from '@/components/liveops/LiveOpsMap';
 import { ArtistIncidentsPanel } from '@/components/liveops/ArtistIncidentsPanel';
+import { SecurityCentre, useStaffSecurityGate } from '@/components/admin/SecurityCentre';
+import { Department, DEPARTMENTS, DEPARTMENT_LABEL, DEPARTMENT_TABS, unitOf } from '@/lib/departments';
 import {
   ArtistStanding, STANDING_LABEL, STANDING_ORDER, STANDING_TONE, INCIDENT_LABEL, IncidentKind, blocksWork,
 } from '@/lib/artist-standing';
@@ -39,7 +41,7 @@ import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts' | 'expenses' | 'complaints';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts' | 'expenses' | 'complaints' | 'security';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'liveops', label: 'Live Ops', icon: Siren },
@@ -62,18 +64,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'messages', label: 'Messages', icon: Mail },
   { id: 'users', label: 'Users & Roles', icon: Users },
   { id: 'settings', label: 'Pricing Settings', icon: SlidersHorizontal },
-];
-
-/**
- * What a manager can open. Everything else — roles, pricing, KYC approval,
- * money out, the artist roster — stays with the admin, so an employee can run
- * the day without anyone handing out the owner's login.
- */
-const MANAGER_TABS: Tab[] = [
-  'liveops', 'analytics', 'orders', 'rentals', 'bookings', 'complaints',
-  'messages', 'academy', 'careers', 'training',
-  // Maker–checker needs at least two people who can work a refund.
-  'protection',
+  { id: 'security', label: 'Security', icon: KeyRound },
 ];
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
@@ -284,12 +275,27 @@ const THEAD =
   'bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-maroon-800/60 border-b border-amber-100';
 
 export default function AdminPanelPage() {
-  const { profile, logout } = useAuth();
+  const { profile, logout, refreshProfile } = useAuth();
   // A manager gets the operational half of this panel; the admin gets all of
   // it, plus the say-so on anything a manager did.
   const isManager = profile?.role === 'manager';
-  const visibleTabs = isManager ? TABS.filter((t) => MANAGER_TABS.includes(t.id)) : TABS;
+  // Each manager sees their own department's part of the panel; the
+  // database holds the same line (staff_can() in supabase/037).
+  const staffUnit = unitOf(profile?.role, profile?.department);
+  const managerTabs = useMemo(
+    () => (staffUnit && staffUnit !== 'owner' ? (DEPARTMENT_TABS[staffUnit] as Tab[]) : []),
+    [staffUnit]
+  );
+  const visibleTabs = isManager ? TABS.filter((t) => managerTabs.includes(t.id)) : TABS;
   const [activeTab, setActiveTab] = useState<Tab>('orders');
+  const securityGate = useStaffSecurityGate(!!staffUnit);
+  const [ackSaving, setAckSaving] = useState(false);
+  const [ackSkipped, setAckSkipped] = useState(false);
+
+  // A department without Orders opens on its own first tab, not a locked one.
+  useEffect(() => {
+    if (isManager && managerTabs.length && !managerTabs.includes(activeTab)) setActiveTab(managerTabs[0]);
+  }, [isManager, managerTabs, activeTab]);
 
   const [orders, setOrders] = useState<DBOrder[]>([]);
   const [bookings, setBookings] = useState<DBArtistBooking[]>([]);
@@ -404,8 +410,11 @@ export default function AdminPanelPage() {
     [jobApps, jobAppsFilter]
   );
   const filteredUsers = useMemo(
-    () => users.filter((u) => matchesFilter(u, usersFilter.search, ['full_name', 'email', 'phone'], usersFilter.status, 'role')),
-    [users, usersFilter]
+    () => users.filter((u) =>
+      // The Artist Manager works with artists, not every customer's account.
+      (staffUnit !== 'artist_ops' || u.role === 'artist')
+      && matchesFilter(u, usersFilter.search, ['full_name', 'email', 'phone'], usersFilter.status, 'role')),
+    [users, usersFilter, staffUnit]
   );
   const filteredPincodes = useMemo(
     () => pincodes.filter((p) => matchesFilter(p, pincodesSearch, ['pincode', 'city_state'])),
@@ -633,7 +642,16 @@ export default function AdminPanelPage() {
 
       // The profile exists — only now is this application truly approved.
       await patchRow<DBArtistApplication>('artist_applications', application.id, { status }, setArtistApps);
-      await patchRow<UserProfile>('profiles', application.user_id, { role: 'artist' }, setUsers);
+      // Through a database function, so the Artist Manager can approve too (037).
+      const { error: roleErr } = await supabase.rpc('grant_artist_role', { p_user: application.user_id });
+      if (roleErr) {
+        setError(
+          `${application.full_name}'s application is approved, but their account could not be switched to ` +
+            `an artist account: ${friendlyError(roleErr)}`
+        );
+      } else {
+        setUsers((prev) => prev.map((u) => (u.id === application.user_id ? { ...u, role: 'artist' } : u)));
+      }
 
       // Best-effort — the approval itself is already saved above, so a failed
       // email (e.g. RESEND_API_KEY not yet configured) shouldn't block it.
@@ -761,6 +779,22 @@ export default function AdminPanelPage() {
         .limit(10),
     ]);
     setStandingInfo({ rec: rec.data ?? null, incidents: inc.data ?? [] });
+  };
+
+  const acceptSecurityPolicy = async () => {
+    if (!profile) return;
+    setAckSaving(true);
+    const { error: ackErr } = await supabase
+      .from('profiles')
+      .update({ security_ack_at: new Date().toISOString() })
+      .eq('id', profile.id);
+    setAckSaving(false);
+    if (ackErr) {
+      setError(friendlyError(ackErr));
+      setAckSkipped(true);
+      return;
+    }
+    await refreshProfile();
   };
 
   const saveStanding = async () => {
@@ -1325,7 +1359,18 @@ export default function AdminPanelPage() {
           ))}
         </div>
 
-        {isManager && !MANAGER_TABS.includes(activeTab) ? (
+        {securityGate.blocked ? (
+          <div className="space-y-4">
+            <div className="p-5 rounded-3xl bg-rose-50 border-2 border-rose-300 text-rose-900">
+              <p className="font-display font-black text-base">Two-step verification is required</p>
+              <p className="text-xs mt-1 leading-relaxed">
+                The owner requires every staff account to use an authenticator app. Set it up below. If you already
+                have, sign out and sign in again with your code.
+              </p>
+            </div>
+            <SecurityCentre isOwner={false} onSecured={securityGate.reload} />
+          </div>
+        ) : isManager && !managerTabs.includes(activeTab) ? (
           <div className="p-16 text-center bg-white rounded-3xl border border-amber-200/60">
             <ShieldAlert size={28} className="text-amber-500 mx-auto mb-3" />
             <p className="text-sm font-bold text-gray-700">This section is admin-only.</p>
@@ -2431,6 +2476,9 @@ export default function AdminPanelPage() {
               />
             )}
 
+            {/* ---- SECURITY ---- */}
+            {activeTab === 'security' && <SecurityCentre isOwner={!isManager} onSecured={securityGate.reload} />}
+
             {/* ---- LIVE OPS ---- */}
             {activeTab === 'liveops' && (
               <div className="space-y-6">
@@ -2521,18 +2569,42 @@ export default function AdminPanelPage() {
                           <td className="p-4 text-gray-600">{account.phone || '—'}</td>
                           <td className="p-4 text-gray-600">{account.city || '—'}</td>
                           <td className="p-4">
-                            {account.id === profile?.id ? (
+                            {account.id === profile?.id || isManager ? (
                               <span className="text-[11px] font-bold text-gray-500">
-                                {account.role} (you)
+                                {account.role === 'manager'
+                                  ? DEPARTMENT_LABEL[unitOf(account.role, account.department) ?? 'operations']
+                                  : account.role}
+                                {account.id === profile?.id ? ' (you)' : ''}
                               </span>
                             ) : (
-                              <StatusSelect
-                                value={account.role}
-                                options={ROLES}
-                                onChange={(role) =>
-                                  patchRow<UserProfile>('profiles', account.id, { role }, setUsers)
-                                }
-                              />
+                              <div className="flex flex-col items-start gap-1.5">
+                                <StatusSelect
+                                  value={account.role}
+                                  options={ROLES}
+                                  onChange={(role) =>
+                                    patchRow<UserProfile>('profiles', account.id, { role }, setUsers)
+                                  }
+                                />
+                                {account.role === 'manager' && (
+                                  <select
+                                    value={account.department ?? 'operations'}
+                                    onChange={(e) =>
+                                      patchRow<UserProfile>(
+                                        'profiles',
+                                        account.id,
+                                        { department: e.target.value as Department },
+                                        setUsers
+                                      )
+                                    }
+                                    title="Department: decides which parts of this panel they can see and use"
+                                    className="px-2 py-1 rounded-lg border border-amber-200/80 text-[10px] font-bold text-maroon-900 bg-white"
+                                  >
+                                    {DEPARTMENTS.map((d) => (
+                                      <option key={d} value={d}>{DEPARTMENT_LABEL[d]}</option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="p-4">
@@ -2944,6 +3016,45 @@ export default function AdminPanelPage() {
       )}
 
       {/* Staff photo and designation */}
+      {/* Undefined until supabase/037 adds the column, so this never traps anyone before then. */}
+      {staffUnit && profile?.security_ack_at === null && !ackSkipped && (
+        <div className="fixed inset-0 z-[70] bg-maroon-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.94, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden"
+          >
+            <div className="bg-maroon-950 px-7 py-5">
+              <h3 className="font-display font-black text-base text-royal-100 uppercase tracking-widest">Your personal login</h3>
+              <p className="text-[11px] text-royal-200/60 mt-0.5">{DEPARTMENT_LABEL[staffUnit]} · please read before you continue</p>
+            </div>
+            <div className="p-7 space-y-4">
+              <ul className="space-y-2.5 text-[13px] text-gray-700 leading-relaxed list-disc pl-5">
+                <li>This login is yours alone. Sharing your password with anyone, colleagues included, is not allowed.</li>
+                <li>Everything you do here is recorded under your name: what changed, what it was before, and when.</li>
+                <li>Every sign-in is recorded with the device and place. The owner is told when your account is used on a new device.</li>
+                <li>Use a strong password, and turn on two-step verification in the Security tab.</li>
+              </ul>
+              <button
+                type="button"
+                onClick={acceptSecurityPolicy}
+                disabled={ackSaving}
+                className="w-full py-3 rounded-2xl bg-maroon-950 hover:bg-maroon-900 disabled:opacity-60 text-royal-300 text-xs font-bold uppercase tracking-widest"
+              >
+                {ackSaving ? 'Saving…' : 'I understand and agree'}
+              </button>
+              <button
+                type="button"
+                onClick={() => logout()}
+                className="w-full text-[11px] font-bold text-gray-500 hover:text-maroon-900"
+              >
+                Sign out
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {standingFor && (
         <div className="fixed inset-0 z-[60] bg-maroon-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div

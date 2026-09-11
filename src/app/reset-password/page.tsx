@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { passwordProblems, STAFF_PASSWORD_RULES } from '@/lib/password-policy';
 
 /**
  * Where the emailed reset link lands (see resetPassword() in AuthContext.tsx).
@@ -14,6 +16,8 @@ import { supabase } from '@/lib/supabase';
  */
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { profile } = useAuth();
+  const isStaff = profile?.role === 'admin' || profile?.role === 'manager';
 
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
@@ -39,8 +43,9 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    const problems = passwordProblems(password, { strong: isStaff, email: profile?.email, name: profile?.full_name });
+    if (problems.length) {
+      setError(problems.join(' '));
       return;
     }
     if (password !== confirm) {
@@ -98,6 +103,13 @@ export default function ResetPasswordPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isStaff && (
+                <ul className="text-[11px] text-gray-500 space-y-0.5">
+                  {STAFF_PASSWORD_RULES.map((rule) => (
+                    <li key={rule}>• {rule}</li>
+                  ))}
+                </ul>
+              )}
               {error && (
                 <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
                   <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -109,7 +121,7 @@ export default function ResetPasswordPage() {
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   required
-                  minLength={6}
+                  minLength={isStaff ? 10 : 6}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   placeholder="New Password (min. 6 characters)"
@@ -131,7 +143,7 @@ export default function ResetPasswordPage() {
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   required
-                  minLength={6}
+                  minLength={isStaff ? 10 : 6}
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   placeholder="Confirm New Password"
