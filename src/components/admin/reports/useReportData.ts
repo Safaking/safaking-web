@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase, friendlyError } from '@/lib/supabase';
+import type { JobQuality } from '@/lib/artist-quality';
 import type {
   BookingRow, RentalRow, OrderRow, ArtistRow, PersonRow, ExpenseRow,
   ComplaintRow, ReviewRow, CheckinRow, LeadRow, AuditRow, IncidentRow,
@@ -16,6 +17,8 @@ export interface ReportData {
   expenses: ExpenseRow[];
   complaints: ComplaintRow[];
   incidents: IncidentRow[];
+  /** One row per artist job: attendance, arrival, rating, complaints, score (supabase/038). */
+  jobQuality: JobQuality[];
   reviews: ReviewRow[];
   checkins: CheckinRow[];
   leads: LeadRow[];
@@ -32,7 +35,7 @@ export interface ReportData {
 }
 
 /** A table this build can work without says so, instead of blanking the tab. */
-const OPTIONAL = ['expenses', 'complaints', 'audit_log', 'leads', 'artist_incidents'];
+const OPTIONAL = ['expenses', 'complaints', 'audit_log', 'leads', 'artist_incidents', 'artist_job_quality'];
 
 /**
  * Everything the reports need, pulled once.
@@ -50,6 +53,7 @@ export function useReportData(): ReportData {
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
+  const [jobQuality, setJobQuality] = useState<JobQuality[]>([]);
   const [complaints, setComplaints] = useState<ComplaintRow[]>([]);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [checkins, setCheckins] = useState<CheckinRow[]>([]);
@@ -65,7 +69,7 @@ export function useReportData(): ReportData {
     setLoading(true);
     setError(null);
 
-    const [b, r, o, a, p, e, cm, rv, ci, ld, au, inc] = await Promise.all([
+    const [b, r, o, a, p, e, cm, rv, ci, ld, au, inc, jq] = await Promise.all([
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
@@ -78,12 +82,13 @@ export function useReportData(): ReportData {
       supabase.from('leads').select('id, customer_id, customer_name, pincode, event_date, safa_count, status, created_at'),
       supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(1000),
       supabase.from('artist_incidents').select('id, artist_id, kind, points, resolved_at, created_at'),
+      supabase.from('artist_job_quality').select('*').order('event_date', { ascending: false }),
     ]);
 
     const isMissing = (err: { code?: string } | null) => err?.code === 'PGRST205' || err?.code === '42P01';
     const gone: string[] = [];
     const named: [string, { error: { code?: string; message?: string } | null }][] = [
-      ['expenses', e], ['complaints', cm], ['audit_log', au], ['leads', ld], ['artist_incidents', inc],
+      ['expenses', e], ['complaints', cm], ['audit_log', au], ['leads', ld], ['artist_incidents', inc], ['artist_job_quality', jq],
     ];
     named.forEach(([name, res]) => { if (res.error && isMissing(res.error)) gone.push(name); });
 
@@ -100,6 +105,7 @@ export function useReportData(): ReportData {
     setExpenses((e.data as ExpenseRow[]) ?? []);
     setComplaints((cm.data as ComplaintRow[]) ?? []);
     setIncidents((inc.data as IncidentRow[]) ?? []);
+    setJobQuality((jq.data as JobQuality[]) ?? []);
     setReviews((rv.data as ReviewRow[]) ?? []);
     setCheckins((ci.data as CheckinRow[]) ?? []);
     setLeads((ld.data as LeadRow[]) ?? []);
@@ -134,7 +140,7 @@ export function useReportData(): ReportData {
   );
 
   return {
-    bookings, rentals, orders, artists, people, expenses, complaints, incidents, reviews,
+    bookings, rentals, orders, artists, people, expenses, complaints, incidents, jobQuality, reviews,
     checkins, leads, audit, stageByJob, phoneOf, nameOf,
     loading, error, missing: missing.filter((m) => OPTIONAL.includes(m)), generatedAt, reload,
   };

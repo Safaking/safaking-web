@@ -194,6 +194,13 @@ export function Exceptions({ ctx, compact = false }: { ctx: Ctx; compact?: boole
       who: 'Manager',
     });
 
+    const unrecorded = d.jobQuality.filter((q) => q.needs_record);
+    if (unrecorded.length) out.push({
+      severity: 'medium', what: 'Job quality not recorded',
+      detail: `${unrecorded.length} finished job(s) without a confirmed attendance or arrival time`,
+      who: 'Manager', go: () => ctx.goTo('quality'),
+    });
+
     // Points in the last 90 days, the same rule as artist_standing_recommendation().
     const since = shiftDays(today, -90);
     const points = new Map<string, number>();

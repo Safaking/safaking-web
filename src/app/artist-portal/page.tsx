@@ -18,6 +18,7 @@ import { PortfolioManager } from '@/components/reviews/PortfolioManager';
 import { ArtistCheckin } from '@/components/liveops/ArtistCheckin';
 import { ArtistLeadBoard } from '@/components/marketplace/ArtistLeadBoard';
 import { ArtistComplaints } from '@/components/complaints/ArtistComplaints';
+import { ArtistQualityCard } from '@/components/quality/ArtistQualityCard';
 
 /**
  * The one rule an artist is most tempted to break: taking a SafaKing
@@ -328,6 +329,8 @@ export default function ArtistPortalPage() {
             </div>
           </motion.div>
         </div>
+
+        {user && <ArtistQualityCard artistId={user.id} />}
 
         {/* Filter bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
