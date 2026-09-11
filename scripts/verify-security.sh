@@ -39,8 +39,15 @@ expect_empty() {
     # NOTE: an empty table also returns [], so this is "not leaking" rather
     # than positive proof a policy exists. Seed a row to test it properly.
     printf "  PASS  %-42s anon sees 0 rows\n" "$label"; pass=$((pass+1))
+  elif printf '%s' "$body" | grep -q '"code"'; then
+    # Missing table or no grant at all: nothing is readable either way.
+    printf "  PASS  %-42s not readable (%s)\n" "$label" "$(printf '%s' "$body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('code',''))" 2>/dev/null)"; pass=$((pass+1))
   else
-    printf "  FAIL  %-42s anon can READ: %s\n" "$label" "$(echo "$body" | head -c 110)"; fail=$((fail+1))
+    # Report how much leaks and which fields — never the values themselves,
+    # so running this check does not copy customer data into a terminal log.
+    printf "  FAIL  %-42s anon can READ %s\n" "$label" "$(printf '%s' "$body" | python3 -c "import sys,json
+r=json.load(sys.stdin)
+print(f'{len(r)}+ row(s); fields: ' + ', '.join(sorted(r[0].keys()))[:160])" 2>/dev/null)"; fail=$((fail+1))
   fi
 }
 
@@ -109,11 +116,27 @@ expect_empty supplier_applications "supplier_applications"
 expect_empty academy_enrollments   "academy_enrollments"
 expect_empty job_applications      "job_applications"
 expect_empty artist_applications   "artist_applications"
+expect_empty artist_profiles       "artist_profiles (phone, UPI, bank)"
+expect_empty rental_bookings       "rental_bookings"
+expect_empty payments              "payments"
+expect_empty cancellations         "cancellations (refunds)"
+expect_empty verification_documents "verification_documents (KYC)"
+expect_empty complaints            "complaints"
+expect_empty artist_incidents      "artist_incidents"
+expect_empty artist_job_records    "artist_job_records"
+expect_empty artist_job_quality    "artist_job_quality (view)"
+expect_empty expenses              "expenses"
+expect_empty audit_log             "audit_log"
+expect_empty login_events          "login_events"
+expect_empty policy_backup         "policy_backup"
+expect_empty booking_checkins      "booking_checkins (live locations)"
 
 echo
 echo "PUBLIC DATA — must stay readable:"
 expect_readable products             "products (storefront)"
 expect_readable deliverable_pincodes "deliverable_pincodes (checkout)"
+expect_readable artist_public_profiles "artist_public_profiles (directory)"
+expect_readable refund_rules         "refund_rules (cancellation terms)"
 
 echo
 echo "WRITE PROTECTION — anonymous must not modify:"

@@ -149,8 +149,10 @@ export async function listQuotes(leadId: string): Promise<Quote[]> {
   if (quotes.length === 0) return [];
 
   const artistIds = Array.from(new Set(quotes.map((q) => q.artist_id)));
+  // The public view, not artist_profiles: a customer comparing quotes has no
+  // business seeing an artist's phone, UPI or bank details (supabase/039).
   const { data: artists } = await supabase
-    .from('artist_profiles')
+    .from('artist_public_profiles')
     .select('id, display_name, rating, verified, total_events')
     .in('id', artistIds);
 
