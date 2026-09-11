@@ -80,6 +80,10 @@ const BOOKING_STATUSES = ['pending', 'offered', 'assigned', 'declined', 'complet
 // list, so nobody could actually be made a manager from the screen.
 const ROLES: UserRole[] = ['customer', 'artist', 'manager', 'admin'];
 
+/** Every product column except `image` (base64 photos from the POS). */
+const ADMIN_PRODUCT_COLUMNS =
+  'id, name, price, category, description, stock, created_at, code, original_price, color, fabric, style, occasion, rating, reviews_count, is_new, is_bestseller, featured, active, sort_order, is_rentable, rent_price_per_day, rent_deposit, synced_from_desktop, pending_sync, desktop_price';
+
 /** Roles that get a staff photo and designation. */
 const STAFF_ROLES_UI: UserRole[] = ['admin', 'manager'];
 
@@ -431,7 +435,8 @@ export default function AdminPanelPage() {
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
-      supabase.from('products').select('*').order('created_at', { ascending: false }),
+      // Not the photo: it is base64 text, and loading all of them made this panel download megabytes.
+      supabase.from('products').select(ADMIN_PRODUCT_COLUMNS).order('created_at', { ascending: false }),
       supabase.from('deliverable_pincodes').select('*').order('pincode', { ascending: true }),
       supabase.from('supplier_applications').select('*').order('created_at', { ascending: false }),
       supabase.from('academy_enrollments').select('*').order('created_at', { ascending: false }),
@@ -1112,7 +1117,6 @@ export default function AdminPanelPage() {
       fabric: productForm.fabric.trim() || null,
       style: productForm.style.trim() || null,
       occasion: productForm.occasion.trim() || null,
-      image: productForm.image.trim() || null,
       description: productForm.description.trim() || null,
       stock: Number(productForm.stock) || 0,
       is_bestseller: productForm.is_bestseller,
@@ -1128,12 +1132,15 @@ export default function AdminPanelPage() {
       // "new from desktop, needs review" flag whether or not this row came
       // from a sync (a no-op for ordinary products).
       pending_sync: false,
+      // The form never loads the existing photo (it can be megabytes of base64),
+      // so an empty field means "keep the photo", not "remove it".
+      ...(productForm.image.trim() ? { image: productForm.image.trim() } : {}),
     };
 
     const query =
       editingProduct === 'new'
-        ? supabase.from('products').insert(payload).select().single()
-        : supabase.from('products').update(payload).eq('id', editingProduct!).select().single();
+        ? supabase.from('products').insert(payload).select(ADMIN_PRODUCT_COLUMNS).single()
+        : supabase.from('products').update(payload).eq('id', editingProduct!).select(ADMIN_PRODUCT_COLUMNS).single();
 
     const { data, error: saveErr } = await query;
     setSavingProduct(false);
@@ -1143,7 +1150,7 @@ export default function AdminPanelPage() {
       return;
     }
 
-    const saved = data as DBProduct;
+    const saved = data as unknown as DBProduct;
     setProducts((prev) =>
       editingProduct === 'new'
         ? [...prev, saved]
@@ -2759,7 +2766,7 @@ export default function AdminPanelPage() {
                     ['occasion', 'Occasion', 'text', false],
                     ['rent_price_per_day', 'Rent per day (₹)', 'number', false],
                     ['rent_deposit', 'Refundable deposit (₹)', 'number', false],
-                    ['image', 'Image path (e.g. /product-pink-chanderi.jpg)', 'text', false],
+                    ['image', 'New photo address (leave empty to keep the current photo)', 'text', false],
                   ] as const
                 ).map(([key, label, type, required]) => (
                   <div key={key} className={key === 'image' ? 'sm:col-span-2' : ''}>

@@ -9,6 +9,7 @@ import {
   AlertCircle, Loader2, ArrowRight, Sparkles, ShieldCheck, Images, X,
 } from 'lucide-react';
 import { supabase, LEAD_SOURCES } from '@/lib/supabase';
+import { galleryCounts, productPhotoUrl } from '@/lib/products';
 import { useAuth } from '@/context/AuthContext';
 import { checkArtistPincode, PincodeCheckResult } from '@/lib/pincodes';
 import {
@@ -83,11 +84,24 @@ export default function RentPage() {
     setLoadingSafas(true);
     setCatalogueError(null);
 
-    // Wrapped in Promise.resolve() — the query builder is thenable but not a
-    // full Promise (no .catch()), and a dropped connection needs one.
-    Promise.resolve(
-      supabase.rpc('available_rentals', { p_start: startDate, p_end: endDate })
-    )
+    // Photos are left out of the list (they are base64 text — 2.6 MB for the
+    // whole range) and loaded one by one from /api/product-image instead.
+    const load = async () => {
+      const [result, galleries] = await Promise.all([
+        supabase
+          .rpc('available_rentals', { p_start: startDate, p_end: endDate })
+          .select('id, name, fabric, color, rent_price_per_day, rent_deposit, available'),
+        galleryCounts(),
+      ]);
+      const rows = ((result.data ?? []) as Omit<RentableSafa, 'image' | 'gallery_images'>[]).map((row) => ({
+        ...row,
+        image: productPhotoUrl(row.id),
+        gallery_images: Array.from({ length: galleries.get(row.id) ?? 0 }, (_, i) => productPhotoUrl(row.id, i + 1)),
+      }));
+      return { data: rows, error: result.error };
+    };
+
+    Promise.resolve(load())
       .then(({ data, error: rpcErr }) => {
         if (!active) return;
         if (rpcErr) {

@@ -139,7 +139,29 @@ export const STATIC_PRODUCTS: StoreProduct[] = STATIC_PRODUCTS_RAW.map((p) => ({
   images: [p.image],
 }));
 
-export function mapDBProduct(row: DBProductWithAvailability): StoreProduct {
+/** Where a product photo is served from — see src/app/api/product-image/[id]/route.ts. */
+export function productPhotoUrl(productId: string, index = 0): string {
+  return index > 0 ? `/api/product-image/${productId}?i=${index}` : `/api/product-image/${productId}`;
+}
+
+/**
+ * How many extra photos each product has, without downloading them — the
+ * photos themselves are base64 text, and fetching them with the list is what
+ * made the shop crawl.
+ */
+export async function galleryCounts(): Promise<Map<string, number>> {
+  const { data } = await supabase.from('product_images').select('product_id');
+  const counts = new Map<string, number>();
+  ((data ?? []) as { product_id: string }[]).forEach((r) => counts.set(r.product_id, (counts.get(r.product_id) ?? 0) + 1));
+  return counts;
+}
+
+/** Every catalogue column except the photos. */
+const LIST_COLUMNS =
+  'id, code, name, description, price, original_price, category, color, fabric, style, occasion, ' +
+  'rating, reviews_count, stock, available_quantity, is_new, is_bestseller, featured, active, sort_order, created_at';
+
+export function mapDBProduct(row: DBProductWithAvailability, galleryCount = 0): StoreProduct {
   return {
     id: row.id,
     productId: row.id,
@@ -153,8 +175,8 @@ export function mapDBProduct(row: DBProductWithAvailability): StoreProduct {
     fabric: row.fabric ?? '',
     style: row.style ?? '',
     occasion: row.occasion ?? '',
-    image: row.image ?? '/product-maroon-brocade.jpg',
-    images: [row.image ?? '/product-maroon-brocade.jpg', ...(row.gallery_images ?? [])],
+    image: productPhotoUrl(row.id),
+    images: Array.from({ length: galleryCount + 1 }, (_, i) => productPhotoUrl(row.id, i)),
     rating: Number(row.rating ?? 4.8),
     reviewsCount: row.reviews_count ?? 0,
     // Own stock minus what the desktop POS has committed against this SKU —
@@ -206,12 +228,15 @@ export async function fetchProducts(): Promise<ProductsResult> {
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
-    const { data, error } = await supabase
-      .from('products_with_availability')
-      .select('*')
-      .eq('active', true)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false });
+    const [{ data, error }, galleries] = await Promise.all([
+      supabase
+        .from('products_with_availability')
+        .select(LIST_COLUMNS)
+        .eq('active', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false }),
+      galleryCounts(),
+    ]);
 
     if (error) {
       console.error(
@@ -225,7 +250,7 @@ export async function fetchProducts(): Promise<ProductsResult> {
     }
 
     const result: ProductsResult = {
-      products: (data as DBProductWithAvailability[]).map(mapDBProduct),
+      products: (data as unknown as DBProductWithAvailability[]).map((row) => mapDBProduct(row, galleries.get(row.id) ?? 0)),
       fromDatabase: true,
       error: null,
     };
