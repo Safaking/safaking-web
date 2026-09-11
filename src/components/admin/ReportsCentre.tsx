@@ -25,6 +25,7 @@ import {
   LeadSource, Funnel, AuditLog, CustomerHistory, useArtistStats,
 } from './reports/bodies-people';
 import { OwnerDashboard, MISPack, AnnualReview, NotBuilt } from './reports/bodies-owner';
+import { ArtistQuality } from './reports/bodies-quality';
 
 /**
  * The SafaKing reporting centre.
@@ -221,6 +222,7 @@ export function ReportsCentre({ adminName, role }: { adminName: string; role: st
       case 'platform': return <Commission ctx={ctx} />;
       case 'artists': return <ArtistPerformance ctx={ctx} />;
       case 'ratings': return <RatingsComplaints ctx={ctx} />;
+      case 'quality': return <ArtistQuality ctx={ctx} />;
       case 'customers': return <CustomerMaster ctx={ctx} />;
       case 'repeat': return <RepeatRetention ctx={ctx} />;
       case 'sources': return <LeadSource ctx={ctx} />;

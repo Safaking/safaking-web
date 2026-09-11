@@ -15,7 +15,7 @@ export type ReportId =
   | 'collection' | 'receivable' | 'payable' | 'refunds' | 'revenue' | 'pnl'
   | 'sales' | 'services' | 'platform'
   // L4 people & marketing
-  | 'artists' | 'ratings' | 'customers' | 'repeat' | 'sources' | 'funnel'
+  | 'artists' | 'ratings' | 'quality' | 'customers' | 'repeat' | 'sources' | 'funnel'
   // L5 audit
   | 'audit'
   | 'analytics';
@@ -82,6 +82,7 @@ export const REPORTS: ReportDef[] = [
   // ---- L4 · People & marketing -------------------------------------------
   { id: 'artists', code: 'R-08 / R-09', label: 'Artist Performance', hint: 'Jobs, hours, earnings, what we owe', group: 'Artists & customers', icon: Crown, filter: 'range', searchable: true },
   { id: 'ratings', code: 'R-10', label: 'Ratings & Complaints', hint: 'Quality, standing, open cases', group: 'Artists & customers', icon: Star, filter: 'range', searchable: true },
+  { id: 'quality', code: 'R-51', label: 'Artist Quality (QC)', hint: 'Rating, complaints, attendance and arrival — job by job', group: 'Artists & customers', icon: Gauge, filter: 'range', searchable: true },
   { id: 'customers', code: 'R-11 / R-13', label: 'Customer Master', hint: 'Who booked, what they owe, click for history', group: 'Artists & customers', icon: Users, filter: 'range', searchable: true },
   { id: 'repeat', code: 'R-14 / R-43', label: 'Repeat & Retention', hint: 'Who came back, and how often', group: 'Artists & customers', icon: Repeat, filter: 'none', searchable: true },
   { id: 'sources', code: 'R-36', label: 'Lead Source', hint: 'Which marketing brings bookings', group: 'Artists & customers', icon: Megaphone, filter: 'range' },

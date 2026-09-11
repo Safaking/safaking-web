@@ -31,6 +31,7 @@ import { LiveOpsMap } from '@/components/liveops/LiveOpsMap';
 import { ArtistIncidentsPanel } from '@/components/liveops/ArtistIncidentsPanel';
 import { SecurityCentre, useStaffSecurityGate } from '@/components/admin/SecurityCentre';
 import { Department, DEPARTMENTS, DEPARTMENT_LABEL, DEPARTMENT_TABS, unitOf } from '@/lib/departments';
+import { ArtistQuality, qualityGrade, MIN_JOBS_FOR_GRADE } from '@/lib/artist-quality';
 import {
   ArtistStanding, STANDING_LABEL, STANDING_ORDER, STANDING_TONE, INCIDENT_LABEL, IncidentKind, blocksWork,
 } from '@/lib/artist-standing';
@@ -345,6 +346,7 @@ export default function AdminPanelPage() {
   }>({ rec: null, incidents: [] });
   const [standingSaving, setStandingSaving] = useState(false);
   const [standingError, setStandingError] = useState<string | null>(null);
+  const [qualityScores, setQualityScores] = useState<Record<string, ArtistQuality>>({});
   const [staffDesignation, setStaffDesignation] = useState('');
   const [staffPhoto, setStaffPhoto] = useState<File | null>(null);
   const [savingStaff, setSavingStaff] = useState(false);
@@ -425,7 +427,7 @@ export default function AdminPanelPage() {
     setLoading(true);
     setError(null);
 
-    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap, ck] = await Promise.all([
+    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap, ck, qs] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
@@ -439,13 +441,14 @@ export default function AdminPanelPage() {
       supabase.from('app_settings').select('*').order('key', { ascending: true }),
       supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events, standing, restricted_until'),
       supabase.from('booking_checkins').select('rental_id, booking_id, stage, created_at').order('created_at', { ascending: false }),
+      supabase.from('artist_quality_scores').select('*'),
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
     const isMissingTable = (err: { code?: string } | null) =>
       err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap, ck].find((x) => x.error && !isMissingTable(x.error))?.error;
+    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap, ck, qs].find((x) => x.error && !isMissingTable(x.error))?.error;
 
     const stages: Record<string, { stage: string; at: string }> = {};
     for (const row of (ck.data ?? []) as { rental_id: string | null; booking_id: string | null; stage: string; created_at: string }[]) {
@@ -453,6 +456,7 @@ export default function AdminPanelPage() {
       if (key && !stages[key]) stages[key] = { stage: row.stage, at: row.created_at };
     }
     setJobStage(stages);
+    setQualityScores(Object.fromEntries(((qs.data ?? []) as ArtistQuality[]).map((q) => [q.artist_id, q])));
 
     if (coreError || secondaryError) {
       setError(friendlyError(coreError || secondaryError));
@@ -2627,6 +2631,18 @@ export default function AdminPanelPage() {
                                   >
                                     {tone.label}
                                   </span>
+                                  {qualityScores[ap.id] && (() => {
+                                    const q = qualityScores[ap.id];
+                                    const grade = qualityGrade(q.quality_score, q.scored_jobs);
+                                    return (
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${grade.tone}`}
+                                        title={`Quality over the last ${q.scored_jobs} job(s): came ${q.attendance_pct}% · on time ${q.on_time_pct ?? '—'}% · rating ${q.avg_rating ?? '—'} · complaints ${q.complaints}. Reports → Artist Quality for job by job.`}
+                                      >
+                                        QC {q.scored_jobs >= MIN_JOBS_FOR_GRADE ? q.quality_score : 'new'}
+                                      </span>
+                                    );
+                                  })()}
                                   <span
                                     className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                       ap.verification_status === 'verified'
