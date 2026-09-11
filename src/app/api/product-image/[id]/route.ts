@@ -8,10 +8,11 @@ const FALLBACK = '/product-maroon-brocade.jpg';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Raster formats only: an SVG served from this origin could carry script.
 const SAFE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
-// Browsers keep it 5 minutes; Vercel's edge keeps it an hour and serves the
-// cached copy for a day while it refreshes in the background — a photo
-// changed in the POS shows up within the hour.
-const CACHE = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400';
+// Browsers keep it an hour; Vercel's edge keeps it a day, then keeps serving
+// that copy for up to a week while it fetches a fresh one in the background.
+// Photos rarely change, and the first, uncached request is the slow one
+// (the database is in Seoul) — a photo changed in the POS shows within a day.
+const CACHE = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
 
 function db() {
   try {
