@@ -21,29 +21,37 @@ const PROTECTED: { prefix: string; roles: string[]; signedOutTo: string; deniedT
 // still be able to reach — they're what the guard above redirects TO.
 const ARTIST_PORTAL_PUBLIC_SUBPATHS = ['/artist-portal/login', '/artist-portal/status'];
 
+/** The user id inside a Supabase access token. Read, not trusted — see below. */
+function subjectOf(accessToken: string): string | null {
+  try {
+    const part = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = part + '='.repeat((4 - (part.length % 4)) % 4);
+    const sub = JSON.parse(atob(padded)).sub;
+    return typeof sub === 'string' ? sub : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Guards the admin panel and the artist portal. Nothing else runs through
+ * here: the database is in Seoul and the customers are in India, so checking
+ * the session on every page used to add a round trip to each page a
+ * signed-in customer opened. The browser keeps its own session fresh, and
+ * every API route verifies its caller itself.
+ */
 export async function middleware(request: NextRequest) {
-  if (ARTIST_PORTAL_PUBLIC_SUBPATHS.some((p) => request.nextUrl.pathname.startsWith(p))) {
+  const path = request.nextUrl.pathname;
+  if (ARTIST_PORTAL_PUBLIC_SUBPATHS.some((p) => path.startsWith(p))) {
     return NextResponse.next({ request });
   }
 
-  const guard = PROTECTED.find(({ prefix }) =>
-    request.nextUrl.pathname.startsWith(prefix)
-  );
+  const guard = PROTECTED.find(({ prefix }) => path.startsWith(prefix));
+  if (!guard) return NextResponse.next({ request });
 
-  // Supabase's auth cookie is named `sb-<project-ref>-auth-token` (optionally
-  // chunked as `...-auth-token.0`, `.1`, ... for large sessions). An anonymous
-  // visitor has none of these, meaning there is no session to refresh and no
-  // way they could pass a role guard either — so skip the live Supabase
-  // network round-trip entirely rather than paying it on every single page
-  // view. This was the single biggest contributor to slow page loads across
-  // the site, since most storefront traffic browses signed out.
-  const hasAuthCookie = request.cookies
-    .getAll()
-    .some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'));
-
-  if (!hasAuthCookie) {
-    if (guard) {
-      const url = request.nextUrl.clone();
+  const redirectTo = (kind: 'signedOut' | 'denied') => {
+    const url = request.nextUrl.clone();
+    if (kind === 'signedOut') {
       url.pathname = guard.signedOutTo;
       if (guard.signedOutTo === '/') {
         url.searchParams.set('auth', 'login');
@@ -51,10 +59,23 @@ export async function middleware(request: NextRequest) {
       } else {
         url.search = '';
       }
-      return NextResponse.redirect(url);
+    } else {
+      url.pathname = guard.deniedTo;
+      if (guard.deniedTo === '/') {
+        url.searchParams.set('denied', guard.prefix.replace('/', ''));
+      } else {
+        url.search = '';
+      }
     }
-    return NextResponse.next({ request });
-  }
+    return NextResponse.redirect(url);
+  };
+
+  // Supabase's auth cookie is `sb-<project-ref>-auth-token` (optionally
+  // chunked as `.0`, `.1`, …). No cookie, no session — no network call.
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'));
+  if (!hasAuthCookie) return redirectTo('signedOut');
 
   let response = NextResponse.next({ request });
 
@@ -76,47 +97,29 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refreshes the auth token and keeps the cookie in sync. Must run on every
-  // request from a signed-in visitor, not just protected ones, or sessions
-  // expire mid-browse.
+  // getSession() reads the cookie and only calls the auth server when the
+  // token has expired (refreshing it into the response). It is not taken on
+  // trust: the profile query below sends that token to the database, which
+  // checks its signature — a forged or stale cookie finds no profile and is
+  // turned away. That is one round trip instead of two.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const userId = session ? subjectOf(session.access_token) : null;
+  if (!userId) return redirectTo('signedOut');
 
-  if (guard) {
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = guard.signedOutTo;
-      if (guard.signedOutTo === '/') {
-        url.searchParams.set('auth', 'login');
-        url.searchParams.set('next', request.nextUrl.pathname);
-      } else {
-        url.search = '';
-      }
-      return NextResponse.redirect(url);
-    }
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || !guard.roles.includes(profile.role)) {
-      const url = request.nextUrl.clone();
-      url.pathname = guard.deniedTo;
-      if (guard.deniedTo === '/') {
-        url.searchParams.set('denied', guard.prefix.replace('/', ''));
-      } else {
-        url.search = '';
-      }
-      return NextResponse.redirect(url);
-    }
-  }
+  if (!profile || !guard.roles.includes(profile.role)) return redirectTo('denied');
 
   return response;
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // Only the guarded areas invoke middleware at all.
+  matcher: ['/admin/:path*', '/artist-portal/:path*'],
 };

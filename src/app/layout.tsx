@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     title: "SafaKing — Royal Safas, Expert Artists & Turban House",
     description:
       "Book a master safa artist for your wedding, rent royal safas, or buy from our collection.",
-    images: [{ url: "/logo.png", width: 480, height: 480, alt: "SafaKing" }],
+    images: [{ url: "/logo.png", width: 256, height: 256, alt: "SafaKing" }],
   },
   twitter: {
     card: "summary_large_image",

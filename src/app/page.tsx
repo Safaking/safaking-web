@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AnimatePresence } from 'framer-motion';
 import { TopBanner } from '@/components/landing/TopBanner';
 import { Header } from '@/components/landing/Header';
 import { Hero } from '@/components/landing/Hero';
@@ -13,7 +12,6 @@ import { FeaturedCollection } from '@/components/landing/FeaturedCollection';
 import { TrainingSection } from '@/components/landing/TrainingSection';
 import { SupplierSection } from '@/components/landing/SupplierSection';
 import { Footer } from '@/components/landing/Footer';
-import { Preloader } from '@/components/landing/Preloader';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { fetchProducts, StoreProduct } from '@/lib/products';
@@ -23,7 +21,6 @@ function LandingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [isLoading, setIsLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
   // Starts empty rather than STATIC_PRODUCTS — showing demo products while
   // the real catalogue is still loading, with nothing to say so, read as
@@ -34,24 +31,21 @@ function LandingContent() {
   const [denied, setDenied] = useState<string | null>(null);
   const { wishlist, toggle: toggleWishlist } = useWishlist();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 2200);
-    return () => clearTimeout(timer);
-  }, []);
+  // The page used to sit behind a full-screen loader for a fixed 2.2 seconds
+  // on every visit, whatever the connection. It is gone: the page shows as
+  // soon as it arrives, and the product grid has its own skeleton.
 
-  // The browser's native #hash scroll fires on initial load, before the
-  // preloader clears and before layout below the fold has its final height —
-  // so it lands at whatever pixel offset the (still-collapsing) page had at
-  // that moment, not where the target actually ends up. Re-scroll once the
-  // preloader is gone and the DOM has settled.
+  // The browser's native #hash scroll fires before the sections below the
+  // fold have their final height, so it lands short. Re-scroll once the
+  // layout has settled.
   useEffect(() => {
-    if (isLoading || !window.location.hash) return;
+    if (!window.location.hash) return;
     const id = window.location.hash.slice(1);
     const timer = setTimeout(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
+    }, 400);
     return () => clearTimeout(timer);
-  }, [isLoading]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -87,8 +81,6 @@ function LandingContent() {
 
   return (
     <>
-      <AnimatePresence mode="wait">{isLoading && <Preloader key="loader" />}</AnimatePresence>
-
       {denied && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-2xl bg-rose-600 text-white text-xs font-bold shadow-2xl">
           You don&apos;t have access to the {denied === 'admin' ? 'admin panel' : 'artist portal'}.
