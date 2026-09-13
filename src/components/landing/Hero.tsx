@@ -148,16 +148,7 @@ function Stage() {
   const wordY = useDepth(cursor.y, -10);
   const glowX = useDepth(cursor.x, 120);
   const glowY = useDepth(cursor.y, 80);
-  const nearX = useDepth(cursor.x, 22);
-  const nearY = useDepth(cursor.y, 14);
   const textX = useDepth(cursor.x, -8);
-
-  const chips = [
-    // Kept to the right of and below the character, clear of the words column.
-    { label: 'Buy a safa', className: 'right-[-14%] top-[20%]' },
-    { label: 'Rent for the wedding', className: 'right-[-30%] top-[58%]' },
-    { label: 'Tied by our artist', className: 'left-[-4%] bottom-[6%]' },
-  ];
 
   return (
     <section
@@ -224,7 +215,7 @@ function Stage() {
         </motion.div>
 
         {/* Safa Raja, watching the butterfly */}
-        <div className="relative z-10 mx-auto aspect-[400/480] w-[min(78vw,420px)] lg:self-end">
+        <div className="relative z-10 mx-auto aspect-[400/600] w-[min(64vw,370px)] lg:self-end">
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -234,18 +225,6 @@ function Stage() {
             <SafaRaja className="h-full w-full" />
           </motion.div>
 
-          {chips.map((chip, i) => (
-            <motion.span
-              key={chip.label}
-              style={{ x: nearX, y: nearY }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 + i * 0.12, duration: 0.5 }}
-              className={`absolute z-20 hidden whitespace-nowrap rounded-full bg-royal-50/95 px-4 py-2 text-[11px] font-bold text-maroon-900 shadow-lg shadow-maroon-950/15 sm:inline-flex ${chip.className}`}
-            >
-              {chip.label}
-            </motion.span>
-          ))}
         </div>
 
         {/* What's below */}
