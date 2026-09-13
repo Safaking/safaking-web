@@ -8,11 +8,12 @@ import { useReducedMotion } from 'framer-motion';
  * Safa Raja — SafaKing's 3D groom — and the butterfly he can't take his eyes
  * off.
  *
- * The character is a single rendered image (public/hero/safa-raja.webp, cut
- * out of its background). His eyes are redrawn on top of it in SVG, clipped
- * to the whites of his eyes, so the irises can move while the rest of the
- * face stays exactly as rendered. Coordinates below are in the image's own
- * pixels (252 × 714), measured from the image.
+ * The character is the owner's rendered image cut out of its background and
+ * split at the chin into two layers (public/hero/safa-raja-head.webp and
+ * -body.webp) that overlap across the neck, so the head can turn without a
+ * gap opening. His eyes are redrawn in SVG inside the head layer, clipped to
+ * the whites of his eyes, so the irises move too. Coordinates below are in
+ * the image's own pixels (252 × 714), measured from the image.
  *
  * The butterfly glides after the mouse — easing in, never overshooting — and
  * stays upright, banking a little into turns. His eyes follow the butterfly and he leans slightly
@@ -21,7 +22,13 @@ import { useReducedMotion } from 'framer-motion';
  * transforms straight to the elements, so the mouse never re-renders React.
  */
 
-const IMAGE = { src: '/hero/safa-raja.webp', width: 252, height: 714 };
+const IMAGE = { head: '/hero/safa-raja-head.webp', body: '/hero/safa-raja-body.webp', width: 252, height: 714 };
+
+/** Where the head turns: the middle of his neck, just under the chin. */
+const PIVOT = { x: 131, y: 284 };
+
+/** How far the head goes toward the butterfly. */
+const HEAD = { tilt: 7, shiftX: 4, shiftY: 3 };
 
 const EYES = [
   { white: { cx: 97.4, cy: 199.8, rx: 13.2, ry: 11.2 }, iris: { cx: 101, cy: 200, r: 9.4 } },
@@ -35,6 +42,7 @@ export function SafaRaja({ className = '' }: { className?: string }) {
   const reduce = useReducedMotion();
   const wrap = useRef<HTMLDivElement>(null);
   const figure = useRef<HTMLDivElement>(null);
+  const headLayer = useRef<HTMLDivElement>(null);
   const butterfly = useRef<HTMLDivElement>(null);
   const leftEye = useRef<SVGEllipseElement>(null);
   const rightEye = useRef<SVGEllipseElement>(null);
@@ -56,6 +64,7 @@ export function SafaRaja({ className = '' }: { className?: string }) {
 
     const target = { x: window.innerWidth / 2, y: window.innerHeight / 3, steering: false };
     const pos = { x: target.x, y: target.y, vx: 0, vy: 0, angle: 0 };
+    const look = { tilt: 0, x: 0, y: 0 };
     const startedAt = performance.now();
     let last = startedAt;
     let frame = 0;
@@ -118,7 +127,7 @@ export function SafaRaja({ className = '' }: { className?: string }) {
           butterfly.current.style.transform = `translate3d(${flyX - 32}px, ${flyY - 32}px, 0) rotate(${pos.angle}deg)`;
         }
 
-        const look = (eye: DOMRect | undefined, iris: SVGGElement | null) => {
+        const aim = (eye: DOMRect | undefined, iris: SVGGElement | null) => {
           if (!eye || !iris) return;
           const dx = flyX - (eye.left + eye.width / 2);
           const dy = flyY - (eye.top + eye.height / 2);
@@ -129,13 +138,31 @@ export function SafaRaja({ className = '' }: { className?: string }) {
             `translate(${((dx / distance) * GAZE.x * reach).toFixed(2)} ${((dy / distance) * GAZE.y * reach).toFixed(2)})`
           );
         };
-        look(left, leftIris.current);
-        look(right, rightIris.current);
+        aim(left, leftIris.current);
+        aim(right, rightIris.current);
 
-        // A small lean toward the butterfly, pivoting at his feet.
+        // The head turns toward the butterfly: tilts, and shifts a little
+        // toward it, easing so it follows rather than snaps. The pivot is the
+        // neck, so the chin stays over the collar.
+        const scale = box.height / IMAGE.height;
+        const pivotX = box.left + PIVOT.x * scale;
+        const pivotY = box.top + PIVOT.y * scale;
+        const hx = flyX - pivotX;
+        const hy = flyY - pivotY;
+        const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+        const follow = reduce ? 1 : 1 - Math.pow(1 - 0.08, dt / 16.67);
+        look.tilt += (clamp(hx / 260) * HEAD.tilt - look.tilt) * follow;
+        look.x += (clamp(hx / 300) * HEAD.shiftX - look.x) * follow;
+        look.y += (clamp((hy + 120) / 300) * HEAD.shiftY - look.y) * follow;
+        if (headLayer.current) {
+          headLayer.current.style.transform = reduce
+            ? 'none'
+            : `translate(${(look.x * scale).toFixed(2)}px, ${(look.y * scale).toFixed(2)}px) rotate(${look.tilt.toFixed(2)}deg)`;
+        }
+
+        // And the whole figure leans a touch the same way, pivoting at his feet.
         if (figure.current) {
-          const dx = pos.x - (box.left + box.width / 2);
-          const lean = reduce ? 0 : Math.max(-2.5, Math.min(2.5, dx / 160));
+          const lean = reduce ? 0 : clamp(hx / 400) * 1.2;
           figure.current.style.transform = `rotate(${lean.toFixed(2)}deg)`;
         }
       }
@@ -164,8 +191,23 @@ export function SafaRaja({ className = '' }: { className?: string }) {
 
       <div ref={figure} className="absolute inset-0 will-change-transform" style={{ transformOrigin: '50% 100%' }}>
         <Image
-          src={IMAGE.src}
+          src={IMAGE.body}
           alt="Safa Raja, SafaKing's cartoon groom in a pink bandhani safa and maroon velvet sherwani"
+          fill
+          priority
+          draggable={false}
+          sizes="(max-width: 1024px) 40vw, 220px"
+          className="select-none object-contain object-bottom"
+        />
+
+        <div
+          ref={headLayer}
+          className="absolute inset-0 will-change-transform"
+          style={{ transformOrigin: `${(PIVOT.x / IMAGE.width) * 100}% ${(PIVOT.y / IMAGE.height) * 100}%` }}
+        >
+        <Image
+          src={IMAGE.head}
+          alt=""
           fill
           priority
           draggable={false}
@@ -226,6 +268,7 @@ export function SafaRaja({ className = '' }: { className?: string }) {
             </g>
           ))}
         </svg>
+        </div>
       </div>
 
       {/* The butterfly flies over the whole page, so it is fixed, not inside the figure */}
