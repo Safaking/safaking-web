@@ -2,255 +2,403 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { Crown, ArrowUpRight, Sparkles, Star } from 'lucide-react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  motion,
+  MotionValue,
+  useMotionValue,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from 'framer-motion';
+import { ArrowDown, ArrowUpRight, Crown } from 'lucide-react';
+import { SafaRaja } from './SafaRaja';
 
-export function Hero() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({ target: ref });
-  // Was 120px — on the tighter mobile hero height there isn't enough buffer
-  // below the image for that much downward drift before it clips against the
-  // section's overflow-hidden bottom edge.
-  const y = useTransform(scrollYProgress, [0, 1], [0, 30]);
-  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+/**
+ * The homepage opening: a saffron stage with a groom lifted out of his
+ * photo, layers that lean toward the cursor, then the collection sliding
+ * sideways as the page scrolls.
+ *
+ * Every image is one of SafaKing's own photos with its background removed
+ * (public/hero). Motion is off for anyone who asks their device for less of
+ * it, and phones get a swipeable row instead of a pinned one.
+ */
+
+const COLLECTION = [
+  {
+    src: '/hero/groom-maroon.webp',
+    name: 'Maroon Zardozi',
+    kind: 'Groom safa',
+    note: 'Velvet with a hand-set kundan brooch and pearl lari',
+    alt: 'Groom wearing a maroon velvet safa with gold embroidery and a kundan brooch',
+    href: '/shop',
+    cta: 'See in the shop',
+    tint: '#6E1322',
+  },
+  {
+    src: '/hero/safa-pink.webp',
+    name: 'Rani Pink Chanderi',
+    kind: 'Ready-tied safa',
+    note: 'Silk with a pearl lari and a feather kalgi',
+    alt: 'Pink Chanderi silk safa with a pearl string and a feather plume',
+    href: '/shop',
+    cta: 'See in the shop',
+    tint: '#9C2150',
+  },
+  {
+    src: '/hero/groom-gold.webp',
+    name: 'Sunehri Brocade',
+    kind: 'Groom safa',
+    note: 'Gold brocade finished with a peacock kalgi',
+    alt: 'Groom wearing a gold brocade safa with a peacock feather',
+    href: '/shop',
+    cta: 'See in the shop',
+    tint: '#8A6614',
+  },
+  {
+    src: '/hero/groom-blue.webp',
+    name: 'Jodhpuri Neel',
+    kind: 'Groom safa',
+    note: 'Royal blue velvet with a gold zari border',
+    alt: 'Groom in profile wearing a royal blue velvet safa with gold borders',
+    href: '/shop',
+    cta: 'See in the shop',
+    tint: '#1F3478',
+  },
+  {
+    src: '/hero/safa-brocade.webp',
+    name: 'Banarasi Maroon',
+    kind: 'Safa on rent',
+    note: 'Banarasi weave with a long pench and peacock kalgi',
+    alt: 'Maroon Banarasi safa with a long tail and a peacock feather',
+    href: '/rent',
+    cta: 'Rent this style',
+    tint: '#5A0E18',
+  },
+  {
+    src: '/hero/groom-full.webp',
+    name: 'The Complete Look',
+    kind: 'Safa + artist',
+    note: 'Choose the safa, and our artist ties it on the day',
+    alt: 'Groom in a pink safa and maroon sherwani holding a sword',
+    href: '/#artist-booking-form',
+    cta: 'Book an artist',
+    tint: '#3A0A13',
+  },
+];
+
+/** True only on a device with a real pointer that has not asked for less motion. */
+function useFinePointer() {
+  const [fine, setFine] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia('(pointer: fine)');
+    const update = () => setFine(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return fine;
+}
+
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 768px)');
+    const update = () => setDesktop(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return desktop;
+}
+
+/** Cursor position across the window, -1 to 1 on each axis, eased. */
+function useCursor(enabled: boolean) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  useEffect(() => {
+    if (!enabled) {
+      x.set(0);
+      y.set(0);
+      return;
+    }
+    const onMove = (e: PointerEvent) => {
+      x.set((e.clientX / window.innerWidth) * 2 - 1);
+      y.set((e.clientY / window.innerHeight) * 2 - 1);
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => window.removeEventListener('pointermove', onMove);
+  }, [enabled, x, y]);
+  const spring = { stiffness: 70, damping: 20, mass: 0.6 };
+  return { x: useSpring(x, spring), y: useSpring(y, spring) };
+}
+
+/** A layer that drifts with the cursor; nearer layers move further. */
+function useDepth(value: MotionValue<number>, pixels: number) {
+  return useTransform(value, [-1, 1], [-pixels, pixels]);
+}
+
+function Stage() {
+  const reduce = useReducedMotion();
+  const fine = useFinePointer();
+  const cursor = useCursor(fine && !reduce);
+
+  const wordX = useDepth(cursor.x, -18);
+  const wordY = useDepth(cursor.y, -10);
+  const glowX = useDepth(cursor.x, 120);
+  const glowY = useDepth(cursor.y, 80);
+  const nearX = useDepth(cursor.x, 22);
+  const nearY = useDepth(cursor.y, 14);
+  const textX = useDepth(cursor.x, -8);
+
+  const chips = [
+    // Kept to the right of and below the character, clear of the words column.
+    { label: 'Buy a safa', className: 'right-[-14%] top-[20%]' },
+    { label: 'Rent for the wedding', className: 'right-[-30%] top-[58%]' },
+    { label: 'Tied by our artist', className: 'left-[-4%] bottom-[6%]' },
+  ];
 
   return (
     <section
-      ref={ref}
       id="home"
-      className="relative overflow-hidden bg-royal-gradient text-white min-h-screen flex items-center"
+      // The butterfly is the pointer here; links keep their hand cursor.
+      className="relative overflow-hidden text-maroon-950 [@media(pointer:fine)]:cursor-none [&_a]:cursor-pointer"
+      style={{ background: 'radial-gradient(120% 90% at 50% 0%, #F7B42C 0%, #EE9A12 45%, #D9790B 100%)' }}
     >
-      {/* Animated background orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.45, 0.2] }}
-          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute top-1/4 -left-48 w-[500px] h-[500px] bg-royal-500/25 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{ scale: [1.1, 1, 1.1], opacity: [0.15, 0.35, 0.15] }}
-          transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute bottom-0 -right-48 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] border border-royal-400/5 rounded-full"
-        />
-        <motion.div
-          animate={{ rotate: -360 }}
-          transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] border border-royal-400/8 rounded-full"
-        />
-        <div className="absolute inset-0 pattern-diamond opacity-30" />
-      </div>
-
+      {/* Light that follows the cursor */}
       <motion.div
-        style={{ y, opacity }}
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 lg:py-32 relative z-10 w-full"
+        aria-hidden
+        style={{ x: glowX, y: glowY }}
+        className="pointer-events-none absolute left-1/2 top-1/3 h-[70vmax] w-[70vmax] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,240,190,0.55)_0%,rgba(255,240,190,0)_62%)]"
+      />
+      {/* Bandhani dots */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.13] [background-image:radial-gradient(circle,#6B0F1A_1.3px,transparent_1.8px)] [background-size:24px_24px]"
+      />
+      {/* The word behind the groom */}
+      <motion.p
+        aria-hidden
+        style={{ x: wordX, y: wordY }}
+        className="pointer-events-none absolute inset-x-0 top-[6%] select-none text-center font-display font-black leading-none tracking-tighter text-maroon-900/[0.09] text-[34vw] lg:text-[26vw]"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-8 sm:gap-12 lg:gap-16">
-          {/* Left content */}
-          <div className="space-y-5 sm:space-y-7 lg:space-y-8 text-center lg:text-left">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-royal-500/15 border border-royal-400/30 text-royal-200 text-xs font-bold uppercase tracking-[0.2em]"
-            >
-              <motion.span
-                animate={{ rotate: [0, 15, -15, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <Sparkles size={14} className="text-royal-400" />
-              </motion.span>
-              Premium Royal Heritage Since 1998
-            </motion.div>
+        SAFA
+      </motion.p>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-              className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-display font-black leading-[1.02] tracking-tight"
+      <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-end gap-8 px-4 pt-10 sm:px-6 lg:min-h-[calc(100svh-7.25rem)] lg:grid-cols-[1fr_minmax(0,500px)_1fr] lg:gap-6 lg:px-8 lg:pt-0">
+        {/* Words */}
+        <motion.div
+          style={{ x: textX }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="relative z-20 text-center lg:self-center lg:pb-16 lg:text-left"
+        >
+          <p className="inline-flex items-center gap-2 rounded-full bg-maroon-950/90 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-royal-200">
+            <Crown size={12} className="text-royal-400" /> SafaKing · Royal Turban House
+          </p>
+          <h1 className="mt-5 font-display text-5xl font-black leading-[0.95] tracking-tight sm:text-6xl xl:text-7xl">
+            Every groom
+            <br />
+            deserves a <span className="italic text-maroon-800">crown.</span>
+          </h1>
+          <p className="mx-auto mt-5 max-w-sm text-base leading-relaxed text-maroon-950/75 lg:mx-0">
+            Safas to buy or rent, and a master artist to tie yours on the day.
+          </p>
+          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:items-start">
+            <a
+              href="#collection"
+              className="group inline-flex items-center gap-2 rounded-full bg-maroon-950 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-100 shadow-xl shadow-maroon-950/25 transition-colors hover:bg-maroon-900"
             >
-              <span className="text-royal-50">Crown Your</span>
-              <br />
-              <span className="text-gradient-gold italic">Special Day</span>
-              <br />
-              <motion.span
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5, duration: 0.7 }}
-                className="text-royal-100/80 text-4xl sm:text-5xl lg:text-6xl"
-              >
-                With SafaKing
-              </motion.span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.3 }}
-              className="text-royal-100/70 text-base sm:text-lg font-light leading-relaxed max-w-lg mx-auto lg:mx-0"
+              See the collection
+              <ArrowDown size={14} className="transition-transform group-hover:translate-y-0.5" />
+            </a>
+            <Link
+              href="#artist-booking-form"
+              className="inline-flex items-center gap-2 rounded-full border-2 border-maroon-950/70 px-6 py-3 text-xs font-bold uppercase tracking-widest text-maroon-950 transition-colors hover:bg-maroon-950 hover:text-royal-100"
             >
-              Opulent Chanderi silk safas, master safa artists for every style, and India&apos;s finest
-              turban training academy — all under one royal roof.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.4 }}
-              className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4"
-            >
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
-                <Link
-                  href="/shop"
-                  className="group w-full sm:w-auto bg-royal-500 hover:bg-royal-400 text-maroon-950 font-bold px-8 py-4 rounded-2xl text-xs uppercase tracking-widest shadow-xl shadow-royal-900/40 flex items-center justify-center gap-2 transition-colors"
-                >
-                  Browse Collection
-                  <ArrowUpRight size={16} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </Link>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
-                <Link
-                  href="#artist-booking-form"
-                  className="w-full sm:w-auto border-2 border-royal-400/50 hover:border-royal-300 text-royal-100 font-bold px-8 py-4 rounded-2xl text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:bg-royal-500/10"
-                >
-                  <Crown size={16} />
-                  Book Safa Artist
-                </Link>
-              </motion.div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="flex items-center justify-center lg:justify-start gap-10 pt-2"
-            >
-              {[
-                { value: '500+', label: 'Royal Safas' },
-                { value: '50+', label: 'Master Artists' },
-                { value: '10K+', label: 'Happy Grooms' },
-              ].map((stat, i) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 + i * 0.1 }}
-                  className="text-center lg:text-left"
-                >
-                  <p className="text-2xl font-display font-bold text-royal-300">{stat.value}</p>
-                  <p className="text-[10px] uppercase tracking-widest text-royal-200/50 font-bold mt-0.5">{stat.label}</p>
-                </motion.div>
-              ))}
-            </motion.div>
+              Book a safa artist <ArrowUpRight size={14} />
+            </Link>
           </div>
+        </motion.div>
 
-          {/* Right — hero image stack */}
-          <div className="relative flex items-center justify-center h-[340px] sm:h-[440px] lg:h-[580px]">
-            {/* Main hero image */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.82, rotate: -3 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-              className="relative z-10"
+        {/* Safa Raja, watching the butterfly */}
+        <div className="relative z-10 mx-auto aspect-[400/480] w-[min(78vw,420px)] lg:self-end">
+          <motion.div
+            initial={{ opacity: 0, y: 40, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0"
+          >
+            <SafaRaja className="h-full w-full" />
+          </motion.div>
+
+          {chips.map((chip, i) => (
+            <motion.span
+              key={chip.label}
+              style={{ x: nearX, y: nearY }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5 + i * 0.12, duration: 0.5 }}
+              className={`absolute z-20 hidden whitespace-nowrap rounded-full bg-royal-50/95 px-4 py-2 text-[11px] font-bold text-maroon-900 shadow-lg shadow-maroon-950/15 sm:inline-flex ${chip.className}`}
             >
-              <motion.div
-                animate={{ boxShadow: ['0 0 40px rgba(212,175,55,0.15)', '0 0 80px rgba(212,175,55,0.35)', '0 0 40px rgba(212,175,55,0.15)'] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="absolute -inset-3 rounded-[2.5rem] blur-xl"
-              />
-              <div className="relative w-52 sm:w-64 lg:w-72 h-64 sm:h-80 lg:h-96 rounded-[2.5rem] overflow-hidden border-2 border-royal-400/50 shadow-2xl shadow-black/50">
-                <Image
-                  src="/hero-groom-maroon.jpg"
-                  alt="Royal Indian Groom in Maroon Safa"
-                  fill
-                  className="object-cover object-top"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/60 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4">
-                  <div className="flex items-center gap-1 mb-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={10} className="fill-royal-400 text-royal-400" />
-                    ))}
-                  </div>
-                  <p className="text-white text-[10px] font-bold uppercase tracking-widest">Maroon Royal Safa</p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Floating card — Pink Safa */}
-            <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.5 }}
-              className="absolute top-0 -left-2 sm:left-0 z-20 w-28 sm:w-40 lg:w-48 glass-card p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
-            >
-              <div className="relative w-full h-16 sm:h-24 lg:h-28 rounded-lg sm:rounded-xl overflow-hidden">
-                <Image
-                  src="/product-pink-chanderi.jpg"
-                  alt="Imperial Pink Silk Safa"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <p className="text-[10px] font-bold text-maroon-700 uppercase text-center mt-2 tracking-wider">
-                Imperial Pink Silk
-              </p>
-              <p className="text-[9px] text-maroon-500/60 text-center">Chanderi · ₹3,499</p>
-            </motion.div>
-
-            {/* Floating card — Blue Safa */}
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.7 }}
-              className="absolute bottom-0 -right-2 sm:right-0 z-20 w-28 sm:w-40 lg:w-48 glass-card p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-royal-200/50 shadow-2xl overflow-hidden"
-            >
-              <div className="relative w-full h-16 sm:h-24 lg:h-28 rounded-lg sm:rounded-xl overflow-hidden">
-                <Image
-                  src="/artist-jodhpuri-blue.jpg"
-                  alt="Royal Blue Jodhpuri Safa"
-                  fill
-                  className="object-cover object-top"
-                />
-              </div>
-              <p className="text-[10px] font-bold text-maroon-700 uppercase text-center mt-2 tracking-wider">
-                Jodhpuri Royal Blue
-              </p>
-              <p className="text-[9px] text-maroon-500/60 text-center">Brocade · ₹4,199</p>
-            </motion.div>
-
-            {/* Decorative rings — static; the continuous rotation was a real
-                source of jank on mobile WebViews, not just a flourish */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-[260px] h-[260px] sm:w-[380px] sm:h-[380px] lg:w-[450px] lg:h-[450px] rounded-full border border-dashed border-royal-400/20" />
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-[200px] h-[200px] sm:w-[300px] sm:h-[300px] lg:w-[360px] lg:h-[360px] rounded-full border border-dotted border-royal-300/10" />
-            </div>
-          </div>
+              {chip.label}
+            </motion.span>
+          ))}
         </div>
-      </motion.div>
 
-      {/* Scroll indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-royal-400/50"
-      >
-        <span className="text-[10px] uppercase tracking-widest font-bold">Scroll</span>
+        {/* What's below */}
         <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="w-0.5 h-8 bg-gradient-to-b from-royal-400/50 to-transparent rounded-full"
-        />
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="relative z-20 hidden flex-col items-end gap-4 self-center pb-16 lg:flex"
+        >
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-maroon-950/60">The collection</p>
+          <ol className="space-y-1.5 text-right">
+            {COLLECTION.map((item, i) => (
+              <li key={item.name} className="font-display text-lg font-bold text-maroon-950/80">
+                <span className="mr-2 font-sans text-[10px] font-bold text-maroon-950/40">{String(i + 1).padStart(2, '0')}</span>
+                {item.name}
+              </li>
+            ))}
+          </ol>
+          <a href="#collection" className="mt-2 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-maroon-950">
+            Scroll <ArrowDown size={12} className="animate-bounce" />
+          </a>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function RailItem({ item, index, count, progress, animate }: {
+  item: (typeof COLLECTION)[number];
+  index: number;
+  count: number;
+  progress: MotionValue<number>;
+  animate: boolean;
+}) {
+  const at = count > 1 ? index / (count - 1) : 0;
+  const lift = useTransform(progress, [at - 0.4, at, at + 0.4], [60, 0, -60]);
+  const tilt = useTransform(progress, [at - 0.4, at + 0.4], [5, -5]);
+  const numberX = useTransform(progress, [at - 0.4, at + 0.4], [80, -80]);
+
+  return (
+    <article className="flex w-[78vw] shrink-0 snap-center flex-col sm:w-[52vw] md:w-[34vw] lg:w-[27vw]">
+      <div className="relative aspect-[4/5]">
+        <motion.span
+          aria-hidden
+          style={animate ? { x: numberX } : undefined}
+          className="absolute -left-2 top-0 font-display text-8xl font-black leading-none text-white/[0.12] lg:text-9xl"
+        >
+          {String(index + 1).padStart(2, '0')}
+        </motion.span>
+        <motion.div style={animate ? { y: lift, rotate: tilt } : undefined} className="absolute inset-6">
+          <Image
+            src={item.src}
+            alt={item.alt}
+            fill
+            sizes="(max-width: 768px) 78vw, 30vw"
+            className="object-contain drop-shadow-[0_30px_35px_rgba(0,0,0,0.4)]"
+          />
+        </motion.div>
+      </div>
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.25em] text-royal-200/80">{item.kind}</p>
+      <h3 className="mt-1 font-display text-2xl font-black text-royal-50 md:text-3xl">{item.name}</h3>
+      <p className="mt-1 max-w-xs text-sm text-royal-100/70">{item.note}</p>
+      <Link
+        href={item.href}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-royal-300 transition-colors hover:text-royal-100"
+      >
+        {item.cta} <ArrowUpRight size={14} />
+      </Link>
+    </article>
+  );
+}
+
+function CollectionRail() {
+  const reduce = useReducedMotion();
+  const desktop = useIsDesktop();
+  const pinned = desktop && !reduce;
+
+  const section = useRef<HTMLElement>(null);
+  const track = useRef<HTMLDivElement>(null);
+  const [distance, setDistance] = useState(0);
+
+  useEffect(() => {
+    if (!pinned) return;
+    const measure = () => {
+      if (track.current) setDistance(Math.max(0, track.current.scrollWidth - window.innerWidth));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [pinned]);
+
+  const { scrollYProgress } = useScroll({ target: section, offset: ['start start', 'end end'] });
+  const slide = useTransform(scrollYProgress, (p) => -p * distance);
+  const tint = useTransform(
+    scrollYProgress,
+    COLLECTION.map((_, i) => i / (COLLECTION.length - 1)),
+    COLLECTION.map((item) => item.tint)
+  );
+
+  return (
+    <section
+      ref={section}
+      id="collection"
+      aria-label="The SafaKing collection"
+      className={`relative ${pinned ? 'h-[420vh]' : ''}`}
+    >
+      <motion.div
+        style={{ backgroundColor: pinned ? tint : COLLECTION[0].tint }}
+        // Pinned just below the site header, which stays on screen.
+        className={`flex flex-col justify-center overflow-hidden py-14 ${pinned ? 'sticky top-20 h-[calc(100vh-5rem)] py-0' : ''}`}
+      >
+        <div className="mx-auto mb-8 flex w-full max-w-7xl items-end justify-between gap-6 px-4 sm:px-6 lg:px-8">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-royal-300">The collection</p>
+            <h2 className="mt-2 font-display text-4xl font-black text-royal-50 md:text-5xl">Pick your crown</h2>
+          </div>
+          {pinned ? (
+            <div className="hidden h-1 w-40 overflow-hidden rounded-full bg-white/15 md:block">
+              <motion.div style={{ scaleX: scrollYProgress }} className="h-full origin-left rounded-full bg-royal-300" />
+            </div>
+          ) : (
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-royal-200/70">Swipe →</p>
+          )}
+        </div>
+
+        <motion.div
+          ref={track}
+          style={pinned ? { x: slide } : undefined}
+          className={`flex gap-8 px-4 sm:px-6 md:gap-12 md:px-[8vw] ${
+            pinned ? '' : 'snap-x snap-mandatory overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+          }`}
+        >
+          {COLLECTION.map((item, i) => (
+            <RailItem
+              key={item.name}
+              item={item}
+              index={i}
+              count={COLLECTION.length}
+              progress={scrollYProgress}
+              animate={pinned}
+            />
+          ))}
+        </motion.div>
       </motion.div>
     </section>
+  );
+}
+
+export function Hero() {
+  return (
+    <>
+      <Stage />
+      <CollectionRail />
+    </>
   );
 }

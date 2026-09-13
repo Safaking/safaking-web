@@ -236,3 +236,31 @@ button, a {
     display: none;
   }
 }
+
+/* Safa Raja's butterfly: wings beat by squeezing toward the body. */
+@keyframes sk-flap {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0.5); }
+}
+.sk-wing {
+  transform-box: view-box;
+  transform-origin: 24px 24px;
+  animation: sk-flap 0.22s ease-in-out infinite alternate;
+}
+
+/* Safa Raja blinks: the eyelids are scaled to nothing except for a moment. */
+@keyframes sk-blink {
+  0%, 96.5%, 100% { transform: scaleY(0); }
+  98% { transform: scaleY(1); }
+}
+.sk-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(0);
+  animation: sk-blink 4.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-wing { animation: none; }
+  .sk-blink { animation: none; }
+}
