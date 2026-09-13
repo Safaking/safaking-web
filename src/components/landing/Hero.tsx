@@ -215,7 +215,7 @@ function Stage() {
         </motion.div>
 
         {/* Safa Raja, watching the butterfly */}
-        <div className="relative z-10 mx-auto aspect-[400/600] w-[min(64vw,370px)] lg:self-end">
+        <div className="relative z-10 mx-auto aspect-[252/714] h-[min(56svh,480px)] lg:h-[min(72svh,620px)] lg:self-end">
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
