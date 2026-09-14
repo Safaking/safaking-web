@@ -126,7 +126,9 @@ export default function PoliciesPage() {
               <ul>
                 <li>
                   A booking is confirmed once the advance is received. The advance is{' '}
-                  <b>{advance}% of the total</b>; the balance is paid to your artist at the event.
+                  <b>{advance}% of the total</b>; the rest is paid to SafaKing by the event date, so{' '}
+                  <b>100% is paid before the event</b>. Never pay the artist directly — every payment
+                  goes through SafaKing.
                 </li>
                 <li>
                   Groom safa purchases take a <b>{num('groom_safa_advance_percent', 25)}% advance</b>.
