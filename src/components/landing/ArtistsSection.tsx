@@ -749,9 +749,12 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                           <span>₹{advanceAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between font-bold text-amber-300 bg-amber-950/60 p-2 rounded-xl border border-amber-500/30">
-                          <span>🎨 Balance to Artist at Event</span>
+                          <span>🗓️ Balance to SafaKing by {eventDate ? new Date(`${eventDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'your event date'}</span>
                           <span>₹{balanceAmount.toLocaleString()}</span>
                         </div>
+                        <p className="pt-0.5 text-[10px] leading-relaxed text-royal-200/60">
+                          100% of the fee is paid to SafaKing by the event date. Please never pay the artist directly.
+                        </p>
                       </div>
 
                       <LocationPin value={pin} onChange={setPin} theme="dark" />
@@ -809,7 +812,7 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                         )}
                       </motion.button>
                       <p className="text-[10px] text-center text-royal-200/50">
-                        ⚡ {Math.round(advanceRate * 100)}% Advance Today · Balance to Artist at Event
+                        ⚡ {Math.round(advanceRate * 100)}% Advance Today · 100% Paid to SafaKing by Your Event Date
                       </p>
                     </motion.form>
                   )}

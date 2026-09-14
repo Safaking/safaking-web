@@ -145,7 +145,7 @@ export default async function BookingConfirmationPage({
             <span>{money(rental.advance_amount)}</span>
           </div>
           <div className="flex justify-between text-xs text-amber-900 font-bold">
-            <span>Balance at event</span>
+            <span>Balance due to SafaKing by {rental.start_date ? new Date(`${rental.start_date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'the event date'}</span>
             <span>{money(rental.balance_amount)}</span>
           </div>
         </div>

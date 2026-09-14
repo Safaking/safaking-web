@@ -601,7 +601,7 @@ export default function RentPage() {
                     <span>₹{quote.advanceAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                    <span>On delivery</span>
+                    <span>Balance to SafaKing by {new Date(`${startDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
                     <span>₹{quote.balanceAmount.toLocaleString()}</span>
                   </div>
                 </div>
