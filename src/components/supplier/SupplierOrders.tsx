@@ -163,7 +163,7 @@ export function SupplierOrders({
                   </span>
                   <span className="text-[11px] text-gray-500">{day(order.created_at)}</span>
                 </div>
-                <div className="text-right">
+                <div className="sm:text-right">
                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">You receive</p>
                   <p className="font-display font-black text-xl text-emerald-700">{rupees(Number(order.payout_amount))}</p>
                 </div>

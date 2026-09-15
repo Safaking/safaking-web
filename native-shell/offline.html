@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4A0E1A">
+  <title>SafaKing</title>
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #FDF6EC;
+      color: #4A0E1A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    img { width: 132px; height: 132px; object-fit: contain; }
+    h1 { font-size: 22px; margin: 18px 0 6px; }
+    .hi { font-size: 17px; font-weight: 600; margin: 0 0 12px; }
+    p { margin: 0 auto 26px; max-width: 320px; font-size: 15px; line-height: 1.5; color: #7a4a52; }
+    button {
+      border: 0;
+      background: #4A0E1A;
+      color: #F5D98B;
+      font: inherit;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 15px 30px;
+      border-radius: 14px;
+    }
+    button:active { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="logo.png" alt="SafaKing">
+    <h1>No internet connection</h1>
+    <p class="hi">इंटरनेट कनेक्शन नहीं है</p>
+    <p>SafaKing needs the internet to show safas, bookings and orders. Check your mobile data or Wi-Fi, then try again.</p>
+    <button type="button" onclick="retry()">Try again</button>
+  </main>
+  <script>
+    function retry() {
+      window.location.href = 'https://www.safaking.in/';
+    }
+    // Back online: go straight back to SafaKing.
+    window.addEventListener('online', retry);
+  </script>
+</body>
+</html>

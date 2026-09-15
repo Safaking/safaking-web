@@ -14,6 +14,7 @@ import {
 } from '@/lib/checkout';
 import { checkPincode, PincodeCheckResult } from '@/lib/pincodes';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
+import { useBackHandler } from '@/lib/native-app';
 
 export function CartDrawer() {
   const { user, profile } = useAuth();
@@ -173,6 +174,9 @@ export function CartDrawer() {
       setBalanceBeforeDispatch(false);
     }
   };
+
+  // In the Android app the back button closes the bag first.
+  useBackHandler(isOpen, handleClose);
 
   if (!isOpen) return null;
 

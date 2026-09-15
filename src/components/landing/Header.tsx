@@ -211,7 +211,7 @@ export function Header({ wishlistCount, onOpenAuth }: HeaderProps) {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-500 ${
+      className={`sk-web-header sticky top-0 z-50 transition-all duration-500 ${
         scrolled
           ? 'bg-white/90 backdrop-blur-xl shadow-lg shadow-maroon-900/5 border-b border-royal-200/50'
           : 'bg-maroon-950/20 backdrop-blur-sm border-b border-royal-400/10'
