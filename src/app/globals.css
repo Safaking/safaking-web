@@ -251,3 +251,31 @@ button, a {
 @media (prefers-reduced-motion: reduce) {
   .sk-wing { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   The Android app
+   Inside the app (the `sk-app` class on <html>, set before first paint by the
+   root layout) the site's own headers and tab bar give way to the app bar and
+   tabs drawn by src/components/app/AppShell.tsx.
+   --------------------------------------------------------------------------- */
+.sk-app .sk-web-header,
+.sk-app .sk-web-tabbar,
+.sk-app .sk-web-only {
+  display: none !important;
+}
+
+.sk-app body {
+  padding-top: 3.5rem;
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+}
+
+/* The admin panel keeps its own navigation. */
+.sk-app.sk-app-bare body {
+  padding-top: 0;
+  padding-bottom: 0 !important;
+}
+
+/* The artist portal's bottom tabs jump to sections; land them below the bar. */
+.sk-app [id^='artist-'] {
+  scroll-margin-top: 4.5rem;
+}

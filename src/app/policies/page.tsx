@@ -75,7 +75,7 @@ export default function PoliciesPage() {
 
   return (
     <div className="min-h-screen bg-[#FDF6EC] text-maroon-950">
-      <header className="sticky top-0 z-40 bg-maroon-950 text-white shadow-lg">
+      <header className="sk-web-header sticky top-0 z-40 bg-maroon-950 text-white shadow-lg">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-20">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-10 h-10 shrink-0">

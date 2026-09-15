@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Playfair_Display, Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
@@ -6,6 +7,7 @@ import { MfaChallenge } from "@/components/auth/MfaChallenge";
 import { CartProvider } from "@/context/CartContext";
 import { MobileTabBar } from "@/components/landing/MobileTabBar";
 import { NativeChrome } from "@/components/landing/NativeChrome";
+import { AppShell } from "@/components/app/AppShell";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -75,15 +77,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // The app flag below adds a class to <html> before React hydrates.
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${playfair.variable} ${cormorant.variable} ${dmSans.variable} antialiased font-sans pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0`}
       >
+        {/* Inside the Android app, the site's own headers give way to the
+            app bar before first paint — see src/lib/native-app.ts. */}
+        <Script id="sk-app-flag" strategy="beforeInteractive">
+          {`if (window.androidBridge) document.documentElement.classList.add('sk-app');`}
+        </Script>
         <AuthProvider>
           <CartProvider>
             <NativeChrome />
             {children}
             <MobileTabBar />
+            <AppShell />
           </CartProvider>
           <MfaChallenge />
         </AuthProvider>

@@ -182,7 +182,7 @@ export default function ArtistPortalPage() {
   return (
     <div className="min-h-screen bg-[#FDF6EC] text-maroon-950">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-maroon-950 text-white shadow-lg border-b border-royal-400/20">
+      <header className="sk-web-header sticky top-0 z-40 bg-maroon-950 text-white shadow-lg border-b border-royal-400/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
@@ -358,11 +358,18 @@ export default function ArtistPortalPage() {
         {user && (
           <div className="mb-8 space-y-6">
             <ArtistComplaints artistId={user.id} artistName={profile?.full_name || 'Artist'} />
-            <ArtistCheckin artistId={user.id} />
-            <ArtistLeadBoard artistId={user.id} />
-            <VerificationPanel ownerId={user.id} subjectType="artist" />
-            <DigitalIdCard artistId={user.id} />
-            <PortfolioManager artistId={user.id} />
+            {/* The ids are what the Android app's bottom tabs jump to. */}
+            <div id="artist-checkin">
+              <ArtistCheckin artistId={user.id} />
+            </div>
+            <div id="artist-leads">
+              <ArtistLeadBoard artistId={user.id} />
+            </div>
+            <div id="artist-profile" className="space-y-6">
+              <VerificationPanel ownerId={user.id} subjectType="artist" />
+              <DigitalIdCard artistId={user.id} />
+              <PortfolioManager artistId={user.id} />
+            </div>
           </div>
         )}
 
@@ -390,7 +397,7 @@ export default function ArtistPortalPage() {
         )}
 
         {/* Bookings List */}
-        <div className="space-y-4">
+        <div id="artist-bookings" className="space-y-4">
           {loading ? (
             <div className="p-12 text-center bg-white rounded-3xl border border-amber-200/60">
               <Loader2 size={30} className="text-amber-500 mx-auto mb-3 animate-spin" />

@@ -43,6 +43,14 @@ const PARCEL_LABEL: Record<ParcelStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+const ORDER_LABEL: Record<MyOrder['status'], string> = {
+  pending: 'Being prepared',
+  confirmed: 'Confirmed',
+  shipped: 'On the way',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
 const day = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 
@@ -157,7 +165,7 @@ export function MyOrders({ customerName, customerPhone }: { customerName: string
               <div>
                 <p className="font-bold text-sm text-maroon-950">Order #{order.ref}</p>
                 <p className="text-[11px] text-gray-500 mt-0.5">
-                  {day(order.created_at)} · {order.status === 'cancelled' ? 'Cancelled' : order.status}
+                  {day(order.created_at)} · {ORDER_LABEL[order.status] ?? order.status}
                 </p>
               </div>
               <div className="text-right">

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Home, ShoppingBag, CalendarRange, User, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { useNativeApp } from '@/lib/native-app';
 
 /**
  * Fixed bottom tab bar, mobile only — the single highest-leverage change for
@@ -20,6 +21,8 @@ export function MobileTabBar() {
   const router = useRouter();
   const { user, role } = useAuth();
   const { count: cartCount, openCart } = useCart();
+  // The Android app draws its own tabs (src/components/app/AppShell.tsx).
+  const native = useNativeApp();
 
   const accountHref = !user
     ? '/?auth=login'
@@ -29,10 +32,17 @@ export function MobileTabBar() {
         ? '/artist-portal'
         : '/my-bookings';
 
-  // Artist and admin portals are distinct experiences with their own
-  // dedicated header/navigation — this customer shopping tab bar (Shop, Rent,
-  // Bag) doesn't belong there and would overlap their own page content.
-  if (pathname.startsWith('/artist-portal') || pathname.startsWith('/admin')) return null;
+  // The artist, supplier and admin portals are distinct experiences with their
+  // own dedicated header/navigation — this customer shopping tab bar (Shop,
+  // Rent, Bag) doesn't belong there and would overlap their own page content.
+  if (
+    native ||
+    pathname.startsWith('/artist-portal') ||
+    pathname.startsWith('/supplier-portal') ||
+    pathname.startsWith('/admin')
+  ) {
+    return null;
+  }
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
@@ -44,7 +54,7 @@ export function MobileTabBar() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-royal-200/60 shadow-[0_-4px_20px_rgba(139,30,47,0.08)]"
+      className="sk-web-tabbar lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-royal-200/60 shadow-[0_-4px_20px_rgba(139,30,47,0.08)]"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="grid grid-cols-5 h-16">

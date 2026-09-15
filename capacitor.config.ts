@@ -3,12 +3,18 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'in.safaking.app',
   appName: 'SafaKing',
-  // Required by the CLI but unused — server.url below loads the live site
-  // instead of a bundled static export (this app is SSR with API routes).
-  webDir: 'public',
+  // The app loads the live site (server.url — it is SSR with API routes), so
+  // the bundled folder holds only what must work without the internet: the
+  // "no connection" screen. Bundling public/ made the APK 40 MB.
+  webDir: 'native-shell',
+  // Lets the server tell app visits apart in logs and analytics.
+  appendUserAgent: 'SafaKingApp',
+  backgroundColor: '#4A0E1A',
   server: {
     url: 'https://www.safaking.in',
     cleartext: false,
+    // Shown instead of the WebView's own error page when the site cannot load.
+    errorPath: 'offline.html',
   },
   android: {
     allowMixedContent: false,

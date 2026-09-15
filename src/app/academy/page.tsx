@@ -89,7 +89,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#FDF6EC] text-maroon-950">
-      <header className="sticky top-0 z-40 bg-maroon-950 text-white shadow-lg">
+      <header className="sk-web-header sticky top-0 z-40 bg-maroon-950 text-white shadow-lg">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-20">
           <Link href="/" className="flex items-center gap-2 text-royal-200/70 hover:text-royal-300">
             <ArrowLeft size={16} />
