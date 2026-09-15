@@ -1,94 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Package, TrendingUp, Globe, Handshake, CheckCircle2, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { Package, IndianRupee, Truck, ShieldCheck, ArrowRight, Store, Crown } from 'lucide-react';
 import { AnimatedSection, StaggerContainer, staggerItem } from './AnimatedSection';
+import { SUPPLIER_CATEGORIES } from '@/lib/supplier';
 
 const BENEFITS = [
   {
-    icon: Globe,
-    title: 'Pan-India Reach',
-    desc: 'Sell to 10,000+ groom customers across 40 cities through our platform.',
+    icon: IndianRupee,
+    title: 'Your Price, Your Stock',
+    desc: 'You decide what each safa costs and how many you have. See what you receive before you list.',
   },
   {
-    icon: TrendingUp,
-    title: 'Premium Margins',
-    desc: 'Competitive wholesale rates with transparent pricing and fast settlements.',
+    icon: Truck,
+    title: 'Your Delivery Charges',
+    desc: 'Set one charge for your city, your state and the rest of India. The customer pays it.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Payment Collected for You',
+    desc: 'Customers pay SafaKing online. You are paid a week after delivery, straight to your account.',
   },
   {
     icon: Package,
-    title: 'Quality Assurance',
-    desc: 'Every listing reviewed by our heritage textile experts before going live.',
-  },
-  {
-    icon: Handshake,
-    title: 'Long-Term Partnership',
-    desc: 'Dedicated account manager, marketing support, and seasonal collection launches.',
+    title: 'Checked Listings',
+    desc: 'Every product is checked before it goes live, so buyers can trust what they see.',
   },
 ];
 
-const SUPPLIER_TYPES = [
-  'Silk Safa Supplier / Manufacturer',
-  'Cotton Safa Supplier',
-  'Silk & Brocade Weavers',
-  'Bandhani & Leheriya Artisans',
-  'Zari & Embroidery Houses',
-  'Ready-Made Safa Manufacturers',
-  'Brooch & Kalgi Accessory Makers',
+const STEPS = [
+  'Apply with your own supplier account',
+  'Upload a photo of your shop and a bank proof',
+  'List your products. We check each one',
+  'Pack and send paid orders. Get paid a week after delivery',
 ];
-
-import { supabase, friendlyError } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
 
 export function SupplierSection() {
-  const { user } = useAuth();
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [businessName, setBusinessName] = useState('');
-  const [contactName, setContactName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('');
-  const [category, setCategory] = useState('');
-  const [message, setMessage] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-
-    const { error: insertErr } = await supabase.from('supplier_applications').insert({
-      user_id: user?.id ?? null,
-      business_name: businessName.trim(),
-      contact_name: contactName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      city: city.trim() || null,
-      category: category || null,
-      message: message.trim() || null,
-      status: 'pending',
-    });
-
-    setSubmitting(false);
-
-    if (insertErr) {
-      setError(friendlyError(insertErr));
-      return;
-    }
-
-    setBusinessName('');
-    setContactName('');
-    setEmail('');
-    setPhone('');
-    setCity('');
-    setCategory('');
-    setMessage('');
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 5000);
-  };
-
   return (
     <section id="suppliers" className="relative py-24 px-4 sm:px-6 lg:px-8 bg-white overflow-hidden">
       <div className="absolute inset-0 pattern-ornate opacity-50" />
@@ -100,10 +48,11 @@ export function SupplierSection() {
               <Package size={14} /> Supplier Network
             </span>
             <h2 className="text-4xl sm:text-5xl font-display font-black text-maroon-900 mb-6 leading-tight">
-              Join Our Royal <span className="text-gradient-maroon italic">Supplier</span> Network
+              Sell Your Safas on <span className="text-gradient-maroon italic">SafaKing</span>
             </h2>
             <p className="text-maroon-800/60 text-base leading-relaxed mb-8">
-              Are you a safa manufacturer, silk weaver, or accessory artisan? Partner with SafaKing and reach India&apos;s largest groom safa marketplace.
+              Are you a safa maker, silk weaver or accessory artisan? List your products on SafaKing and reach
+              grooms and wedding families who are already shopping for safas.
             </p>
 
             <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -127,7 +76,7 @@ export function SupplierSection() {
             <div className="space-y-2">
               <p className="text-xs font-bold uppercase tracking-widest text-maroon-700">We Welcome</p>
               <div className="flex flex-wrap gap-2">
-                {SUPPLIER_TYPES.map((type) => (
+                {SUPPLIER_CATEGORIES.map((type) => (
                   <span
                     key={type}
                     className="px-3 py-1.5 rounded-full bg-maroon-50 border border-maroon-200/60 text-[11px] font-semibold text-maroon-800"
@@ -143,114 +92,41 @@ export function SupplierSection() {
             <div className="relative">
               <div className="absolute -inset-4 bg-gradient-to-br from-royal-200/40 to-maroon-200/30 rounded-3xl blur-2xl" />
               <div className="relative bg-white rounded-3xl border border-royal-200/60 shadow-2xl shadow-maroon-900/10 p-8 sm:p-10">
-                {submitted ? (
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="flex flex-col items-center justify-center py-16 text-center"
-                  >
-                    <CheckCircle2 size={64} className="text-green-500 mb-4" />
-                    <h4 className="text-2xl font-display font-bold text-maroon-900">Application Received!</h4>
-                    <p className="text-sm text-maroon-800/60 mt-2 max-w-xs">
-                      Our partnerships team will review and respond within 3 business days.
-                    </p>
-                  </motion.div>
-                ) : (
-                  <>
-                    <h3 className="font-display font-bold text-2xl text-maroon-900 mb-2">Supplier Registration</h3>
-                    <p className="text-sm text-maroon-800/50 mb-8">Fill in your details to start the onboarding process.</p>
+                <div className="w-14 h-14 rounded-2xl bg-maroon-950 text-royal-300 flex items-center justify-center mb-5">
+                  <Store size={28} />
+                </div>
+                <h3 className="font-display font-bold text-2xl text-maroon-900 mb-2">Become a SafaKing Supplier</h3>
+                <p className="text-sm text-maroon-800/50 mb-6">
+                  Applying takes about five minutes. Our team calls you before you are approved.
+                </p>
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      {error && (
-                        <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
-                          <AlertCircle size={15} className="shrink-0 mt-0.5" />
-                          <p className="text-xs leading-relaxed">{error}</p>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input
-                          required
-                          type="text"
-                          placeholder="Business / Brand Name"
-                          value={businessName}
-                          onChange={(e) => setBusinessName(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
-                        />
-                        <input
-                          required
-                          type="text"
-                          placeholder="Contact Person"
-                          value={contactName}
-                          onChange={(e) => setContactName(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
-                        />
-                      </div>
-                      <input
-                        required
-                        type="email"
-                        placeholder="Business Email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
-                      />
-                      <input
-                        required
-                        type="tel"
-                        placeholder="Phone Number"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
-                      />
-                      <select
-                        required
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
-                      >
-                        <option value="" disabled>
-                          Supplier Category
-                        </option>
-                        {SUPPLIER_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="City / State"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all"
-                      />
-                      <textarea
-                        rows={3}
-                        placeholder="Tell us about your products & capacity..."
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-royal-200 bg-royal-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-500/30 focus:border-maroon-400 transition-all resize-none"
-                      />
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        type="submit"
-                        disabled={submitting}
-                        className="w-full bg-royal-500 hover:bg-royal-400 disabled:opacity-60 disabled:cursor-not-allowed text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
-                      >
-                        {submitting ? (
-                          <>
-                            <Loader2 size={16} className="animate-spin" /> Submitting…
-                          </>
-                        ) : (
-                          <>
-                            Register as Supplier
-                            <ArrowRight size={16} />
-                          </>
-                        )}
-                      </motion.button>
-                    </form>
-                  </>
-                )}
+                <ol className="space-y-3 mb-8">
+                  {STEPS.map((step, index) => (
+                    <li key={step} className="flex items-start gap-3">
+                      <span className="w-7 h-7 rounded-full bg-royal-100 text-maroon-900 text-xs font-black flex items-center justify-center shrink-0">
+                        {index + 1}
+                      </span>
+                      <span className="text-sm text-maroon-900 pt-1">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+
+                <Link
+                  href="/supplier-portal/login?tab=join"
+                  className="w-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
+                >
+                  Join as a Supplier <ArrowRight size={16} />
+                </Link>
+                <Link
+                  href="/supplier-portal/login"
+                  className="mt-3 w-full border border-royal-300 hover:bg-royal-50 text-maroon-900 font-bold py-3 rounded-xl text-xs uppercase tracking-widest flex items-center justify-center transition-colors"
+                >
+                  Supplier Login
+                </Link>
+                <p className="mt-5 flex items-start gap-2 text-[11px] text-maroon-800/60 leading-relaxed">
+                  <Crown size={13} className="shrink-0 mt-0.5 text-royal-600" />
+                  Already a SafaKing safa artist? Use a separate account, with a different email, to sell products.
+                </p>
               </div>
             </div>
           </AnimatedSection>

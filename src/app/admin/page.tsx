@@ -39,6 +39,8 @@ import { TrainingManager } from '@/components/admin/TrainingManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
 import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
+import { SupplierDesk } from '@/components/admin/SupplierDesk';
+import { SupplierPayoutsPanel } from '@/components/admin/SupplierPayoutsPanel';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
@@ -64,7 +66,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'expenses', label: 'Expenses', icon: Wallet },
   { id: 'messages', label: 'Messages', icon: Mail },
   { id: 'users', label: 'Users & Roles', icon: Users },
-  { id: 'settings', label: 'Pricing Settings', icon: SlidersHorizontal },
+  { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
   { id: 'security', label: 'Security', icon: KeyRound },
 ];
 
@@ -82,7 +84,7 @@ const ROLES: UserRole[] = ['customer', 'artist', 'manager', 'admin'];
 
 /** Every product column except `image` (base64 photos from the POS). */
 const ADMIN_PRODUCT_COLUMNS =
-  'id, name, price, category, description, stock, created_at, code, original_price, color, fabric, style, occasion, rating, reviews_count, is_new, is_bestseller, featured, active, sort_order, is_rentable, rent_price_per_day, rent_deposit, synced_from_desktop, pending_sync, desktop_price';
+  'id, name, price, category, description, stock, created_at, code, original_price, color, fabric, style, occasion, rating, reviews_count, is_new, is_bestseller, featured, active, sort_order, is_rentable, rent_price_per_day, rent_deposit, synced_from_desktop, pending_sync, desktop_price, supplier_id, listing_status';
 
 /** Roles that get a staff photo and designation. */
 const STAFF_ROLES_UI: UserRole[] = ['admin', 'manager'];
@@ -373,7 +375,6 @@ export default function AdminPanelPage() {
   const [bookingsFilter, setBookingsFilter] = useState({ status: '', search: '' });
   const [artistAppsFilter, setArtistAppsFilter] = useState({ status: '', search: '' });
   const [productsFilter, setProductsFilter] = useState({ status: '', search: '' });
-  const [suppliersFilter, setSuppliersFilter] = useState({ status: '', search: '' });
   const [enrollmentsFilter, setEnrollmentsFilter] = useState({ status: '', search: '' });
   const [jobAppsFilter, setJobAppsFilter] = useState({ status: '', search: '' });
   const [usersFilter, setUsersFilter] = useState({ status: '', search: '' });
@@ -403,10 +404,6 @@ export default function AdminPanelPage() {
       return matchesFilter(p, productsFilter.search, ['name', 'code', 'category']);
     });
   }, [products, productsFilter]);
-  const filteredSuppliers = useMemo(
-    () => suppliers.filter((s) => matchesFilter(s, suppliersFilter.search, ['business_name', 'contact_name', 'phone', 'city'], suppliersFilter.status, 'status')),
-    [suppliers, suppliersFilter]
-  );
   const filteredEnrollments = useMemo(
     () => enrollments.filter((e) => matchesFilter(e, enrollmentsFilter.search, ['full_name', 'phone', 'city'], enrollmentsFilter.status, 'status')),
     [enrollments, enrollmentsFilter]
@@ -623,6 +620,7 @@ export default function AdminPanelPage() {
           specialties: application.specialties ?? [],
           experience_years: application.experience_years ?? 1,
           portfolio_link: application.portfolio_link || null,
+          also_supplier: application.also_supplier ?? false,
           verified: true,
           active: true,
         },
@@ -1436,13 +1434,25 @@ export default function AdminPanelPage() {
                           <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
                             <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
                             <td className="p-4 text-gray-600">{order.customer_phone}</td>
-                            <td className="p-4 text-gray-600 max-w-xs">{order.shipping_address}</td>
+                            <td className="p-4 text-gray-600 max-w-xs">
+                              {order.shipping_address}
+                              {order.notes && (
+                                <span className="block mt-1.5 text-[10px] font-bold text-rose-700 whitespace-pre-line">
+                                  {order.notes}
+                                </span>
+                              )}
+                            </td>
                             <td className="p-4">
                               <span className="font-bold text-maroon-950">Total: ₹{order.total_amount.toLocaleString()}</span>
+                              {!!order.shipping_amount && (
+                                <span className="block text-[10px] text-gray-500">
+                                  incl. ₹{order.shipping_amount.toLocaleString()} supplier delivery
+                                </span>
+                              )}
                               <div className="text-[10px] space-y-0.5 mt-0.5">
                                 <span className="block text-emerald-700 font-bold">⚡ Advance: ₹{adv.toLocaleString()} (Paid)</span>
                                 <span className={`block font-bold ${isFullyPaid ? 'text-emerald-700' : 'text-amber-800'}`}>
-                                  📦 Balance: ₹{bal.toLocaleString()} ({isFullyPaid ? 'Collected ✓' : 'Due on Delivery'})
+                                  📦 Balance: ₹{bal.toLocaleString()} ({isFullyPaid ? 'Collected ✓' : 'Due'})
                                 </span>
                               </div>
                             </td>
@@ -1690,6 +1700,14 @@ export default function AdminPanelPage() {
                               >
                                 View Portfolio ↗
                               </a>
+                            )}
+                            {artist.also_supplier && (
+                              <span
+                                className="inline-block mt-1 px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[9px] font-black uppercase tracking-wider"
+                                title="Also sells products. Their supplier work needs a separate supplier account."
+                              >
+                                Also a supplier
+                              </span>
                             )}
                           </td>
                           <td className="p-4 text-gray-700 font-medium">
@@ -2017,6 +2035,16 @@ export default function AdminPanelPage() {
                             </td>
                             <td className="p-4 space-x-1">
                               {product.active === false && <Badge status="inactive" />}
+                              {product.supplier_id && (
+                                <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold uppercase">
+                                  Supplier
+                                  {product.listing_status === 'pending'
+                                    ? ' · to check'
+                                    : product.listing_status === 'rejected'
+                                      ? ' · sent back'
+                                      : ''}
+                                </span>
+                              )}
                               {product.is_bestseller && (
                                 <span className="px-2 py-0.5 rounded-full bg-royal-100 text-royal-800 text-[10px] font-bold uppercase">
                                   Bestseller
@@ -2056,65 +2084,7 @@ export default function AdminPanelPage() {
             )}
 
             {/* ---- SUPPLIERS ---- */}
-            {activeTab === 'suppliers' && (
-              <Panel
-                title="Supplier Network Submissions"
-                toolbar={
-                  <FilterBar
-                    search={suppliersFilter.search}
-                    onSearchChange={(search) => setSuppliersFilter((f) => ({ ...f, search }))}
-                    searchPlaceholder="Search by business, contact, phone or city…"
-                    status={suppliersFilter.status}
-                    onStatusChange={(status) => setSuppliersFilter((f) => ({ ...f, status }))}
-                    statusOptions={APPLICATION_STATUSES}
-                  />
-                }
-              >
-                {suppliers.length === 0 ? (
-                  <Empty label="No supplier applications yet." />
-                ) : filteredSuppliers.length === 0 ? (
-                  <Empty label="No suppliers match this filter." />
-                ) : (
-                  <table className="w-full text-left">
-                    <thead className={THEAD}>
-                      <tr>
-                        <th className={TH}>Business</th>
-                        <th className={TH}>Contact</th>
-                        <th className={TH}>Phone / Email</th>
-                        <th className={TH}>City</th>
-                        <th className={TH}>Category</th>
-                        <th className={TH}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-amber-100 text-xs">
-                      {filteredSuppliers.map((supplier) => (
-                        <tr key={supplier.id} className="hover:bg-amber-50/30 transition-colors">
-                          <td className="p-4 font-bold text-maroon-950">{supplier.business_name}</td>
-                          <td className="p-4 text-gray-700">{supplier.contact_name}</td>
-                          <td className="p-4 text-gray-600">
-                            {supplier.phone}
-                            <span className="block text-[10px] text-gray-400">{supplier.email}</span>
-                          </td>
-                          <td className="p-4 text-gray-700">{supplier.city}</td>
-                          <td className="p-4 text-gray-700">{supplier.category}</td>
-                          <td className="p-4">
-                            <StatusSelect
-                              value={supplier.status}
-                              options={APPLICATION_STATUSES}
-                              onChange={(status) =>
-                                patchRow<DBSupplierApplication>(
-                                  'supplier_applications', supplier.id, { status }, setSuppliers
-                                )
-                              }
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </Panel>
-            )}
+            {activeTab === 'suppliers' && <SupplierDesk />}
 
             {/* ---- ACADEMY ---- */}
             {activeTab === 'academy' && (
@@ -2410,8 +2380,8 @@ export default function AdminPanelPage() {
             {/* ---- PRICING SETTINGS ---- */}
             {activeTab === 'settings' && (
               <Panel
-                title="Pricing Settings"
-                subtitle="Applied to every new rental and booking immediately"
+                title="Settings"
+                subtitle="Prices, rates and fees. A change applies to every new booking and order"
               >
                 {settings.length === 0 ? (
                   <Empty label="Settings table not found — run supabase/004_rentals.sql." />
@@ -2503,7 +2473,12 @@ export default function AdminPanelPage() {
             {activeTab === 'training' && <TrainingManager />}
 
             {/* ---- CONTACT INBOX ---- */}
-            {activeTab === 'payouts' && <PaymentReleaseQueue />}
+            {activeTab === 'payouts' && (
+              <div className="space-y-6">
+                <PaymentReleaseQueue />
+                <SupplierPayoutsPanel currentUserId={profile?.id ?? null} />
+              </div>
+            )}
 
             {/* ---- CONTACT INBOX ---- */}
             {activeTab === 'messages' && <ContactInbox />}

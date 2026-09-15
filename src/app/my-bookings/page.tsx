@@ -14,6 +14,7 @@ import {
 } from '@/lib/reviews';
 import { Stars } from '@/components/reviews/Stars';
 import { ActiveBookingTracker } from '@/components/tracking/ActiveBookingTracker';
+import { MyOrders } from '@/components/orders/MyOrders';
 import { raiseComplaint } from '@/lib/complaints';
 import {
   CUSTOMER_COMPLAINT_CATEGORIES, COMPLAINT_CATEGORY_LABEL, ComplaintCategory,
@@ -171,6 +172,12 @@ export default function MyBookingsPage() {
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         {user && <ActiveBookingTracker userId={user.id} />}
+        {user && (
+          <MyOrders
+            customerName={user.user_metadata?.full_name ?? user.email ?? 'Customer'}
+            customerPhone={user.phone ?? ''}
+          />
+        )}
 
         {error && (
           <div className="flex items-start gap-2 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">

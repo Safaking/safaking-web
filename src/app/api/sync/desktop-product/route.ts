@@ -60,7 +60,13 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const { data: existing } = await admin.from('products').select('id').eq('code', sku).maybeSingle();
+  // Only the shop's own products: a supplier's listing is never overwritten by the POS.
+  const { data: existing } = await admin
+    .from('products')
+    .select('id')
+    .eq('code', sku)
+    .is('supplier_id', null)
+    .maybeSingle();
 
   let productId: string;
   let action: 'updated' | 'created';

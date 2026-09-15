@@ -61,11 +61,15 @@ async function computeWebCommittedForSku(admin: SupabaseClient, sku: string): Pr
   return (orderItems ?? []).reduce((sum, row) => sum + (row.quantity ?? 0), 0);
 }
 
-/** SKUs (products.code) for every line item on an order — used to resync after any status change. */
+/**
+ * SKUs (products.code) for the shop's own line items on an order — used to
+ * resync after any status change. A supplier's products are not the shop's
+ * stock, so the POS never hears about them.
+ */
 export async function skusForOrder(admin: SupabaseClient, orderId: string): Promise<string[]> {
   const { data, error } = await admin
     .from('order_items')
-    .select('products(code)')
+    .select('products(code, supplier_id)')
     .eq('order_id', orderId);
 
   if (error) {
@@ -74,6 +78,8 @@ export async function skusForOrder(admin: SupabaseClient, orderId: string): Prom
   }
 
   return (data ?? [])
-    .map((row) => (row.products as unknown as { code: string | null } | null)?.code)
+    .map((row) => row.products as unknown as { code: string | null; supplier_id: string | null } | null)
+    .filter((product) => product && !product.supplier_id)
+    .map((product) => product!.code)
     .filter((code): code is string => !!code);
 }

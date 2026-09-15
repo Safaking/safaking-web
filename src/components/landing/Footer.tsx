@@ -65,7 +65,7 @@ export function Footer() {
                 { href: '/contact', label: 'Contact Us' },
                 { href: '#artist-booking-form', label: 'Book Safa Artist' },
                 { href: '#training', label: 'Training Academy' },
-                { href: '#suppliers', label: 'Supplier Registration' },
+                { href: '/supplier-portal/login?tab=join', label: 'Sell on SafaKing' },
                 { href: '/careers', label: 'Careers' },
               ].map((link) => (
                 <li key={link.href}>

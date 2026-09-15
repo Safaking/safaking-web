@@ -1,8 +1,21 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-/** Path prefix -> roles allowed to enter it. */
-const PROTECTED: { prefix: string; roles: string[]; signedOutTo: string; deniedTo: string }[] = [
+interface Guard {
+  prefix: string;
+  /** Profile roles allowed in. */
+  roles?: string[];
+  /**
+   * Instead of a role: the account must own a supplier account. A supplier
+   * is a customer login that SafaKing approved to sell — see
+   * supabase/040_supplier_marketplace.sql.
+   */
+  supplierAccount?: boolean;
+  signedOutTo: string;
+  deniedTo: string;
+}
+
+const PROTECTED: Guard[] = [
   // Managers run daily operations from the same panel — the panel itself
   // hides what is admin-only, and the database refuses the rest.
   { prefix: '/admin', roles: ['admin', 'manager'], signedOutTo: '/', deniedTo: '/' },
@@ -15,11 +28,22 @@ const PROTECTED: { prefix: string; roles: string[]; signedOutTo: string; deniedT
     signedOutTo: '/artist-portal/login',
     deniedTo: '/artist-portal/status',
   },
+  {
+    prefix: '/supplier-portal',
+    supplierAccount: true,
+    signedOutTo: '/supplier-portal/login',
+    deniedTo: '/supplier-portal/status',
+  },
 ];
 
-// Sub-routes a signed-in-but-not-yet-artist (or signed-out) visitor must
-// still be able to reach — they're what the guard above redirects TO.
-const ARTIST_PORTAL_PUBLIC_SUBPATHS = ['/artist-portal/login', '/artist-portal/status'];
+// Sub-routes a signed-out or not-yet-approved visitor must still be able to
+// reach — they're what the guards above redirect TO.
+const PUBLIC_SUBPATHS = [
+  '/artist-portal/login',
+  '/artist-portal/status',
+  '/supplier-portal/login',
+  '/supplier-portal/status',
+];
 
 /** The user id inside a Supabase access token. Read, not trusted — see below. */
 function subjectOf(accessToken: string): string | null {
@@ -34,15 +58,15 @@ function subjectOf(accessToken: string): string | null {
 }
 
 /**
- * Guards the admin panel and the artist portal. Nothing else runs through
- * here: the database is in Seoul and the customers are in India, so checking
- * the session on every page used to add a round trip to each page a
- * signed-in customer opened. The browser keeps its own session fresh, and
+ * Guards the admin panel and the artist and supplier portals. Nothing else
+ * runs through here: the database is in Seoul and the customers are in India,
+ * so checking the session on every page used to add a round trip to each page
+ * a signed-in customer opened. The browser keeps its own session fresh, and
  * every API route verifies its caller itself.
  */
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  if (ARTIST_PORTAL_PUBLIC_SUBPATHS.some((p) => path.startsWith(p))) {
+  if (PUBLIC_SUBPATHS.some((p) => path.startsWith(p))) {
     return NextResponse.next({ request });
   }
 
@@ -99,14 +123,23 @@ export async function middleware(request: NextRequest) {
 
   // getSession() reads the cookie and only calls the auth server when the
   // token has expired (refreshing it into the response). It is not taken on
-  // trust: the profile query below sends that token to the database, which
-  // checks its signature — a forged or stale cookie finds no profile and is
-  // turned away. That is one round trip instead of two.
+  // trust: the query below sends that token to the database, which checks its
+  // signature — a forged or stale cookie finds no row and is turned away.
+  // That is one round trip instead of two.
   const {
     data: { session },
   } = await supabase.auth.getSession();
   const userId = session ? subjectOf(session.access_token) : null;
   if (!userId) return redirectTo('signedOut');
+
+  if (guard.supplierAccount) {
+    const { data: supplier } = await supabase
+      .from('supplier_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return supplier ? response : redirectTo('denied');
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -114,12 +147,12 @@ export async function middleware(request: NextRequest) {
     .eq('id', userId)
     .maybeSingle();
 
-  if (!profile || !guard.roles.includes(profile.role)) return redirectTo('denied');
+  if (!profile || !guard.roles?.includes(profile.role)) return redirectTo('denied');
 
   return response;
 }
 
 export const config = {
   // Only the guarded areas invoke middleware at all.
-  matcher: ['/admin/:path*', '/artist-portal/:path*'],
+  matcher: ['/admin/:path*', '/artist-portal/:path*', '/supplier-portal/:path*'],
 };

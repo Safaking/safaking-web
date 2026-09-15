@@ -1,19 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, ShoppingBag, Trash2, Plus, Minus, CheckCircle2, ArrowRight, AlertCircle, Loader2,
+  X, ShoppingBag, Trash2, Plus, Minus, CheckCircle2, ArrowRight, AlertCircle, Loader2, LogIn,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { sendWhatsAppNotification } from '@/lib/whatsapp';
-import { createOrder, loadRazorpayScript, payAndVerify, payableFromOrder } from '@/lib/checkout';
+import {
+  CartQuote, createOrder, loadRazorpayScript, payAndVerify, payableFromOrder, quoteCart,
+} from '@/lib/checkout';
 import { checkPincode, PincodeCheckResult } from '@/lib/pincodes';
 import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
 
 export function CartDrawer() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const { items, subtotal, isOpen, closeCart, removeItem, setQuantity, clear } = useCart();
 
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
@@ -31,6 +34,10 @@ export function CartDrawer() {
   const [warning, setWarning] = useState<string | null>(null);
   const [advanceRate, setAdvanceRate] = useState(0.2);
   const [contractAccepted, setContractAccepted] = useState(false);
+  const [quote, setQuote] = useState<CartQuote | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [balanceBeforeDispatch, setBalanceBeforeDispatch] = useState(false);
 
   // Items added before the catalogue moved into the database have no productId
   // and can no longer be priced by the server.
@@ -41,6 +48,41 @@ export function CartDrawer() {
     if (profile?.full_name) setName((prev) => prev || profile.full_name);
     if (profile?.phone) setPhone((prev) => prev || profile.phone!);
   }, [profile]);
+
+  // The shop's own safas ship free; an item a supplier sends carries that
+  // supplier's delivery charge for this pincode.
+  const itemsKey = items.map((item) => `${item.productId ?? item.id}:${item.quantity}`).join(',');
+  useEffect(() => {
+    if (!isOpen || items.length === 0 || pincode.length !== 6) {
+      setQuote(null);
+      setQuoteError(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoting(true);
+    const timer = setTimeout(() => {
+      quoteCart(items, pincode)
+        .then((next) => {
+          if (cancelled) return;
+          setQuote(next);
+          setQuoteError(null);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setQuote(null);
+          setQuoteError(err instanceof Error ? err.message : 'Could not work out the delivery charge.');
+        })
+        .finally(() => {
+          if (!cancelled) setQuoting(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // `items` is tracked through itemsKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, itemsKey, pincode]);
 
   const handlePincodeChange = async (val: string) => {
     const clean = val.replace(/\D/g, '').slice(0, 6);
@@ -53,7 +95,10 @@ export function CartDrawer() {
     }
   };
 
-  const total = subtotal; // Shipping is free pan-India.
+  const shipping = quote?.shippingAmount ?? 0;
+  const hasSupplierItems = !!quote?.hasSupplierItems;
+  const needsSignIn = hasSupplierItems && !user;
+  const total = subtotal + shipping;
   // Indicative only — the server recomputes both from app_settings at checkout.
   const advanceAmount = Math.round(total * advanceRate);
   const balanceAmount = total - advanceAmount;
@@ -74,6 +119,10 @@ export function CartDrawer() {
       );
       return;
     }
+    if (needsSignIn) {
+      setError('Please sign in to place this order.');
+      return;
+    }
     if (!contractAccepted) {
       setError('Please accept the purchase terms to continue.');
       return;
@@ -87,6 +136,7 @@ export function CartDrawer() {
       // Razorpay order for the advance.
       const created = await createOrder(items, customer);
       setAdvanceRate(created.advanceRate);
+      setBalanceBeforeDispatch(!!created.balanceBeforeDispatch);
 
       const ready = await loadRazorpayScript();
       if (!ready) throw new Error('Could not reach the payment provider. Check your connection.');
@@ -120,6 +170,7 @@ export function CartDrawer() {
       setStep('cart');
       setOrderRef(null);
       setAddress('');
+      setBalanceBeforeDispatch(false);
     }
   };
 
@@ -175,9 +226,19 @@ export function CartDrawer() {
                   </p>
                 )}
                 <p className="text-xs text-gray-500 max-w-xs mx-auto leading-relaxed">
-                  Your advance has been received. The order is now pending admin confirmation —
-                  our team will review the details and confirm your delivery.
+                  {balanceBeforeDispatch
+                    ? 'Your advance has been received. Pay the balance from My Bookings and your order is sent straight away.'
+                    : 'Your advance has been received. The order is now pending admin confirmation — our team will review the details and confirm your delivery.'}
                 </p>
+                {balanceBeforeDispatch && (
+                  <Link
+                    href="/my-bookings"
+                    onClick={handleClose}
+                    className="inline-block px-5 py-2.5 bg-royal-500 hover:bg-royal-400 text-maroon-950 font-bold rounded-xl text-[11px] uppercase tracking-widest"
+                  >
+                    Go to My Bookings
+                  </Link>
+                )}
                 {warning && (
                   <div className="mx-auto max-w-xs flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-left">
                     <AlertCircle size={15} className="shrink-0 mt-0.5" />
@@ -211,11 +272,34 @@ export function CartDrawer() {
                   </div>
                 )}
 
+                {needsSignIn && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900">
+                    <LogIn size={15} className="shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      Some items in your bag are sent separately. Sign in to order them, so you can pay the
+                      balance and follow the delivery from My Bookings.{' '}
+                      <Link href="/?auth=login&next=%2Fshop" onClick={closeCart} className="font-bold underline">
+                        Sign in
+                      </Link>
+                    </p>
+                  </div>
+                )}
+
                 <div className="bg-royal-50 p-4 rounded-2xl border border-royal-200 space-y-2">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-maroon-900 mb-1">
                     Split Payment Summary
                   </h4>
                   <div className="flex justify-between text-xs font-semibold text-gray-700">
+                    <span>Items</span>
+                    <span className="font-bold text-maroon-950">₹{subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-semibold text-gray-700">
+                    <span>Delivery{pincode.length === 6 ? ` to ${pincode}` : ''}</span>
+                    <span className={`font-bold ${shipping > 0 ? 'text-maroon-950' : 'text-emerald-700'}`}>
+                      {quoting ? '…' : pincode.length !== 6 ? 'Enter pincode' : shipping > 0 ? `₹${shipping.toLocaleString()}` : 'FREE'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs font-semibold text-gray-700 pt-1 border-t border-royal-200">
                     <span>Total Order Amount</span>
                     <span className="font-bold text-maroon-950">₹{total.toLocaleString()}</span>
                   </div>
@@ -224,10 +308,16 @@ export function CartDrawer() {
                     <span>₹{advanceAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs font-bold text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                    <span>📦 Balance on Delivery</span>
+                    <span>📦 {hasSupplierItems ? 'Balance Before Dispatch' : 'Balance on Delivery'}</span>
                     <span>₹{balanceAmount.toLocaleString()}</span>
                   </div>
+                  {quoteError && (
+                    <p className="text-[11px] font-bold text-rose-700">{quoteError}</p>
+                  )}
                   <p className="text-[10px] text-gray-500 leading-relaxed pt-0.5">
+                    {hasSupplierItems
+                      ? `Some items are sent separately${quote?.dispatchDays ? ` within ${quote.dispatchDays} day${quote.dispatchDays === 1 ? '' : 's'} of full payment` : ''}. Pay the balance from My Bookings to have them sent. `
+                      : ''}
                     Prices are confirmed against our catalogue when you continue to payment.
                   </p>
                 </div>
@@ -305,6 +395,9 @@ export function CartDrawer() {
                   type="submit"
                   disabled={
                     submitting ||
+                    quoting ||
+                    needsSignIn ||
+                    !!quoteError ||
                     items.length === 0 ||
                     unpriceable.length > 0 ||
                     (!!pincodeResult && !pincodeResult.deliverable)
@@ -395,12 +488,16 @@ export function CartDrawer() {
                   <span className="font-bold text-maroon-950">₹{subtotal.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Shipping (Pan-India)</span>
-                  <span className="font-bold text-emerald-600">FREE</span>
+                  <span>Delivery</span>
+                  {hasSupplierItems ? (
+                    <span className="font-bold text-maroon-950">Worked out at checkout</span>
+                  ) : (
+                    <span className="font-bold text-emerald-600">FREE</span>
+                  )}
                 </div>
                 <div className="flex justify-between text-base font-black text-maroon-950 pt-2 border-t border-gray-200">
-                  <span>Total</span>
-                  <span className="text-gradient-gold">₹{total.toLocaleString()}</span>
+                  <span>{hasSupplierItems ? 'Items total' : 'Total'}</span>
+                  <span className="text-gradient-gold">₹{subtotal.toLocaleString()}</span>
                 </div>
               </div>
 

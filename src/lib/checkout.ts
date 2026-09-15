@@ -29,6 +29,19 @@ export interface CreatedOrder {
   balanceAmount: number;
   /** Fraction taken up front, as configured by the admin. */
   advanceRate: number;
+  itemsAmount?: number;
+  /** Suppliers' delivery charges. The shop's own safas ship free. */
+  shippingAmount?: number;
+  /** True when a supplier sends part of the order: the balance is paid before it leaves. */
+  balanceBeforeDispatch?: boolean;
+}
+
+/** What delivery costs for a bag at a pincode. */
+export interface CartQuote {
+  shippingAmount: number;
+  hasSupplierItems: boolean;
+  /** Longest time any supplier in the bag takes to send, in days. */
+  dispatchDays: number;
 }
 
 interface RazorpayResponse {
@@ -367,5 +380,43 @@ export function payableFromRental(rental: CreatedRental): PayableOrder {
     keyId: rental.keyId ?? '',
     reference: rental.rentalId,
     description: `Rental advance · ${rental.quote.safaCount} safa(s) · ${rental.quote.days} day(s)`,
+  };
+}
+
+/** Delivery charges for the bag at this pincode. Writes nothing. */
+export async function quoteCart(items: CartItem[], pincode: string): Promise<CartQuote> {
+  return postJson<CartQuote>(
+    '/api/checkout/quote',
+    {
+      items: items.filter((item) => item.productId).map((item) => ({ productId: item.productId, quantity: item.quantity })),
+      pincode,
+    },
+    'Could not work out the delivery charge.'
+  );
+}
+
+export interface BalancePayment {
+  orderId: string;
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  balanceAmount: number;
+  customerPhone: string;
+}
+
+/** Opens a payment for the rest of an order — the amount comes from the order itself. */
+export async function startBalancePayment(orderId: string): Promise<BalancePayment> {
+  return postJson<BalancePayment>('/api/checkout/pay-balance', { orderId }, 'Could not start the payment.');
+}
+
+export function payableFromBalance(balance: BalancePayment): PayableOrder {
+  return {
+    razorpayOrderId: balance.razorpayOrderId,
+    amount: balance.amount,
+    currency: balance.currency,
+    keyId: balance.keyId,
+    reference: balance.orderId,
+    description: `Balance · Order ${balance.orderId.slice(0, 8).toUpperCase()}`,
   };
 }

@@ -8,10 +8,10 @@ import { motion } from 'framer-motion';
 import {
   Mail, Lock, User, Phone, MapPin, Eye, EyeOff, AlertCircle,
   CheckCircle2, Loader2, MessageCircle, Wallet, Navigation, Briefcase,
-  Users, IndianRupee, Link as LinkIcon, Camera, Sparkles, ScrollText,
+  Users, IndianRupee, Link as LinkIcon, Camera, Sparkles, ScrollText, Store,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase, friendlyError, UserRole } from '@/lib/supabase';
+import { supabase, friendlyError } from '@/lib/supabase';
 import { getActiveContract, recordContractAcceptance, Contract } from '@/lib/client-update';
 
 const SAFA_SPECIALTIES = [
@@ -24,12 +24,6 @@ const SAFA_SPECIALTIES = [
 ];
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-const HOME_FOR_ROLE: Record<UserRole, string> = {
-  admin: '/artist-portal',
-  manager: '/artist-portal',
-  artist: '/artist-portal',
-  customer: '/artist-portal/status',
-};
 
 function ArtistLoginContent() {
   const { user, role, signIn, signUp, refreshProfile } = useAuth();
@@ -69,6 +63,9 @@ function ArtistLoginContent() {
   // your cut?" is the first thing every applicant asks.
   const [platformRate, setPlatformRate] = useState(0.2);
   const [portfolioLink, setPortfolioLink] = useState('');
+  // Shown to the admin on the application and the profile. Selling needs its
+  // own supplier account, so ticking it also suggests making one.
+  const [alsoSupplier, setAlsoSupplier] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [contract, setContract] = useState<Contract | null>(null);
@@ -218,6 +215,7 @@ function ArtistLoginContent() {
       per_safa_rate: Number(perSafaRate) || 50,
       portfolio_link: portfolioLink.trim() || null,
       photo_url: photoUrl,
+      also_supplier: alsoSupplier,
       status: 'pending',
     });
 
@@ -612,6 +610,30 @@ function ArtistLoginContent() {
                     className={inputClass}
                   />
                 </div>
+
+                <label className="flex items-start gap-2.5 p-3 rounded-xl border border-royal-200 bg-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={alsoSupplier}
+                    onChange={(e) => setAlsoSupplier(e.target.checked)}
+                    className="mt-0.5 accent-maroon-900"
+                  />
+                  <span className="text-[11px] text-maroon-800/80">
+                    <span className="font-bold text-maroon-950">I also make or sell safas</span> (I am a supplier too)
+                  </span>
+                </label>
+                {alsoSupplier && (
+                  <div className="flex items-start gap-2 p-3 -mt-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900">
+                    <Store size={15} className="shrink-0 mt-0.5" />
+                    <p className="text-[11px] leading-relaxed">
+                      Please make a separate supplier account too, with a different email. One account for tying
+                      and one for selling keeps your bookings, orders and payments apart.{' '}
+                      <Link href="/supplier-portal/login?tab=join" className="font-bold underline">
+                        Join as a supplier
+                      </Link>
+                    </p>
+                  </div>
+                )}
 
                 {contract && (
                   <div className="rounded-xl border border-royal-200 bg-white overflow-hidden">
