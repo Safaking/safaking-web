@@ -233,6 +233,9 @@ export async function fetchProducts(): Promise<ProductsResult> {
         .from('products_with_availability')
         .select(LIST_COLUMNS)
         .eq('active', true)
+        // Row rules already hide unapproved supplier listings from customers;
+        // this keeps them off the shop for staff browsing it too.
+        .eq('listing_status', 'approved')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false }),
       galleryCounts(),

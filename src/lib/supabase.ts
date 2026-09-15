@@ -71,6 +71,12 @@ export interface DBProduct {
   pending_sync?: boolean;
   /** Reference only — what JoshiSafaHouse currently charges. Never auto-applied to `price`. */
   desktop_price?: number | null;
+  /** Set when a supplier sells this product — see supabase/040_supplier_marketplace.sql. */
+  supplier_id?: string | null;
+  gst_percent?: number | null;
+  /** Supplier listings wait for SafaKing's approval; the shop's own products are 'approved'. */
+  listing_status?: 'pending' | 'approved' | 'rejected';
+  listing_note?: string | null;
 }
 
 /**
@@ -106,6 +112,11 @@ export interface DBOrder {
   cancelled_by?: string | null;
   cancelled_at?: string | null;
   created_at?: string;
+  /** Delivery pincode, kept apart so supplier delivery charges can be worked out. */
+  pincode?: string | null;
+  /** Supplier delivery charges on the order. SafaKing's own stock ships free. */
+  shipping_amount?: number;
+  notes?: string | null;
 }
 
 export interface DBOrderItem {
@@ -178,6 +189,8 @@ export interface DBArtistApplication {
   per_safa_rate?: number | null;
   portfolio_link?: string | null;
   photo_url?: string | null;
+  /** Ticked "I also supply products" — they are asked to make a separate supplier account. */
+  also_supplier?: boolean;
   status: 'pending' | 'approved' | 'rejected';
   created_at?: string;
 }
@@ -199,9 +212,22 @@ export interface DBSupplierApplication {
   phone: string;
   email?: string | null;
   city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  shop_address?: string | null;
   category?: string | null;
+  gst_number?: string | null;
+  upi_id?: string | null;
+  bank_holder_name?: string | null;
+  bank_ifsc?: string | null;
+  /** Ticked "I also tie safas" — they are asked to make a separate artist account. */
+  also_artist?: boolean;
   message?: string | null;
+  terms_accepted_at?: string | null;
   status: 'pending' | 'approved' | 'rejected';
+  review_note?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
   created_at?: string;
 }
 

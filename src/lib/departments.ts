@@ -1,10 +1,10 @@
 /**
  * Who on staff may do what.
  *
- * The database is the authority — staff_can() in supabase/037 — and this
- * file must say exactly the same thing. It decides which parts of the admin
- * panel a person sees and what the API routes allow, so nobody meets a
- * screen whose data the database would refuse them anyway.
+ * The database is the authority — staff_can() in supabase/037, extended in
+ * 040 — and this file must say exactly the same thing. It decides which parts
+ * of the admin panel a person sees and what the API routes allow, so nobody
+ * meets a screen whose data the database would refuse them anyway.
  *
  * Not a 'use client' module: the API routes import it.
  */
@@ -15,7 +15,8 @@ export type StaffUnit = 'owner' | Department;
 export type Permission =
   | 'customers' | 'bookings' | 'assign_artist' | 'artists' | 'kyc' | 'standing'
   | 'complaints' | 'messages' | 'reports' | 'finance' | 'expenses' | 'expenses_read'
-  | 'refund_verify' | 'refund_approve' | 'refund_send' | 'refund_exception';
+  | 'refund_verify' | 'refund_approve' | 'refund_send' | 'refund_exception'
+  | 'suppliers';
 
 export const DEPARTMENTS: Department[] = ['operations', 'support', 'artist_ops', 'finance'];
 
@@ -29,17 +30,18 @@ export const DEPARTMENT_LABEL: Record<StaffUnit, string> = {
 
 export const DEPARTMENT_SCOPE: Record<StaffUnit, string> = {
   owner: 'Full access',
-  operations: 'Daily operations: bookings, dispatch, complaints and refunds',
+  operations: 'Daily operations: bookings, dispatch, suppliers, complaints and refunds',
   support: 'Customers and bookings',
   artist_ops: 'Artists and bookings, including KYC',
-  finance: 'Payments and finance',
+  finance: 'Payments and finance, including supplier payouts',
 };
 
-/** Mirrors staff_can() in supabase/037. */
+/** Mirrors staff_can() in supabase/040. */
 const MATRIX: Record<Department, Permission[]> = {
   operations: [
     'customers', 'bookings', 'assign_artist', 'standing', 'complaints', 'messages', 'reports',
     'expenses_read', 'refund_verify', 'refund_approve', 'refund_send', 'refund_exception',
+    'suppliers',
   ],
   support: ['customers', 'bookings', 'complaints', 'messages', 'refund_verify'],
   artist_ops: ['bookings', 'assign_artist', 'artists', 'kyc', 'standing', 'complaints'],
@@ -67,7 +69,7 @@ export function can(unit: StaffUnit | null | undefined, permission: Permission):
 /** Admin panel tabs per department. The owner sees every tab. */
 export const DEPARTMENT_TABS: Record<Department, string[]> = {
   operations: [
-    'liveops', 'analytics', 'orders', 'rentals', 'bookings', 'complaints',
+    'liveops', 'analytics', 'orders', 'rentals', 'bookings', 'suppliers', 'complaints',
     'messages', 'academy', 'careers', 'training', 'protection', 'security',
   ],
   support: ['liveops', 'orders', 'rentals', 'bookings', 'complaints', 'messages', 'academy', 'protection', 'security'],

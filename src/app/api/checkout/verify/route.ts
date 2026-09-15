@@ -42,9 +42,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // `*` rather than a column list: `purpose` arrived with supabase/040.
   const { data: payment } = await admin
     .from('payments')
-    .select('id, order_id, rental_id, status')
+    .select('*')
     .eq('razorpay_order_id', razorpay_order_id)
     .maybeSingle();
 
@@ -105,6 +106,39 @@ export async function POST(request: Request) {
 
   if (!payment.order_id) {
     return NextResponse.json({ success: true, orderId: null });
+  }
+
+  // ---- The rest of an order, paid from My Bookings. Stock was taken with the
+  // advance; this only marks the order paid in full, which is what lets a
+  // supplier send it.
+  if (payment.purpose === 'balance') {
+    const { data: settled } = await admin
+      .from('orders')
+      .update({ payment_status: 'fully_paid', razorpay_payment_id })
+      .eq('id', payment.order_id)
+      .eq('payment_status', 'advance_paid')
+      .select('id');
+
+    if (!settled || settled.length === 0) {
+      // Already paid in full another way (e.g. cash recorded by the office).
+      // The money is real, so keep the payment and tell the office to refund.
+      const { data: current } = await admin.from('orders').select('notes').eq('id', payment.order_id).maybeSingle();
+      await admin
+        .from('orders')
+        .update({
+          notes: [current?.notes, `BALANCE PAID TWICE: online payment ${razorpay_payment_id} came after the order was already paid in full. Refund it.`]
+            .filter(Boolean)
+            .join('\n'),
+        })
+        .eq('id', payment.order_id);
+      return NextResponse.json({
+        success: true,
+        orderId: payment.order_id,
+        warning: 'Payment received. This order was already paid in full, so our team will refund this payment.',
+      });
+    }
+
+    return NextResponse.json({ success: true, orderId: payment.order_id, balancePaid: true });
   }
 
   await admin

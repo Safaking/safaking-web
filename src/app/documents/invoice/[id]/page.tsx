@@ -151,7 +151,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Delivery</span>
-            <span className="text-emerald-700 font-bold">FREE</span>
+            {order.shipping_amount ? (
+              <span>{money(order.shipping_amount)}</span>
+            ) : (
+              <span className="text-emerald-700 font-bold">FREE</span>
+            )}
           </div>
           <div className="flex justify-between text-lg font-display font-black text-maroon-950 pt-2 border-t-2 border-maroon-950">
             <span>Total</span>
@@ -164,7 +168,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                 <span className="font-bold">{money(order.advance_amount)}</span>
               </div>
               <div className="flex justify-between text-xs text-gray-600">
-                <span>Balance due on delivery</span>
+                <span>{order.payment_status === 'fully_paid' ? 'Balance (paid)' : 'Balance due'}</span>
                 <span className="font-bold">{money(order.balance_amount ?? 0)}</span>
               </div>
             </>

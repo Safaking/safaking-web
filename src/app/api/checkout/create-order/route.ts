@@ -31,8 +31,8 @@ function bad(message: string, status = 400) {
  * Creates a Razorpay order and the matching pending SafaKing order.
  *
  * The request body carries only product ids and quantities. Every price, the
- * line total, the order total and the advance are recomputed here from the
- * products table — the client cannot influence what is charged.
+ * delivery charge, the order total and the advance are recomputed here from
+ * the database — the client cannot influence what is charged.
  */
 export async function POST(request: Request) {
   let body: CreateOrderBody;
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     return bad('Payments are not configured yet. Please contact us to place this order.', 503);
   }
 
-  // ---- Who is ordering (optional: guest checkout is allowed) --------------
+  // ---- Who is ordering (optional for the shop's own stock) ----------------
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -108,19 +108,45 @@ export async function POST(request: Request) {
   // POS has sold/rented against this SKU — see
   // supabase/017_desktop_inventory_sync.sql — not just this project's own
   // `stock` column, so a safa sold in the shop can't be oversold here.
+  // This client ignores row rules, so what customers may buy is checked here:
+  // an approved listing, from a supplier who is active and verified.
   const { data: products, error: productErr } = await admin
     .from('products_with_availability')
-    .select('id, name, code, price, available_quantity, active')
+    .select('id, name, code, price, available_quantity, active, listing_status, supplier_id')
     .in('id', lines.map((l) => l.productId));
 
   if (productErr) return bad(`Could not price this order: ${productErr.message}`, 500);
 
+  const supplierIds = [...new Set((products ?? []).map((p) => p.supplier_id).filter((id): id is string => !!id))];
+  const liveSuppliers = new Set<string>();
+  if (supplierIds.length > 0) {
+    const { data: suppliers } = await admin
+      .from('supplier_profiles')
+      .select('id')
+      .in('id', supplierIds)
+      .eq('active', true)
+      .eq('verification_status', 'verified');
+    (suppliers ?? []).forEach((s) => liveSuppliers.add(s.id));
+  }
+
   const byId = new Map((products ?? []).map((p) => [p.id, p]));
-  const priced: { productId: string; code: string | null; name: string; price: number; quantity: number }[] = [];
+  const priced: {
+    productId: string;
+    code: string | null;
+    name: string;
+    price: number;
+    quantity: number;
+    supplierId: string | null;
+  }[] = [];
 
   for (const line of lines) {
     const product = byId.get(line.productId);
-    if (!product || !product.active) {
+    if (
+      !product ||
+      !product.active ||
+      product.listing_status !== 'approved' ||
+      (product.supplier_id && !liveSuppliers.has(product.supplier_id))
+    ) {
       return bad('One of the safas in your bag is no longer available. Please review your bag.');
     }
     if (product.available_quantity < line.quantity) {
@@ -134,7 +160,30 @@ export async function POST(request: Request) {
       name: product.name,
       price: product.price, // <- from the database, never from the request
       quantity: line.quantity,
+      supplierId: product.supplier_id,
     });
+  }
+
+  // A supplier sends the parcel only once the balance is paid, and the
+  // customer pays it from My Bookings — so those orders need an account.
+  const hasSupplierItems = priced.some((l) => l.supplierId);
+  if (hasSupplierItems && !user) {
+    return bad('Please sign in to place this order. You will pay the balance and follow the delivery from My Bookings.', 401);
+  }
+
+  // ---- Delivery charges, per supplier, from the database ------------------
+  let shippingAmount = 0;
+  if (hasSupplierItems) {
+    const { data: quote, error: quoteErr } = await admin.rpc('quote_supplier_shipping', {
+      p_product_ids: priced.filter((l) => l.supplierId).map((l) => l.productId),
+      p_pincode: cleanPincode,
+    });
+    if (quoteErr) return bad(`Could not work out the delivery charge: ${quoteErr.message}`, 500);
+    const charges = (quote ?? []) as { amount: number | null }[];
+    if (charges.some((c) => c.amount == null)) {
+      return bad('One of the items cannot be delivered to this pincode right now.');
+    }
+    shippingAmount = charges.reduce((sum, c) => sum + Number(c.amount), 0);
   }
 
   // Advance percentage is admin-controlled (10-30% per the business rules), so
@@ -147,11 +196,12 @@ export async function POST(request: Request) {
 
   const advanceRate = Number(rateRow?.value ?? DEFAULT_ADVANCE_RATE);
 
-  const totalAmount = priced.reduce((sum, l) => sum + l.price * l.quantity, 0);
+  const itemsAmount = priced.reduce((sum, l) => sum + l.price * l.quantity, 0);
+  const totalAmount = itemsAmount + shippingAmount;
   const advanceAmount = Math.round(totalAmount * advanceRate);
   const balanceAmount = totalAmount - advanceAmount;
 
-  if (totalAmount <= 0) return bad('Order total must be greater than zero.');
+  if (itemsAmount <= 0) return bad('Order total must be greater than zero.');
 
   // ---- Create the SafaKing order first, so a payment always has a home ----
   const { data: order, error: orderErr } = await admin
@@ -162,6 +212,8 @@ export async function POST(request: Request) {
       customer_phone: customerPhone.trim(),
       customer_email: user?.email ?? null,
       shipping_address: `${shippingAddress.trim()} (Pincode: ${cleanPincode})`,
+      pincode: cleanPincode,
+      shipping_amount: shippingAmount,
       total_amount: totalAmount,
       advance_amount: advanceAmount,
       balance_amount: balanceAmount,
@@ -190,11 +242,28 @@ export async function POST(request: Request) {
     return bad(`Could not save the order items: ${itemsErr.message}`, 500);
   }
 
+  // One parcel per supplier, with the fee split fixed now. The database
+  // re-works the delivery charges and refuses the order if they moved.
+  if (hasSupplierItems) {
+    const { error: shipmentErr } = await admin.rpc('record_order_shipments', { p_order_id: order.id });
+    if (shipmentErr) {
+      await admin.from('orders').delete().eq('id', order.id);
+      return bad(
+        shipmentErr.code === 'P0001' ? shipmentErr.message : `Could not prepare the delivery: ${shipmentErr.message}`,
+        409
+      );
+    }
+  }
+
   // Tell the desktop POS these safas are now committed on the web, so its
   // own availability figure reflects it. Best-effort (never throws) — but
   // awaited, since a serverless function can be frozen the instant it
   // returns a response, before a genuinely fire-and-forget call completes.
-  await pushWebCommittedForSkus(admin, priced.map((l) => l.code).filter((c): c is string => !!c));
+  // Suppliers' products are not the shop's stock, so they are not sent.
+  await pushWebCommittedForSkus(
+    admin,
+    priced.filter((l) => !l.supplierId).map((l) => l.code).filter((c): c is string => !!c)
+  );
 
   // ---- Razorpay -----------------------------------------------------------
   try {
@@ -212,7 +281,7 @@ export async function POST(request: Request) {
       amount: rzpOrder.amount,
       currency: rzpOrder.currency,
       status: 'created',
-      notes: { total_amount: totalAmount, advance_amount: advanceAmount },
+      notes: { total_amount: totalAmount, advance_amount: advanceAmount, shipping_amount: shippingAmount },
     });
 
     return NextResponse.json({
@@ -222,10 +291,13 @@ export async function POST(request: Request) {
       currency: rzpOrder.currency,
       keyId: publicKeyId(),
       // Echoed back so the UI shows the server's figures, not its own guess.
+      itemsAmount,
+      shippingAmount,
       totalAmount,
       advanceAmount,
       balanceAmount,
       advanceRate,
+      balanceBeforeDispatch: hasSupplierItems,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Payment setup failed.';
