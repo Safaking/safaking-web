@@ -393,31 +393,49 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
             />
 
             <div className="relative grid grid-cols-1 lg:grid-cols-2">
-              {/* Left — safa artist image */}
-              <div className="relative aspect-[4/3] lg:aspect-auto min-h-[300px] overflow-hidden">
-                <Image
-                  src="/artist-jodhpuri-blue.jpg"
-                  alt="Master Safa Artist"
-                  fill
-                  className="object-cover object-top"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-maroon-950/70 lg:block hidden" />
-                <div className="absolute inset-0 bg-gradient-to-t from-maroon-950/60 to-transparent lg:hidden" />
+              {/* Left — safa artist image (dynamic based on selectedStyle) */}
+              <div className="relative aspect-[4/3] lg:aspect-auto min-h-[300px] overflow-hidden bg-maroon-950">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={selectedStyle}
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0"
+                  >
+                    <Image
+                      src={SAFA_STYLES.find((s) => s.name === selectedStyle)?.image || '/artist-jodhpuri-blue.jpg'}
+                      alt={`${selectedStyle} Safa Artist`}
+                      fill
+                      className="object-cover object-center"
+                      priority
+                    />
+                  </motion.div>
+                </AnimatePresence>
 
-                {/* Rating pill */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-maroon-950/30 to-maroon-950 lg:block hidden" />
+                <div className="absolute inset-0 bg-gradient-to-t from-maroon-950 via-transparent to-transparent lg:hidden" />
+
+                {/* Rating & Style Tag pill */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.3 }}
-                  className="absolute bottom-6 left-6 glass-card rounded-2xl px-4 py-3 border border-royal-400/30 shadow-xl"
+                  className="absolute bottom-5 left-5 right-5 sm:right-auto glass-card rounded-2xl px-4 py-3 border border-royal-400/30 shadow-2xl flex items-center justify-between gap-3"
                 >
-                  <div className="flex items-center gap-1 mb-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={12} className="fill-royal-400 text-royal-400" />
-                    ))}
+                  <div>
+                    <div className="flex items-center gap-1 mb-0.5">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={12} className="fill-royal-400 text-royal-400" />
+                      ))}
+                    </div>
+                    <p className="text-white text-xs font-bold">4.9 · Master Safa Artist</p>
                   </div>
-                  <p className="text-white text-xs font-bold">4.9 · 2,400+ bookings</p>
+                  <span className="px-3 py-1 rounded-full bg-royal-500 text-maroon-950 text-[10px] font-black uppercase tracking-wider">
+                    {selectedStyle}
+                  </span>
                 </motion.div>
               </div>
 
