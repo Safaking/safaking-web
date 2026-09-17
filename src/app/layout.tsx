@@ -85,7 +85,7 @@ export default function RootLayout({
         {/* Inside the Android app, the site's own headers give way to the
             app bar before first paint — see src/lib/native-app.ts. */}
         <Script id="sk-app-flag" strategy="beforeInteractive">
-          {`if (window.androidBridge) document.documentElement.classList.add('sk-app');`}
+          {`if (typeof window !== 'undefined' && (window.androidBridge || window.Capacitor || (navigator.userAgent && navigator.userAgent.indexOf('SafaKingApp') !== -1))) { document.documentElement.classList.add('sk-app'); }`}
         </Script>
         <AuthProvider>
           <CartProvider>

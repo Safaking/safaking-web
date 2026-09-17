@@ -8,11 +8,23 @@ import { supabase } from '@/lib/supabase';
 export const SUPPLIER_CATEGORIES = [
   'Silk Safa Supplier / Manufacturer',
   'Cotton Safa Supplier',
-  'Silk & Brocade Weavers',
-  'Bandhani & Leheriya Artisans',
-  'Zari & Embroidery Houses',
   'Ready-Made Safa Manufacturers',
+  'Jodhpuri & Rajputi Safa Specialists',
+  'Pacharangi & Multi-Colour Safa Makers',
+  'Bandhani & Leheriya Artisans',
+  'Silk & Brocade Weavers',
+  'Handloom & Khadi Weavers',
+  'Zari & Embroidery Houses',
+  'Gota Patti & Lace Makers',
+  'Safa Cloth & Fabric Wholesalers',
+  'Dyeing & Printing Units',
+  'Safa Stitching & Finishing Units',
   'Brooch & Kalgi Accessory Makers',
+  'Sarpech, Sehra & Mukut Makers',
+  'Groom Dupatta & Stole Makers',
+  'Mojari & Groom Footwear Makers',
+  'Baraat & Wedding Accessory Suppliers',
+  'Something else — tell us in your message',
 ] as const;
 
 export const INDIAN_STATES = [

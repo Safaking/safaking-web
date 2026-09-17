@@ -23,6 +23,23 @@ import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/hooks/useWishlist';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 
+/**
+ * Category names come from the shop's POS ("COTTON", "cotton", "POLISTER"),
+ * so the shop tidies them for display and matches them without case. Renaming
+ * a category properly is done in the POS / Admin → Products.
+ */
+const CATEGORY_SPELLING: Record<string, string> = {
+  polister: 'Polyester',
+  poli: 'Polyester',
+  pyor: 'Pure',
+  pc: 'PC',
+};
+
+function prettyCategory(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  return CATEGORY_SPELLING[key] ?? key.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
 function ShopContent() {
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get('category') || 'All';
@@ -70,6 +87,22 @@ function ShopContent() {
     () => ['All', ...Array.from(new Set(products.map((p) => p.fabric).filter(Boolean)))],
     [products]
   );
+  // Whatever the catalogue actually holds, biggest group first. Two spellings
+  // of the same word ("SILK" and "silk") are one category.
+  const categoryOptions = useMemo(() => {
+    const found = new Map<string, { value: string; label: string; count: number }>();
+    for (const product of products) {
+      const raw = product.category?.trim();
+      if (!raw || /^\d+$/.test(raw)) continue;
+      // Grouped by the tidied name, so 'POLISTER' and 'poli' are one category.
+      const label = prettyCategory(raw);
+      const value = label.toLowerCase();
+      const existing = found.get(value);
+      if (existing) existing.count += 1;
+      else found.set(value, { value, label, count: 1 });
+    }
+    return [...found.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [products]);
 
   useEffect(() => {
     if (searchParams.get('category')) {
@@ -83,10 +116,12 @@ function ShopContent() {
                           product.fabric.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesColor = selectedColor === 'All' || product.color === selectedColor;
     const matchesFabric = selectedFabric === 'All' || product.fabric === selectedFabric;
+    const categoryTerm = selectedCategory.trim().toLowerCase();
     const matchesCategory =
-      selectedCategory === 'All' ||
-      product.category === selectedCategory ||
-      product.style.includes(selectedCategory);
+      categoryTerm === 'all' ||
+      prettyCategory(product.category).toLowerCase() === categoryTerm ||
+      product.category.toLowerCase().includes(categoryTerm) ||
+      product.style.toLowerCase().includes(categoryTerm);
 
     return matchesSearch && matchesColor && matchesFabric && matchesCategory;
   }).sort((a, b) => {
@@ -159,9 +194,16 @@ function ShopContent() {
             <nav className="hidden lg:flex items-center space-x-8 text-xs font-bold tracking-widest text-slate-700 uppercase">
               <Link href="/" className="hover:text-[#8B1E2F] transition-colors">Home</Link>
               <button onClick={() => setSelectedCategory('All')} className={`hover:text-[#8B1E2F] transition-colors ${selectedCategory === 'All' ? 'text-[#8B1E2F] border-b-2 border-[#8B1E2F] pb-1' : ''}`}>Shop All</button>
-              <button onClick={() => setSelectedCategory('Groom')} className={`hover:text-[#8B1E2F] transition-colors ${selectedCategory === 'Groom' ? 'text-[#8B1E2F] border-b-2 border-[#8B1E2F] pb-1' : ''}`}>Groom Collection</button>
-              <button onClick={() => setSelectedCategory('Jodhpuri')} className={`hover:text-[#8B1E2F] transition-colors ${selectedCategory === 'Jodhpuri' ? 'text-[#8B1E2F] border-b-2 border-[#8B1E2F] pb-1' : ''}`}>Jodhpuri Silk</button>
-              <button onClick={() => setSelectedCategory('Bandhani')} className={`hover:text-[#8B1E2F] transition-colors ${selectedCategory === 'Bandhani' ? 'text-[#8B1E2F] border-b-2 border-[#8B1E2F] pb-1' : ''}`}>Bandhani & Leheriya</button>
+              {/* The catalogue's own categories, biggest first. */}
+              {categoryOptions.slice(0, 4).map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setSelectedCategory(option.value)}
+                  className={`hover:text-[#8B1E2F] transition-colors ${selectedCategory.trim().toLowerCase() === option.value ? 'text-[#8B1E2F] border-b-2 border-[#8B1E2F] pb-1' : ''}`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </nav>
 
             <div className="flex items-center space-x-5">
@@ -257,44 +299,68 @@ function ShopContent() {
             </div>
 
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Color</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Category</h4>
               <div className="space-y-2">
-                {colorOptions.map(color => (
-                  <label key={color} className="flex items-center gap-2.5 cursor-pointer group">
-                    <input 
-                      type="radio" 
-                      name="colorFilter" 
-                      checked={selectedColor === color}
-                      onChange={() => setSelectedColor(color)}
+                {[{ value: 'All', label: 'All Safas', count: products.length }, ...categoryOptions].map((option) => (
+                  <label key={option.value} className="flex items-center gap-2.5 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="categoryFilter"
+                      checked={selectedCategory.trim().toLowerCase() === option.value.toLowerCase()}
+                      onChange={() => setSelectedCategory(option.value)}
                       className="text-[#8B1E2F] focus:ring-[#8B1E2F]"
                     />
-                    <span className={`text-xs font-medium ${selectedColor === color ? 'text-[#8B1E2F] font-bold' : 'text-slate-600 group-hover:text-slate-900'}`}>
-                      {color}
+                    <span className={`text-xs font-medium ${selectedCategory.trim().toLowerCase() === option.value.toLowerCase() ? 'text-[#8B1E2F] font-bold' : 'text-slate-600 group-hover:text-slate-900'}`}>
+                      {option.label}
+                      <span className="text-slate-400 font-normal"> ({option.count})</span>
                     </span>
                   </label>
                 ))}
               </div>
             </div>
+            {colorOptions.length > 1 && (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Color</h4>
+                <div className="space-y-2">
+                  {colorOptions.map(color => (
+                    <label key={color} className="flex items-center gap-2.5 cursor-pointer group">
+                      <input 
+                        type="radio" 
+                        name="colorFilter" 
+                        checked={selectedColor === color}
+                        onChange={() => setSelectedColor(color)}
+                        className="text-[#8B1E2F] focus:ring-[#8B1E2F]"
+                      />
+                      <span className={`text-xs font-medium ${selectedColor === color ? 'text-[#8B1E2F] font-bold' : 'text-slate-600 group-hover:text-slate-900'}`}>
+                        {color}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Fabric Material</h4>
-              <div className="space-y-2">
-                {fabricOptions.map(fabric => (
-                  <label key={fabric} className="flex items-center gap-2.5 cursor-pointer group">
-                    <input 
-                      type="radio" 
-                      name="fabricFilter" 
-                      checked={selectedFabric === fabric}
-                      onChange={() => setSelectedFabric(fabric)}
-                      className="text-[#8B1E2F] focus:ring-[#8B1E2F]"
-                    />
-                    <span className={`text-xs font-medium ${selectedFabric === fabric ? 'text-[#8B1E2F] font-bold' : 'text-slate-600 group-hover:text-slate-900'}`}>
-                      {fabric}
-                    </span>
-                  </label>
-                ))}
+            {fabricOptions.length > 1 && (
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Fabric Material</h4>
+                <div className="space-y-2">
+                  {fabricOptions.map(fabric => (
+                    <label key={fabric} className="flex items-center gap-2.5 cursor-pointer group">
+                      <input 
+                        type="radio" 
+                        name="fabricFilter" 
+                        checked={selectedFabric === fabric}
+                        onChange={() => setSelectedFabric(fabric)}
+                        className="text-[#8B1E2F] focus:ring-[#8B1E2F]"
+                      />
+                      <span className={`text-xs font-medium ${selectedFabric === fabric ? 'text-[#8B1E2F] font-bold' : 'text-slate-600 group-hover:text-slate-900'}`}>
+                        {fabric}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="pt-4 border-t border-slate-100 space-y-3">
               <div className="flex items-center gap-3 text-slate-600 text-xs">

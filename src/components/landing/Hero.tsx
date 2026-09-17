@@ -25,66 +25,105 @@ import { SafaRaja } from './SafaRaja';
  * it, and phones get a swipeable row instead of a pinned one.
  */
 
-const COLLECTION = [
+interface CollectionItem {
+  step: number;
+  name: string;
+  kind: string;
+  badge: string;
+  addedAccessory: string;
+  icon: string;
+  note: string;
+  alt: string;
+  src: string;
+  href: string;
+  cta: string;
+  tint: string;
+}
+
+const COLLECTION: CollectionItem[] = [
   {
-    src: '/hero/groom-maroon.webp',
-    name: 'Maroon Zardozi',
-    kind: 'Groom safa',
-    note: 'Velvet with a hand-set kundan brooch and pearl lari',
-    alt: 'Groom wearing a maroon velvet safa with gold embroidery and a kundan brooch',
+    step: 1,
+    name: '1. Royal Sherwani',
+    kind: 'Base Canvas',
+    badge: 'STEP 1 · BASE LOOK',
+    addedAccessory: 'Grand Zardozi Sherwani',
+    icon: '👔',
+    note: 'The foundation of royal attire — hand-embroidered Zardozi sherwani',
+    alt: 'Groom in maroon sherwani base look without safa or accessories',
+    src: '/hero/step1-sherwani.jpg',
     href: '/shop',
-    cta: 'See in the shop',
-    tint: '#6E1322',
+    cta: 'Explore Sherwanis',
+    tint: '#3A0A13',
   },
   {
-    src: '/hero/safa-pink.webp',
-    name: 'Rani Pink Chanderi',
-    kind: 'Ready-tied safa',
-    note: 'Silk with a pearl lari and a feather kalgi',
-    alt: 'Pink Chanderi silk safa with a pearl string and a feather plume',
+    step: 2,
+    name: '2. Pearl Mala',
+    kind: '+ Pearl Necklace',
+    badge: 'STEP 2 · WEARING PEARLS',
+    addedAccessory: 'Multi-strand Royal Pearl Mala',
+    icon: '📿',
+    note: 'Adorned with layered royal pearl necklace worn by Marwar royalty',
+    alt: 'Groom wearing maroon sherwani and royal pearl necklace mala',
+    src: '/hero/step2-pearls.jpg',
     href: '/shop',
-    cta: 'See in the shop',
-    tint: '#9C2150',
-  },
-  {
-    src: '/hero/groom-gold.webp',
-    name: 'Sunehri Brocade',
-    kind: 'Groom safa',
-    note: 'Gold brocade finished with a peacock kalgi',
-    alt: 'Groom wearing a gold brocade safa with a peacock feather',
-    href: '/shop',
-    cta: 'See in the shop',
-    tint: '#8A6614',
-  },
-  {
-    src: '/hero/groom-blue.webp',
-    name: 'Jodhpuri Neel',
-    kind: 'Groom safa',
-    note: 'Royal blue velvet with a gold zari border',
-    alt: 'Groom in profile wearing a royal blue velvet safa with gold borders',
-    href: '/shop',
-    cta: 'See in the shop',
-    tint: '#1F3478',
-  },
-  {
-    src: '/hero/safa-brocade.webp',
-    name: 'Banarasi Maroon',
-    kind: 'Safa on rent',
-    note: 'Banarasi weave with a long pench and peacock kalgi',
-    alt: 'Maroon Banarasi safa with a long tail and a peacock feather',
-    href: '/rent',
-    cta: 'Rent this style',
+    cta: 'View Pearl Malas',
     tint: '#5A0E18',
   },
   {
-    src: '/hero/groom-full.webp',
-    name: 'The Complete Look',
-    kind: 'Safa + artist',
-    note: 'Choose the safa, and our artist ties it on the day',
-    alt: 'Groom in a pink safa and maroon sherwani holding a sword',
+    step: 3,
+    name: '3. Royal Sword',
+    kind: '+ Wedding Talwar',
+    badge: 'STEP 3 · HOLDING TALWAR',
+    addedAccessory: 'Golden Wedding Sword (Talwar)',
+    icon: '⚔️',
+    note: 'Equipping the golden ceremonial sword representing valour & heritage',
+    alt: 'Groom holding golden wedding sword talwar in hand',
+    src: '/hero/step3-sword.jpg',
+    href: '/shop',
+    cta: 'Explore Swords',
+    tint: '#6E1322',
+  },
+  {
+    step: 4,
+    name: '4. Forehead Bindi',
+    kind: '+ Royal Tilak',
+    badge: 'STEP 4 · APPLYING TILAK',
+    addedAccessory: 'Sacred Red Bindi Tilak',
+    icon: '🔴',
+    note: 'Placing the auspicious red bindi tilak on forehead for wedding blessings',
+    alt: 'Groom with sacred red bindi tilak on forehead',
+    src: '/hero/step4-bindi.jpg',
+    href: '/shop',
+    cta: 'Bindi & Accessories',
+    tint: '#8A1F30',
+  },
+  {
+    step: 5,
+    name: '5. Royal Safa',
+    kind: '+ Safa Turban',
+    badge: 'STEP 5 · TYING SAFA',
+    addedAccessory: 'Crown Safa Turban',
+    icon: '👑',
+    note: 'Master artist ties the royal safa with precision pleats & structure',
+    alt: 'Groom wearing majestic royal safa turban',
+    src: '/hero/step5-safa.jpg',
     href: '/#artist-booking-form',
-    cta: 'Book an artist',
-    tint: '#3A0A13',
+    cta: 'Book Tying Artist',
+    tint: '#8A6614',
+  },
+  {
+    step: 6,
+    name: '6. Complete Maharaja',
+    kind: 'Complete Royal Look',
+    badge: 'STEP 6 · CROWN COMPLETE',
+    addedAccessory: 'Peacock Feather & Kundan Kalgi',
+    icon: '🦚',
+    note: 'Safa + Kalgi Brooch + Pearl Mala + Sword + Bindi — The Ultimate Crown!',
+    alt: 'Groom in complete royal ensemble with safa, bindi tilak and sword',
+    src: '/hero/step6-complete.jpg',
+    href: '/#artist-booking-form',
+    cta: 'Book Complete Look',
+    tint: '#1F3478',
   },
 ];
 
@@ -224,7 +263,6 @@ function Stage() {
           >
             <SafaRaja className="h-full w-full" />
           </motion.div>
-
         </div>
 
         {/* What's below */}
@@ -234,7 +272,7 @@ function Stage() {
           transition={{ delay: 0.8 }}
           className="relative z-20 hidden flex-col items-end gap-4 self-center pb-16 lg:flex"
         >
-          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-maroon-950/60">The collection</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-maroon-950/60">Step By Step Crown Wear</p>
           <ol className="space-y-1.5 text-right">
             {COLLECTION.map((item, i) => (
               <li key={item.name} className="font-display text-lg font-bold text-maroon-950/80">
@@ -253,7 +291,7 @@ function Stage() {
 }
 
 function RailItem({ item, index, count, progress, animate }: {
-  item: (typeof COLLECTION)[number];
+  item: CollectionItem;
   index: number;
   count: number;
   progress: MotionValue<number>;
@@ -265,28 +303,64 @@ function RailItem({ item, index, count, progress, animate }: {
   const numberX = useTransform(progress, [at - 0.4, at + 0.4], [80, -80]);
 
   return (
-    <article className="flex w-[78vw] shrink-0 snap-center flex-col sm:w-[52vw] md:w-[34vw] lg:w-[27vw]">
-      <div className="relative aspect-[4/5]">
+    <article className="group flex w-[82vw] shrink-0 snap-center flex-col sm:w-[56vw] md:w-[36vw] lg:w-[28vw]">
+      <div className="relative aspect-[4/5] rounded-3xl overflow-hidden border border-royal-400/20 shadow-2xl">
         <motion.span
           aria-hidden
           style={animate ? { x: numberX } : undefined}
-          className="absolute -left-2 top-0 font-display text-8xl font-black leading-none text-white/[0.12] lg:text-9xl"
+          className="absolute -left-2 top-0 font-display text-8xl font-black leading-none text-white/[0.15] lg:text-9xl z-10 pointer-events-none select-none"
         >
           {String(index + 1).padStart(2, '0')}
         </motion.span>
-        <motion.div style={animate ? { y: lift, rotate: tilt } : undefined} className="absolute inset-6">
+
+        {/* Step Badge */}
+        <div className="absolute top-4 left-4 z-20">
+          <motion.span
+            initial={{ scale: 0.9, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-royal-500 text-maroon-950 font-black text-[10px] uppercase tracking-wider shadow-lg"
+          >
+            <span>{item.icon}</span> {item.badge}
+          </motion.span>
+        </div>
+
+        <motion.div
+          style={animate ? { y: lift, rotate: tilt } : undefined}
+          whileHover={{ scale: 1.04 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+          className="absolute inset-0 rounded-3xl overflow-hidden bg-maroon-950"
+        >
           <Image
             src={item.src}
             alt={item.alt}
             fill
-            sizes="(max-width: 768px) 78vw, 30vw"
-            className="object-contain drop-shadow-[0_30px_35px_rgba(0,0,0,0.4)]"
+            sizes="(max-width: 768px) 82vw, 30vw"
+            className="object-cover rounded-3xl transition-transform duration-700 group-hover:scale-105"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+
+          {/* Animated Wearing Accessory Floating Pill */}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="absolute bottom-4 left-4 right-4 p-3 rounded-2xl bg-black/60 backdrop-blur-md border border-royal-400/30 text-white"
+          >
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-royal-300 flex items-center gap-1">
+                <span>{item.icon}</span> + {item.addedAccessory}
+              </span>
+              <span className="text-[10px] text-royal-200/70 font-semibold">Step {item.step}/6</span>
+            </div>
+          </motion.div>
         </motion.div>
       </div>
-      <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.25em] text-royal-200/80">{item.kind}</p>
+
+      <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.25em] text-royal-200/80">{item.kind}</p>
       <h3 className="mt-1 font-display text-2xl font-black text-royal-50 md:text-3xl">{item.name}</h3>
-      <p className="mt-1 max-w-xs text-sm text-royal-100/70">{item.note}</p>
+      <p className="mt-1 max-w-xs text-sm text-royal-100/70 leading-relaxed">{item.note}</p>
       <Link
         href={item.href}
         className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-royal-300 transition-colors hover:text-royal-100"
@@ -328,7 +402,7 @@ function CollectionRail() {
     <section
       ref={section}
       id="collection"
-      aria-label="The SafaKing collection"
+      aria-label="Step by step royal crown transformation"
       className={`relative ${pinned ? 'h-[420vh]' : ''}`}
     >
       <motion.div
@@ -338,22 +412,25 @@ function CollectionRail() {
       >
         <div className="mx-auto mb-8 flex w-full max-w-7xl items-end justify-between gap-6 px-4 sm:px-6 lg:px-8">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-royal-300">The collection</p>
-            <h2 className="mt-2 font-display text-4xl font-black text-royal-50 md:text-5xl">Pick your crown</h2>
+            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-royal-300">Royal Groom Transformation</p>
+            <h2 className="mt-2 font-display text-4xl font-black text-royal-50 md:text-5xl">Step-by-Step Crown Wear</h2>
+            <p className="mt-1 text-xs font-bold text-royal-200/70">
+              Sherwani → Pearl Mala → Wedding Sword → Forehead Bindi → Safa Turban → Complete Maharaja Crown
+            </p>
           </div>
           {pinned ? (
-            <div className="hidden h-1 w-40 overflow-hidden rounded-full bg-white/15 md:block">
-              <motion.div style={{ scaleX: scrollYProgress }} className="h-full origin-left rounded-full bg-royal-300" />
+            <div className="hidden h-1.5 w-48 overflow-hidden rounded-full bg-white/15 md:block">
+              <motion.div style={{ scaleX: scrollYProgress }} className="h-full origin-left rounded-full bg-royal-400" />
             </div>
           ) : (
-            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-royal-200/70">Swipe →</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-royal-200/70">Swipe Steps →</p>
           )}
         </div>
 
         <motion.div
           ref={track}
           style={pinned ? { x: slide } : undefined}
-          className={`flex gap-8 px-4 sm:px-6 md:gap-12 md:px-[8vw] ${
+          className={`flex gap-8 px-4 sm:px-6 md:gap-10 md:px-[8vw] ${
             pinned ? '' : 'snap-x snap-mandatory overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
           }`}
         >
