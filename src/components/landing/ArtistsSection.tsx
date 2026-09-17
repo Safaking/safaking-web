@@ -421,14 +421,13 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                 </motion.div>
               </div>
 
-              <div className="p-8 sm:p-12">
-                <div className="mb-6">
-                  <span className="text-royal-300 text-xs font-bold uppercase tracking-widest">Book Your Artist</span>
-                  <h3 className="text-3xl sm:text-4xl font-display font-black text-white mt-2 leading-tight">
-                    Reserve a Master Safa Artist for Your Wedding
+              <div className="p-6 sm:p-8">
+                <div className="mb-5">
+                  <span className="text-royal-300 text-[10px] font-bold uppercase tracking-widest">Book Master Safa Artist</span>
+                  <h3 className="text-2xl sm:text-3xl font-display font-black text-white mt-1 leading-tight">
+                    Reserve Artist for <span className="text-royal-400">{selectedStyle}</span>
                   </h3>
                 </div>
-
 
                 <AnimatePresence mode="wait">
                   {booked ? (
@@ -437,16 +436,13 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.8, opacity: 0 }}
-                      className="flex flex-col items-center py-8 text-center"
+                      className="flex flex-col items-center py-6 text-center"
                     >
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 0.5 }}
-                      >
-                        <CheckCircle2 size={60} className="text-green-400 mb-4" />
+                      <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5 }}>
+                        <CheckCircle2 size={50} className="text-green-400 mb-3" />
                       </motion.div>
-                      <h4 className="text-2xl font-display font-bold text-white">Booking Request Sent!</h4>
-                      <p className="text-sm text-royal-200/60 mt-2">Our team will call you within 2 hours.</p>
+                      <h4 className="text-xl font-display font-bold text-white">Booking Request Sent!</h4>
+                      <p className="text-xs text-royal-200/70 mt-1">Our team will call you within 2 hours.</p>
                     </motion.div>
                   ) : (
                     <motion.form
@@ -457,24 +453,22 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                       onSubmit={handleBooking}
                       className="space-y-3"
                     >
-                      <h4 className="font-display font-bold text-lg text-white mb-4">
-                        Quick Booking — {selectedStyle}
-                      </h4>
-
                       {error && (
-                        <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/15 border border-rose-400/40 text-rose-100">
+                        <div className="flex items-start gap-2 p-2.5 rounded-xl bg-rose-500/15 border border-rose-400/40 text-rose-100">
                           <AlertCircle size={15} className="shrink-0 mt-0.5" />
                           <p className="text-[11px] leading-relaxed">{error}</p>
                         </div>
                       )}
-                      <div className="grid grid-cols-2 gap-3">
+
+                      {/* Name & Phone */}
+                      <div className="grid grid-cols-2 gap-2.5">
                         <input
                           required
                           type="text"
                           placeholder="Your Name"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-xs focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                         />
                         <input
                           required
@@ -482,189 +476,83 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                           placeholder="Phone Number"
                           value={customerPhone}
                           onChange={(e) => setCustomerPhone(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-xs focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <input
-                          type="tel"
-                          placeholder="Alternate Phone (optional)"
-                          value={customerPhoneAlt}
-                          onChange={(e) => setCustomerPhoneAlt(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                        />
+
+                      {/* Date & Time */}
+                      <div className="grid grid-cols-2 gap-2.5">
                         <div className="relative">
-                          <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
+                          <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
+                          <input
+                            required
+                            type="date"
+                            value={eventDate}
+                            onChange={(e) => setEventDate(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white text-xs focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                          />
+                        </div>
+                        <input
+                          required
+                          type="time"
+                          value={eventTime}
+                          onChange={(e) => setEventTime(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white text-xs focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                        />
+                      </div>
+
+                      {/* City & Pincode */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="relative">
+                          <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
                           <input
                             required
                             type="text"
                             placeholder="City"
                             value={cityVenue}
                             onChange={(e) => setCityVenue(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-xs focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                           />
-                        </div>
-                      </div>
-
-                      {/* Wedding date & time */}
-                      <div>
-                        <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-1.5">
-                          Wedding Date &amp; Time
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="relative">
-                            <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
-                            <input
-                              required
-                              type="date"
-                              value={eventDate}
-                              onChange={(e) => setEventDate(e.target.value)}
-                              className="w-full pl-10 pr-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                            />
-                          </div>
-                          <input
-                            required
-                            type="time"
-                            value={eventTime}
-                            onChange={(e) => setEventTime(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                          />
-                        </div>
-                      </div>
-
-                      {/* How long the artist is booked for */}
-                      <div>
-                        <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-1.5">
-                          Artist Booked From – To
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <input
-                            required
-                            type="time"
-                            value={bookingStartTime}
-                            onChange={(e) => setBookingStartTime(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                          />
-                          <input
-                            required
-                            type="time"
-                            value={bookingEndTime}
-                            onChange={(e) => setBookingEndTime(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Event Pincode & Artist Availability Badge */}
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="block text-[10px] font-bold text-royal-300/70 uppercase tracking-widest">
-                            Event Venue Pincode (6-Digits)
-                          </label>
                         </div>
                         <input
                           required
                           type="text"
                           maxLength={6}
-                          placeholder="e.g. 302001"
+                          placeholder="Pincode (6 digits)"
                           value={pincode}
                           onChange={(e) => handlePincodeChange(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm placeholder:text-royal-200/40 focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white text-xs placeholder:text-royal-200/40 focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                         />
-                        {pincodeResult && (
-                          <p
-                            className={`text-xs font-bold mt-1.5 p-2 rounded-xl border ${
-                              pincodeResult.deliverable
-                                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40'
-                                : 'bg-rose-950/60 text-rose-300 border-rose-500/40'
-                            }`}
-                          >
-                            {pincodeResult.message}
-                          </p>
-                        )}
                       </div>
 
-                      {/* Full venue address — separate from the City field above */}
-                      <div>
-                        <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-1.5">
-                          Full Venue Address
+                      {pincodeResult && (
+                        <p
+                          className={`text-[11px] font-bold p-2 rounded-xl border ${
+                            pincodeResult.deliverable
+                              ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40'
+                              : 'bg-rose-950/60 text-rose-300 border-rose-500/40'
+                          }`}
+                        >
+                          {pincodeResult.message}
                         </p>
-                        <textarea
-                          required
-                          rows={2}
-                          placeholder="House/venue name, street, area, landmark"
-                          value={venueAddress}
-                          onChange={(e) => setVenueAddress(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                        />
-                      </div>
+                      )}
 
-                      {/* Purely informational — no size data is collected here, the artist measures by hand at the venue */}
-                      <button
-                        type="button"
-                        onClick={() => setShowMeasureGuide(true)}
-                        className="flex items-center gap-1.5 text-xs font-bold text-royal-400 hover:text-royal-300 underline"
-                      >
-                        <Ruler size={13} /> Curious how safa head-size measurement works?
-                      </button>
+                      {/* Venue Address */}
+                      <textarea
+                        required
+                        rows={2}
+                        placeholder="Venue Address / Landmark"
+                        value={venueAddress}
+                        onChange={(e) => setVenueAddress(e.target.value)}
+                        className="w-full px-3.5 py-2 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                      />
 
-                      {/* Second function — Haldi, Sangeet, etc. */}
-                      <div className="rounded-xl border border-royal-400/20 bg-white/5 p-3">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={hasSecondEvent}
-                            onChange={(e) => setHasSecondEvent(e.target.checked)}
-                            className="accent-royal-400"
-                          />
-                          <span className="text-xs font-bold text-royal-100">
-                            Also need the artist for a second function? (Haldi, Sangeet, etc.)
-                          </span>
-                        </label>
-                        {hasSecondEvent && (
-                          <div className="mt-3 space-y-2">
-                            <input
-                              required
-                              type="text"
-                              placeholder="Function name (e.g. Haldi)"
-                              value={secondEventName}
-                              onChange={(e) => setSecondEventName(e.target.value)}
-                              className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                            />
-                            <div className="grid grid-cols-2 gap-2">
-                              <input
-                                required
-                                type="date"
-                                value={secondEventDate}
-                                onChange={(e) => setSecondEventDate(e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                              />
-                              <input
-                                required
-                                type="time"
-                                value={secondEventTime}
-                                onChange={(e) => setSecondEventTime(e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                              />
-                            </div>
-                            <input
-                              required
-                              type="text"
-                              placeholder="Venue for this function"
-                              value={secondEventVenue}
-                              onChange={(e) => setSecondEventVenue(e.target.value)}
-                              className="w-full px-4 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Safa Count Selector — Barati Safa only; Rounded/Jodhpuri are the groom's single safa */}
+                      {/* Safa Count Selector — Barati Safa only */}
                       {isBulkStyle && (
                         <div>
-                          <div className="flex justify-between items-center mb-1.5">
+                          <div className="flex justify-between items-center mb-1">
                             <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest">
-                              Number of Safas to Tie (Count)
+                              Safas Count
                             </p>
                             <span className="text-xs font-black text-royal-300">{safaCount} Safas</span>
                           </div>
@@ -674,125 +562,59 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                                 key={count}
                                 type="button"
                                 onClick={() => setSafaCount(count)}
-                                className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
                                   safaCount === count
-                                    ? 'bg-royal-500 text-maroon-950 border-royal-400 shadow-md font-black'
+                                    ? 'bg-royal-500 text-maroon-950 border-royal-400 font-black'
                                     : 'bg-white/10 text-white border-royal-400/20 hover:bg-white/20'
                                 }`}
                               >
                                 {count}
                               </button>
                             ))}
-                            <input
-                              type="number"
-                              min={1}
-                              value={safaCount}
-                              onChange={(e) => setSafaCount(Math.max(1, Number(e.target.value) || 1))}
-                              placeholder="Custom"
-                              className="w-16 py-2.5 px-2 text-center rounded-xl border border-royal-400/20 bg-white/10 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-royal-400/30"
-                            />
                           </div>
                         </div>
                       )}
 
-                      {/* Pill-style style selector */}
-                      <div>
-                        <p className="text-[10px] font-bold text-royal-300/70 uppercase tracking-widest mb-2">Select Safa Tying Style</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {SAFA_STYLES.map((s) => (
-                            <motion.button
-                              key={s.name}
-                              type="button"
-                              onClick={() => setSelectedStyle(s.name)}
-                              whileHover={{ scale: 1.04 }}
-                              whileTap={{ scale: 0.96 }}
-                              className={`relative flex flex-col items-center justify-center py-3 px-2 rounded-2xl border-2 text-center transition-all duration-200 ${
-                                selectedStyle === s.name
-                                  ? 'bg-royal-500 border-royal-400 shadow-lg shadow-royal-500/40'
-                                  : 'bg-white/8 border-royal-400/20 hover:border-royal-400/50 hover:bg-white/15'
-                              }`}
-                            >
-                              {selectedStyle === s.name && (
-                                <motion.div
-                                  layoutId="pillSelected"
-                                  className="absolute inset-0 rounded-2xl bg-royal-500"
-                                  style={{ zIndex: -1 }}
-                                />
-                              )}
-                              <span className={`text-xs font-black leading-tight ${
-                                selectedStyle === s.name ? 'text-maroon-950' : 'text-white'
-                              }`}>
-                                {s.name}
-                              </span>
-                              <span className={`text-[10px] font-bold mt-0.5 ${
-                                selectedStyle === s.name ? 'text-maroon-800' : 'text-royal-400'
-                              }`}>
-                                ₹{s.price}/safa
-                              </span>
-                            </motion.button>
-                          ))}
+                      {/* Compact Payment Summary */}
+                      <div className="p-3 rounded-xl bg-maroon-950/80 border border-royal-400/30 text-xs space-y-1">
+                        <div className="flex justify-between font-bold text-white">
+                          <span>Total ({effectiveSafaCount} Safa{effectiveSafaCount === 1 ? '' : 's'})</span>
+                          <span className="font-black">₹{totalBookingAmount.toLocaleString()}</span>
                         </div>
-                      </div>
-
-                      {/* Split Payment Summary Card */}
-                      <div className="p-3.5 rounded-2xl bg-maroon-950/80 border border-royal-400/30 space-y-1.5 text-xs">
-                        <div className="flex justify-between font-bold text-royal-200/80">
-                          <span>Total Booking Fee ({effectiveSafaCount} Safa{effectiveSafaCount === 1 ? '' : 's'} @ ₹{unitPrice})</span>
-                          <span className="text-white font-black">₹{totalBookingAmount.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-emerald-300 bg-emerald-950/60 p-2 rounded-xl border border-emerald-500/30">
+                        <div className="flex justify-between text-emerald-300 font-bold text-[11px]">
                           <span>⚡ {Math.round(advanceRate * 100)}% Booking Advance Today</span>
                           <span>₹{advanceAmount.toLocaleString()}</span>
                         </div>
-                        <div className="flex justify-between font-bold text-amber-300 bg-amber-950/60 p-2 rounded-xl border border-amber-500/30">
-                          <span>🗓️ Balance to SafaKing by {eventDate ? new Date(`${eventDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'your event date'}</span>
+                        <div className="flex justify-between text-amber-300 text-[11px]">
+                          <span>🗓️ Balance by Event Date</span>
                           <span>₹{balanceAmount.toLocaleString()}</span>
                         </div>
-                        <p className="pt-0.5 text-[10px] leading-relaxed text-royal-200/60">
-                          100% of the fee is paid to SafaKing by the event date. Please never pay the artist directly.
-                        </p>
                       </div>
-
-                      <LocationPin value={pin} onChange={setPin} theme="dark" />
-
-                      <select
-                        value={leadSource}
-                        onChange={(e) => setLeadSource(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-royal-400/25 text-royal-100 text-xs font-bold outline-none focus:border-royal-400/60"
-                      >
-                        <option value="" className="text-maroon-950">How did you hear about SafaKing? (optional)</option>
-                        {LEAD_SOURCES.map((src) => (
-                          <option key={src} value={src} className="text-maroon-950">{src}</option>
-                        ))}
-                      </select>
-
-                      <CancellationTerms theme="dark" />
 
                       <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="dark" />
 
                       {!user && !authLoading && (
-                        <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-royal-500/10 border border-royal-400/40 text-royal-100">
-                          <ShieldCheck size={16} className="shrink-0 mt-0.5 text-royal-300" />
-                          <p className="text-[11px] leading-relaxed">
+                        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-royal-500/10 border border-royal-400/40 text-royal-100 text-[11px]">
+                          <ShieldCheck size={15} className="shrink-0 text-royal-300" />
+                          <p>
                             <button
                               type="button"
                               onClick={() => onRequireSignIn?.()}
-                              className="font-black text-royal-300 underline underline-offset-2"
+                              className="font-black text-royal-300 underline"
                             >
                               Sign in
                             </button>{' '}
-                            to confirm — your account keeps the arrival code, live artist tracking and
-                            booking history in one place.
+                            to confirm your booking.
                           </p>
                         </div>
                       )}
 
                       <motion.button
-                        whileHover={{ scale: 1.03, boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}
-                        whileTap={{ scale: 0.97 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         type="submit"
                         disabled={submitting || (!!pincodeResult && !pincodeResult.deliverable)}
-                        className="w-full bg-royal-500 hover:bg-royal-400 disabled:opacity-60 disabled:cursor-not-allowed text-maroon-950 font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
+                        className="w-full bg-royal-500 hover:bg-royal-400 disabled:opacity-60 disabled:cursor-not-allowed text-maroon-950 font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 transition-colors"
                       >
                         {submitting ? (
                           <>
@@ -800,15 +622,15 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                           </>
                         ) : (
                           <>
-                            <Phone size={16} />{' '}
+                            <Phone size={15} />{' '}
                             {!user && !authLoading
-                              ? 'Sign In & Lock Your Date'
-                              : `Pay ${Math.round(advanceRate * 100)}% Advance (₹${advanceAmount.toLocaleString()}) & Lock Date for ${effectiveSafaCount} Safa${effectiveSafaCount === 1 ? '' : 's'}`}
+                              ? 'Sign In & Reserve Date'
+                              : `Pay ${Math.round(advanceRate * 100)}% Advance (₹${advanceAmount.toLocaleString()}) & Reserve`}
                           </>
                         )}
                       </motion.button>
                       <p className="text-[10px] text-center text-royal-200/50">
-                        ⚡ {Math.round(advanceRate * 100)}% Advance Today · 100% Paid to SafaKing by Your Event Date
+                        ⚡ {Math.round(advanceRate * 100)}% Advance Today · Balance Paid to SafaKing by Event Date
                       </p>
                     </motion.form>
                   )}
