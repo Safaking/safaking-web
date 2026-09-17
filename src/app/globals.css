@@ -279,3 +279,30 @@ button, a {
 .sk-app [id^='artist-'] {
   scroll-margin-top: 4.5rem;
 }
+
+/* ---------------------------------------------------------------------------
+   Native App Touch Feel & Ergonomics (Capacitor APK)
+   --------------------------------------------------------------------------- */
+.sk-app,
+.sk-app * {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.sk-app body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.sk-app input,
+.sk-app textarea,
+.sk-app [contenteditable="true"] {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+.sk-app button:active,
+.sk-app a:active,
+.sk-app [role="button"]:active {
+  opacity: 0.88;
+}

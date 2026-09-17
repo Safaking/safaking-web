@@ -88,7 +88,7 @@ export function FeaturedCollection({ products, loading, wishlist, onToggleWishli
           </div>
         </AnimatedSection>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-6">
           {loading
             ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
             : products.map((product, i) => (
@@ -171,7 +171,7 @@ export function FeaturedCollection({ products, loading, wishlist, onToggleWishli
                 </div>
 
                 {/* Info */}
-                <div className="p-5 flex flex-col flex-1 justify-between">
+                <div className="p-3.5 sm:p-5 flex flex-col flex-1 justify-between">
                   <div>
                     <div className="flex items-center justify-between text-[11px] font-bold text-royal-700 uppercase tracking-wider mb-1.5">
                       <span>{product.fabric}</span>

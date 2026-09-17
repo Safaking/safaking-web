@@ -10,7 +10,13 @@ import { Capacitor } from '@capacitor/core';
  * site's own headers never flash inside the app.
  */
 export function isNativeApp(): boolean {
-  return typeof window !== 'undefined' && Capacitor.isNativePlatform();
+  if (typeof window === 'undefined') return false;
+  return (
+    Capacitor.isNativePlatform() ||
+    (typeof navigator !== 'undefined' && navigator.userAgent.includes('SafaKingApp')) ||
+    !!(window as any).Capacitor?.isNative ||
+    !!(window as any).androidBridge
+  );
 }
 
 /** False during server render and the first client render, then the truth. */

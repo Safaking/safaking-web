@@ -15,12 +15,14 @@ export function TrainingSection() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  const [center, setCenter] = useState('partapur');
+  // Training runs at a SafaKing centre, or in the trainee's own city once
+  // enough people there ask for it — the location is not fixed.
+  const [trainAt, setTrainAt] = useState<'my-city' | 'centre'>('my-city');
+  const [centre, setCentre] = useState('Partapur');
   const [gender, setGender] = useState('');
   const [qualification, setQualification] = useState('');
   const [currentOccupation, setCurrentOccupation] = useState('');
   const [wantsToJoinPlatform, setWantsToJoinPlatform] = useState(true);
-  const [nearestHqCity, setNearestHqCity] = useState('');
 
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,12 +34,11 @@ export function TrainingSection() {
       full_name: fullName.trim(),
       phone: phone.trim(),
       city: city.trim() || null,
-      center,
+      center: trainAt === 'centre' ? centre : `My own city — ${city.trim() || 'not given'}`,
       gender: gender || null,
       qualification: qualification.trim() || null,
       current_occupation: currentOccupation.trim() || null,
       wants_to_join_platform: wantsToJoinPlatform,
-      nearest_hq_city: nearestHqCity.trim() || null,
       status: 'pending',
     });
 
@@ -54,7 +55,6 @@ export function TrainingSection() {
     setGender('');
     setQualification('');
     setCurrentOccupation('');
-    setNearestHqCity('');
     setEnrolled(true);
     setTimeout(() => setEnrolled(false), 5000);
   };
@@ -88,7 +88,7 @@ export function TrainingSection() {
             <span className="text-gradient-gold italic">Training</span> Facilities
           </h2>
           <p className="text-royal-100/55 max-w-2xl mx-auto text-base leading-relaxed">
-            Learn the sacred art of safa tying from heritage masters at our training centers in Partapur and Chitri Sagawara Store.
+            Learn the sacred art of safa tying from heritage masters — at our training centres, or in your own city once enough people there ask for it.
           </p>
         </AnimatedSection>
 
@@ -216,8 +216,9 @@ export function TrainingSection() {
                   </div>
 
                   <input
+                    required={trainAt === 'my-city'}
                     type="text"
-                    placeholder="Your City"
+                    placeholder="Your City / Town"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
@@ -251,22 +252,82 @@ export function TrainingSection() {
                     className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                   />
 
-                  <select
-                    className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                    value={center}
-                    onChange={(e) => setCenter(e.target.value)}
-                  >
-                    <option value="partapur" className="text-maroon-900 bg-white">Partapur</option>
-                    <option value="chitri-sagawara" className="text-maroon-900 bg-white">Chitri Sagawara Store</option>
-                  </select>
+                  <div className="rounded-xl border border-royal-400/20 bg-white/5 p-3 space-y-2.5">
 
-                  <input
-                    type="text"
-                    placeholder="Nearest city to our HQ, if not Partapur/Sagawara"
-                    value={nearestHqCity}
-                    onChange={(e) => setNearestHqCity(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white placeholder:text-royal-200/40 text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
-                  />
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-royal-200/70">Where would you like to train?</p>
+
+                    {([
+
+                      { value: 'my-city', label: 'In my own city', hint: 'We run a batch there once enough people ask' },
+
+                      { value: 'centre', label: 'At a SafaKing training centre', hint: 'Partapur or Chitri Sagawara' },
+
+                    ] as const).map((option) => (
+
+                      <label key={option.value} className="flex items-start gap-2.5 cursor-pointer">
+
+                        <input
+
+                          type="radio"
+
+                          name="trainAt"
+
+                          checked={trainAt === option.value}
+
+                          onChange={() => setTrainAt(option.value)}
+
+                          className="mt-0.5 accent-royal-400"
+
+                        />
+
+                        <span className="text-xs text-royal-100/90">
+
+                          {option.label}
+
+                          <span className="block text-[10px] text-royal-200/50">{option.hint}</span>
+
+                        </span>
+
+                      </label>
+
+                    ))}
+
+
+                    {trainAt === 'centre' ? (
+
+                      <select
+
+                        className="w-full px-4 py-3 rounded-xl border border-royal-400/20 bg-white/5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+
+                        value={centre}
+
+                        onChange={(e) => setCentre(e.target.value)}
+
+                      >
+
+                        <option value="Partapur" className="text-maroon-900 bg-white">Partapur</option>
+
+                        <option value="Chitri Sagawara Store" className="text-maroon-900 bg-white">Chitri Sagawara Store</option>
+
+                      </select>
+
+                    ) : (
+
+                      <p className="text-[11px] leading-relaxed text-royal-100/85 bg-royal-500/10 border border-royal-400/30 rounded-lg p-2.5">
+
+                        जैसे ही आपके शहर या आसपास ट्रेनिंग रखी जाएगी, हम आपको बता देंगे।
+
+                        <span className="block text-royal-200/60 mt-1">
+
+                          We will call you as soon as a batch runs in or near {city.trim() || 'your city'}.
+
+                        </span>
+
+                      </p>
+
+                    )}
+
+                  </div>
 
                   <label className="flex items-start gap-2 px-1 cursor-pointer">
                     <input

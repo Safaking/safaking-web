@@ -11,23 +11,21 @@ const SAFA_STYLES = [
   {
     name: 'Rounded',
     region: 'Pan-India',
-    image: '/artist-jodhpuri-blue.jpg',
-    imagePosition: 'object-top',
+    image: '/rounded-gol-safa.jpg',
+    imagePosition: 'object-center',
     desc: 'The classic rounded safa — clean pleats with a smooth crown shape, ideal for all occasions and face cuts.',
-    duration: '30 min',
     price: 50,
     popular: false,
     color: 'from-blue-900 to-indigo-950',
     tag: 'Classic Style',
-    features: ['Smooth rounded crown', 'Quick 30-minute tying', 'Suits all fabric types'],
+    features: ['Smooth rounded crown', 'Classic traditional finish', 'Suits all fabric types'],
   },
   {
     name: 'Jodhpuri',
     region: 'Rajasthan',
-    image: '/hero-groom-maroon.jpg',
-    imagePosition: 'object-top',
+    image: '/jodhpuri-safa.jpg',
+    imagePosition: 'object-center',
     desc: 'Grand flared kalgi with rich brocade pleats — the crown of Marwar royalty. Perfect for the wedding baraat.',
-    duration: '45 min',
     price: 50,
     popular: true,
     color: 'from-maroon-900 to-red-950',
@@ -37,10 +35,9 @@ const SAFA_STYLES = [
   {
     name: 'Barati Safa',
     region: 'North India',
-    image: '/product-pink-chanderi.jpg',
+    image: '/barati-safa-baraat.jpg',
     imagePosition: 'object-center',
     desc: 'Vibrant festive safa worn by wedding baraat members — lively, colourful, and traditionally tied for processions.',
-    duration: '25 min',
     price: 50,
     popular: false,
     color: 'from-pink-900 to-rose-950',
@@ -349,7 +346,6 @@ export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
                 <div className="absolute bottom-0 left-0 right-0 p-6">
                   <p className="text-royal-300 text-[10px] font-bold uppercase tracking-[0.25em] mb-1">{style.region}</p>
                   <h3 className="text-white font-display font-black text-2xl leading-tight">{style.name}</h3>
-                  <p className="text-white/60 text-xs mt-1 font-bold uppercase tracking-wider">~{style.duration} tying time</p>
                 </div>
               </div>
 
