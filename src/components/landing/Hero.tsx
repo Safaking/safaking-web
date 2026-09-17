@@ -12,8 +12,9 @@ import {
   useSpring,
   useTransform,
 } from 'framer-motion';
-import { ArrowDown, ArrowUpRight, Crown } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, Crown, Sparkles } from 'lucide-react';
 import { SafaRaja } from './SafaRaja';
+import { VirtualSafaTryOn } from './VirtualSafaTryOn';
 
 /**
  * The homepage opening: a saffron stage with a groom lifted out of his
@@ -178,7 +179,7 @@ function useDepth(value: MotionValue<number>, pixels: number) {
   return useTransform(value, [-1, 1], [-pixels, pixels]);
 }
 
-function Stage() {
+function Stage({ onOpenTryOn }: { onOpenTryOn?: () => void }) {
   const reduce = useReducedMotion();
   const fine = useFinePointer();
   const cursor = useCursor(fine && !reduce);
@@ -236,10 +237,16 @@ function Stage() {
           <p className="mx-auto mt-5 max-w-sm text-base leading-relaxed text-maroon-950/75 lg:mx-0">
             Safas to buy or rent, and a master artist to tie yours on the day.
           </p>
-          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:items-start">
+          <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:items-start flex-wrap">
+            <button
+              onClick={() => onOpenTryOn?.()}
+              className="group inline-flex items-center gap-2 rounded-full bg-maroon-950 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-200 shadow-xl shadow-maroon-950/25 transition-all hover:bg-maroon-900 border border-royal-400/30"
+            >
+              <Sparkles size={15} className="text-royal-400" /> Virtual AR Safa Camera Mirror
+            </button>
             <a
               href="#collection"
-              className="group inline-flex items-center gap-2 rounded-full bg-maroon-950 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-100 shadow-xl shadow-maroon-950/25 transition-colors hover:bg-maroon-900"
+              className="group inline-flex items-center gap-2 rounded-full bg-maroon-950/40 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-100 shadow-xl transition-colors hover:bg-maroon-900/60"
             >
               See the collection
               <ArrowDown size={14} className="transition-transform group-hover:translate-y-0.5" />
@@ -450,11 +457,18 @@ function CollectionRail() {
   );
 }
 
-export function Hero() {
+export function Hero({ onSelectStyle }: { onSelectStyle?: (style: string) => void }) {
+  const [tryOnOpen, setTryOnOpen] = useState(false);
+
   return (
     <>
-      <Stage />
+      <Stage onOpenTryOn={() => setTryOnOpen(true)} />
       <CollectionRail />
+      <VirtualSafaTryOn
+        isOpen={tryOnOpen}
+        onClose={() => setTryOnOpen(false)}
+        onSelectStyle={onSelectStyle}
+      />
     </>
   );
 }
