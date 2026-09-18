@@ -40,7 +40,14 @@ interface Fit {
   rotation: number;
 }
 
-const DEFAULT_FIT: Fit = { x: 0.5, y: 0.3, width: 0.74, rotation: 0 };
+/**
+ * A head fills about this much of the frame's height whichever way the stage
+ * is shaped, so the opening size is worked out from the height. Sizing it off
+ * the width instead left the safa swallowing the whole picture on a wide
+ * desktop stage.
+ */
+const SAFA_HEIGHT_SHARE = 0.55;
+const FALLBACK_FIT: Fit = { x: 0.5, y: 0.3, width: 0.74, rotation: 0 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -93,7 +100,9 @@ export function SafaFittingStage({
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [snapping, setSnapping] = useState(false);
-  const [fit, setFit] = useState<Fit>(DEFAULT_FIT);
+  const [fit, setFit] = useState<Fit>(FALLBACK_FIT);
+  /** Once the customer has moved anything, the opening size stops overriding it. */
+  const fitTouchedRef = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const photoElRef = useRef<HTMLImageElement | null>(null);
@@ -104,6 +113,17 @@ export function SafaFittingStage({
   const startingRef = useRef(false);
   const wantCameraRef = useRef(false);
   const capturedBlobRef = useRef<Blob | null>(null);
+
+  const defaultFit = useCallback((): Fit => {
+    const box = stageRef.current?.getBoundingClientRect();
+    if (!box?.width) return FALLBACK_FIT;
+    return { ...FALLBACK_FIT, width: clamp((SAFA_HEIGHT_SHARE * box.height) / box.width, 0.3, 1.3) };
+  }, []);
+
+  const resetFit = useCallback(() => {
+    fitTouchedRef.current = false;
+    setFit(defaultFit());
+  }, [defaultFit]);
 
   // ---- Camera ---------------------------------------------------------------
   // These two keep a stable identity on purpose. A callback that changes
@@ -186,7 +206,8 @@ export function SafaFittingStage({
     if (active) return;
     setCapturedPhoto(null);
     capturedBlobRef.current = null;
-    setFit(DEFAULT_FIT);
+    fitTouchedRef.current = false;
+    setFit(FALLBACK_FIT);
     setSource('camera');
     setCameraState('idle');
     setCameraError(null);
@@ -221,6 +242,7 @@ export function SafaFittingStage({
     const stage = stageRef.current;
     if (!drag || !stage || drag.pointerId !== event.pointerId) return;
     const box = stage.getBoundingClientRect();
+    fitTouchedRef.current = true;
     setFit((previous) => ({
       ...previous,
       x: clamp(drag.fromX + (event.clientX - drag.startX) / box.width, 0.1, 0.9),
@@ -256,12 +278,14 @@ export function SafaFittingStage({
       source === 'camera' ? videoRef.current : photoElRef.current;
     if (!base) return;
 
-    const baseWidth = base instanceof HTMLVideoElement ? base.videoWidth : base.naturalWidth;
-    const baseHeight = base instanceof HTMLVideoElement ? base.videoHeight : base.naturalHeight;
-    if (!baseWidth || !baseHeight) return;
-
     setSnapping(true);
     try {
+      // A photo tapped the moment it was chosen may still be decoding.
+      if (base instanceof HTMLImageElement && !base.naturalWidth) await base.decode();
+      const baseWidth = base instanceof HTMLVideoElement ? base.videoWidth : base.naturalWidth;
+      const baseHeight = base instanceof HTMLVideoElement ? base.videoHeight : base.naturalHeight;
+      if (!baseWidth || !baseHeight) return;
+
       const overlay = await loadOverlay(selectedSafa.src);
 
       // The canvas takes the stage's own shape, so the saved photo is framed
@@ -346,15 +370,19 @@ export function SafaFittingStage({
 
   const handlePickPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    event.target.value = '';
     if (!file) return;
+    // Create the URL before clearing the input, and keep the creation out of a
+    // state updater — React re-runs updaters, which would leak a second URL.
+    const url = URL.createObjectURL(file);
     setPhotoUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
-      return URL.createObjectURL(file);
+      return url;
     });
     setCapturedPhoto(null);
     setCameraError(null);
     setSource('photo');
+    // Cleared last, and only so that picking the same file again still fires.
+    event.target.value = '';
   };
 
   const handleBookStyle = () => {
@@ -366,6 +394,12 @@ export function SafaFittingStage({
   };
 
   const fittingReady = !capturedPhoto && (source === 'photo' ? !!photoUrl : cameraState === 'live');
+
+  // Size the safa to the stage the first time there is something to fit onto.
+  useEffect(() => {
+    if (!fittingReady || fitTouchedRef.current) return;
+    setFit(defaultFit());
+  }, [fittingReady, defaultFit]);
 
   return (
     <>
@@ -400,7 +434,21 @@ export function SafaFittingStage({
               <video ref={attachStream} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
             ) : photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img ref={photoElRef} src={photoUrl} alt="Your photo" className="w-full h-full object-cover" />
+              <img
+                ref={photoElRef}
+                src={photoUrl}
+                alt="Your photo"
+                onError={() => {
+                  setPhotoUrl((previous) => {
+                    if (previous) URL.revokeObjectURL(previous);
+                    return null;
+                  });
+                  setSource('camera');
+                  setCameraState('error');
+                  setCameraError('That picture could not be opened — an iPhone HEIC photo often cannot. Try a JPG or PNG, or use the camera.');
+                }}
+                className="w-full h-full object-cover"
+              />
             ) : null}
 
             {fittingReady && (
@@ -478,7 +526,7 @@ export function SafaFittingStage({
                 <button
                   onClick={() => void handleSnapPhoto()}
                   disabled={snapping}
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-black text-xs uppercase tracking-widest shadow-2xl flex items-center gap-2 border-2 border-white/40 disabled:opacity-70"
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-black text-xs uppercase tracking-wider whitespace-nowrap shadow-2xl flex items-center gap-2 border-2 border-white/40 disabled:opacity-70"
                 >
                   {snapping ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                   Snap My Safa Look
@@ -505,7 +553,7 @@ export function SafaFittingStage({
                   min={30}
                   max={130}
                   value={Math.round(fit.width * 100)}
-                  onChange={(event) => setFit((previous) => ({ ...previous, width: Number(event.target.value) / 100 }))}
+                  onChange={(event) => { fitTouchedRef.current = true; setFit((previous) => ({ ...previous, width: Number(event.target.value) / 100 })); }}
                   className="accent-royal-400 h-1.5 bg-white/20 rounded-lg cursor-pointer"
                 />
               </label>
@@ -518,14 +566,14 @@ export function SafaFittingStage({
                   min={-30}
                   max={30}
                   value={fit.rotation}
-                  onChange={(event) => setFit((previous) => ({ ...previous, rotation: Number(event.target.value) }))}
+                  onChange={(event) => { fitTouchedRef.current = true; setFit((previous) => ({ ...previous, rotation: Number(event.target.value) })); }}
                   className="accent-royal-400 h-1.5 bg-white/20 rounded-lg cursor-pointer"
                 />
               </label>
             </div>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <button
-                onClick={() => setFit(DEFAULT_FIT)}
+                onClick={resetFit}
                 className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
               >
                 <RefreshCw size={11} /> Reset fit

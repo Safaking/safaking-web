@@ -42,7 +42,7 @@ export function IntroVideo({ onSelectStyle }: IntroVideoProps = {}) {
       <div className="absolute inset-0 pattern-diamond opacity-15 pointer-events-none" />
       <div className="absolute top-0 right-1/4 w-[600px] h-[600px] bg-royal-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-3xl mx-auto relative z-10">
+      <div className="max-w-xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -72,7 +72,7 @@ export function IntroVideo({ onSelectStyle }: IntroVideoProps = {}) {
           <SafaFittingStage
             active={inView}
             onBookStyle={onSelectStyle}
-            stageClassName="aspect-[3/4] sm:aspect-[4/3] w-full max-h-[70vh]"
+            stageClassName="aspect-[3/4] w-full max-h-[70vh]"
             bookingNote="Found your look? Book our master artist to tie it on your wedding day."
           />
         </motion.div>
