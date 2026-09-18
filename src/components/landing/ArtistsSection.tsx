@@ -59,11 +59,21 @@ import { getActiveContract, recordContractAcceptance } from '@/lib/client-update
 interface ArtistsSectionProps {
   /** Opens the shared customer AuthModal — a booking needs a signed-in account. */
   onRequireSignIn?: () => void;
+  /**
+   * A style picked elsewhere on the page — the virtual try-on sends the safa
+   * the customer just looked at. The nonce lets the same style arrive twice.
+   */
+  styleRequest?: { style: string; nonce: number } | null;
 }
 
-export function ArtistsSection({ onRequireSignIn }: ArtistsSectionProps = {}) {
+export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSectionProps = {}) {
   const { user, loading: authLoading } = useAuth();
   const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
+
+  useEffect(() => {
+    if (!styleRequest) return;
+    if (SAFA_STYLES.some((style) => style.name === styleRequest.style)) setSelectedStyle(styleRequest.style);
+  }, [styleRequest]);
   const [safaCount, setSafaCount] = useState<number>(25);
   const [pincode, setPincode] = useState('302001');
   const [pincodeResult, setPincodeResult] = useState<PincodeCheckResult | null>({

@@ -263,42 +263,52 @@ function SupplierLoginContent() {
   const labelClass = 'block text-[10px] font-bold uppercase tracking-wider text-maroon-800/60 mb-1.5';
 
   return (
-    <div className="min-h-screen bg-royal-50 text-maroon-950 flex flex-col lg:flex-row">
-      <div className="relative lg:w-[42%] shrink-0 overflow-hidden flex flex-col items-center justify-center py-12 lg:py-0 px-8 bg-white border-b lg:border-b-0 lg:border-r border-royal-200/60">
-        <div className="absolute inset-0 pattern-diamond opacity-[0.04]" />
-        <div className="relative z-10 text-center max-w-sm">
-          <Link href="/" className="inline-flex items-center gap-2 mb-10 text-maroon-700 hover:text-maroon-900">
-            <div className="w-6 h-6 shrink-0">
-              <Image src="/logo.png" alt="SafaKing" width={24} height={24} className="w-full h-full object-contain" />
-            </div>
-            <span className="font-display font-black tracking-widest uppercase text-sm">SafaKing</span>
-          </Link>
-          <div className="w-20 h-20 mx-auto mb-5 rounded-3xl bg-maroon-950 text-royal-300 flex items-center justify-center shadow-lg">
-            <Store size={38} />
+    <div className="min-h-screen bg-royal-50 text-maroon-950 flex flex-col">
+      {/* Top Header Bar */}
+      <header className="bg-maroon-950 border-b border-royal-400/20 py-4 px-6 sm:px-12 flex items-center justify-between shrink-0">
+        <Link href="/" className="flex items-center gap-2.5 text-royal-100 hover:text-royal-300 transition-colors">
+          <div className="w-8 h-8 shrink-0">
+            <Image src="/logo.png" alt="SafaKing" width={32} height={32} className="w-full h-full object-contain" />
           </div>
-          <h1 className="font-display font-black text-3xl text-maroon-900 tracking-wider uppercase">Supplier Portal</h1>
-          <p className="text-sm text-maroon-800/60 mt-3 leading-relaxed">
-            Sell your safas to SafaKing&apos;s customers. You set the price, the stock and your delivery
-            charges. We bring the orders and collect the payment.
+          <span className="font-display font-black tracking-widest uppercase text-base">SafaKing</span>
+        </Link>
+        <Link href="/" className="text-xs font-bold text-royal-300 hover:text-royal-100 transition-colors uppercase tracking-wider">
+          ← Back to SafaKing Home
+        </Link>
+      </header>
+
+      {/* Hero Header */}
+      <div className="bg-maroon-950 text-white text-center py-10 sm:py-14 px-4 relative overflow-hidden shrink-0">
+        <div className="absolute inset-0 pattern-diamond opacity-10" />
+        <div className="relative z-10 max-w-2xl mx-auto space-y-3">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-royal-500/20 border border-royal-400/30 text-royal-300 text-xs font-bold uppercase tracking-widest">
+            <Crown size={14} /> SafaKing Partner Network
+          </span>
+          <h1 className="font-display font-black text-3xl sm:text-4xl lg:text-5xl text-royal-100 tracking-wider uppercase">
+            Supplier Portal
+          </h1>
+          <p className="text-xs sm:text-sm text-royal-200/75 max-w-xl mx-auto leading-relaxed">
+            Sell your safas &amp; accessories to SafaKing&apos;s customers across India. You set the price, stock and delivery charges. We bring the orders directly to you.
           </p>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col bg-royal-50">
-        <div className="max-w-xl w-full mx-auto px-6 sm:px-10 py-10 lg:py-16 flex-1">
-          <div className="flex border border-royal-200 bg-white p-1 rounded-xl mb-6 shadow-sm">
+      {/* Centered Main Form Container */}
+      <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 -mt-6 pb-20 relative z-20">
+        <div className="bg-white rounded-3xl border border-royal-200/80 shadow-2xl p-6 sm:p-10">
+          <div className="flex border border-royal-200 bg-royal-50/50 p-1.5 rounded-2xl mb-8 shadow-inner">
             <button
               onClick={() => setTab('login')}
-              className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
-                tab === 'login' ? 'bg-royal-500 text-maroon-950' : 'text-maroon-800/50 hover:text-maroon-800'
+              className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
+                tab === 'login' ? 'bg-royal-500 text-maroon-950 shadow-md' : 'text-maroon-800/60 hover:text-maroon-950'
               }`}
             >
               Supplier Login
             </button>
             <button
               onClick={() => setTab('join')}
-              className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
-                tab === 'join' ? 'bg-royal-500 text-maroon-950' : 'text-maroon-800/50 hover:text-maroon-800'
+              className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
+                tab === 'join' ? 'bg-royal-500 text-maroon-950 shadow-md' : 'text-maroon-800/60 hover:text-maroon-950'
               }`}
             >
               Join as Supplier
@@ -306,13 +316,13 @@ function SupplierLoginContent() {
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 p-3 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
+            <div className="flex items-start gap-2 p-3.5 mb-6 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
               <AlertCircle size={16} className="shrink-0 mt-0.5" />
               <p className="text-xs leading-relaxed">{error}</p>
             </div>
           )}
           {notice && (
-            <div className="flex items-start gap-2 p-3 mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+            <div className="flex items-start gap-2 p-3.5 mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800">
               <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
               <p className="text-xs leading-relaxed">{notice}</p>
             </div>
@@ -360,7 +370,7 @@ function SupplierLoginContent() {
                 {busy && <Loader2 size={14} className="animate-spin" />}
                 {busy ? 'Signing In…' : 'Sign In'}
               </button>
-              <p className="text-[11px] text-center text-maroon-800/50">
+              <p className="text-[11px] text-center text-maroon-800/50 pt-2">
                 Applied already? Sign in to see where your application is.
               </p>
             </form>
@@ -644,7 +654,7 @@ function SupplierLoginContent() {
             </Link>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
