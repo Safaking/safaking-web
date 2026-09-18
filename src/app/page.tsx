@@ -29,6 +29,8 @@ function LandingContent() {
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [denied, setDenied] = useState<string | null>(null);
+  // The virtual try-on hands the booking form whichever safa was on screen.
+  const [styleRequest, setStyleRequest] = useState<{ style: string; nonce: number } | null>(null);
   const { wishlist, toggle: toggleWishlist } = useWishlist();
 
   // The page used to sit behind a full-screen loader for a fixed 2.2 seconds
@@ -90,10 +92,10 @@ function LandingContent() {
       <div className="min-h-screen bg-royal-50 text-maroon-950">
         <TopBanner />
         <Header onOpenAuth={() => setAuthOpen(true)} wishlistCount={wishlist.length} />
-        <Hero />
+        <Hero onSelectStyle={(style) => setStyleRequest((previous) => ({ style, nonce: (previous?.nonce ?? 0) + 1 }))} />
         <TrustBar />
-        <IntroVideo />
-        <ArtistsSection onRequireSignIn={() => setAuthOpen(true)} />
+        <IntroVideo onSelectStyle={(style) => setStyleRequest((previous) => ({ style, nonce: (previous?.nonce ?? 0) + 1 }))} />
+        <ArtistsSection onRequireSignIn={() => setAuthOpen(true)} styleRequest={styleRequest} />
         <FeaturedCollection
           products={featured.length > 0 ? featured : products.slice(0, 4)}
           loading={productsLoading}
