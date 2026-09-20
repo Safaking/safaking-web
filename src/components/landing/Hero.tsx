@@ -12,7 +12,7 @@ import {
   useSpring,
   useTransform,
 } from 'framer-motion';
-import { ArrowDown, ArrowUpRight, Crown, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, Crown, Sparkles, ShoppingBag } from 'lucide-react';
 import { SafaRaja } from './SafaRaja';
 import { VirtualSafaTryOn } from './VirtualSafaTryOn';
 
@@ -235,22 +235,23 @@ function Stage({ onOpenTryOn }: { onOpenTryOn?: () => void }) {
             deserves a <span className="italic text-maroon-800">royal crown.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-sm text-base leading-relaxed text-maroon-950/75 lg:mx-0">
-            Safas to buy or rent, and a master artist to tie yours on the day.
+            Order your safa online, tied by our masters and delivered anywhere in India — and a
+            master artist to tie the baraat&apos;s on the day.
           </p>
           <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:items-start flex-wrap">
+            <Link
+              href="/shop"
+              className="group inline-flex items-center gap-2 rounded-full bg-royal-500 px-7 py-4 text-xs font-black uppercase tracking-widest text-maroon-950 shadow-xl shadow-royal-500/30 transition-all hover:bg-royal-400"
+            >
+              <ShoppingBag size={15} /> Shop safas online
+              <ArrowUpRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+            </Link>
             <button
               onClick={() => onOpenTryOn?.()}
               className="group inline-flex items-center gap-2 rounded-full bg-maroon-950 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-200 shadow-xl shadow-maroon-950/25 transition-all hover:bg-maroon-900 border border-royal-400/30"
             >
               <Sparkles size={15} className="text-royal-400" /> Virtual AR Safa Camera Mirror
             </button>
-            <a
-              href="#collection"
-              className="group inline-flex items-center gap-2 rounded-full bg-maroon-950/40 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-100 shadow-xl transition-colors hover:bg-maroon-900/60"
-            >
-              See the collection
-              <ArrowDown size={14} className="transition-transform group-hover:translate-y-0.5" />
-            </a>
             <Link
               href="#artist-booking-form"
               className="inline-flex items-center gap-2 rounded-full border-2 border-maroon-950/70 px-6 py-3 text-xs font-bold uppercase tracking-widest text-maroon-950 transition-colors hover:bg-maroon-950 hover:text-royal-100"
