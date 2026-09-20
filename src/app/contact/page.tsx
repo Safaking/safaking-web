@@ -87,7 +87,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="font-bold text-maroon-950 text-sm">Phone / WhatsApp</p>
-                    <p className="text-gray-600 mt-0.5">{BUSINESS.phone} · {BUSINESS.phoneAlt}</p>
+                    <p className="text-gray-600 mt-0.5">{BUSINESS.phone}</p>
                     <p className="text-[10px] text-emerald-700 font-bold mt-1">Instant WhatsApp Support</p>
                   </div>
                 </a>

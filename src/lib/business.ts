@@ -14,14 +14,12 @@ export const BUSINESS = {
   name: 'SafaKing Royal Turban House',
 
   /** Display form, with spacing for readability. */
-  phone: '+91 90013 47143',
+  phone: '+91 63754 59392',
   /** Digits only, for tel: and wa.me links. */
-  phoneDigits: '919001347143',
+  phoneDigits: '916375459392',
 
   email: 'safakingn111@gmail.com',
-  address: 'Near Pandya Memorial School, Char Khamba, Partapur, Dist. Banswara, Rajasthan 327024',
-  /** Secondary contact number. */
-  phoneAlt: '+91 76918 56577',
+  address: 'C-603 Nakshtra Heights, Nr. Karnavati Apartment 1, Narol Lambha Highway, Narol, Ahmedabad, Gujarat 382405',
   hours: 'Monday to Saturday, 10 AM – 8 PM',
 } as const;
 
