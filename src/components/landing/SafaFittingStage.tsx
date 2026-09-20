@@ -100,6 +100,7 @@ export function SafaFittingStage({
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [snapping, setSnapping] = useState(false);
+  const [snapError, setSnapError] = useState<string | null>(null);
   const [fit, setFit] = useState<Fit>(FALLBACK_FIT);
   /** Once the customer has moved anything, the opening size stops overriding it. */
   const fitTouchedRef = useRef(false);
@@ -211,6 +212,7 @@ export function SafaFittingStage({
     setSource('camera');
     setCameraState('idle');
     setCameraError(null);
+    setSnapError(null);
     setPhotoUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return null;
@@ -262,7 +264,9 @@ export function SafaFittingStage({
     const cached = overlayCache.current.get(src);
     if (cached?.complete && cached.naturalWidth > 0) return cached;
     const image = new window.Image();
-    image.crossOrigin = 'anonymous';
+    // No crossOrigin here: these live on our own origin, so the canvas stays
+    // clean either way — and asking in CORS mode makes the CDN return a
+    // variant the decoder rejects, which killed Snap on the live site.
     image.src = src;
     await image.decode();
     overlayCache.current.set(src, image);
@@ -325,9 +329,10 @@ export function SafaFittingStage({
 
       setCapturedPhoto(canvas.toDataURL('image/png'));
       canvas.toBlob((blob) => { capturedBlobRef.current = blob; }, 'image/png');
+      setSnapError(null);
     } catch (err) {
       console.error('Safa fitting snapshot:', err);
-      setCameraError('That photo could not be captured. Please try again.');
+      setSnapError('That photo could not be captured. Please try again.');
     } finally {
       setSnapping(false);
     }
@@ -394,6 +399,8 @@ export function SafaFittingStage({
   };
 
   const fittingReady = !capturedPhoto && (source === 'photo' ? !!photoUrl : cameraState === 'live');
+  /** Artists are sent out for baraat safas; a groom's own safa is bought online. */
+  const tiedByArtist = selectedSafa.bookingStyle === 'Barati Safa';
 
   // Size the safa to the stage the first time there is something to fit onto.
   useEffect(() => {
@@ -541,6 +548,12 @@ export function SafaFittingStage({
       <input ref={fileRef} type="file" accept="image/*" onChange={handlePickPhoto} className="hidden" />
 
       <div className="p-4 sm:p-5 bg-maroon-950 border-t border-royal-400/20 shrink-0 space-y-3">
+        {snapError && (
+          <p className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-950/60 px-3 py-2 text-xs font-medium text-rose-200">
+            <AlertCircle size={13} className="shrink-0" /> {snapError}
+          </p>
+        )}
+
         {fittingReady && (
           <div className="bg-white/5 p-2.5 rounded-2xl border border-white/10 space-y-2.5">
             <div className="grid grid-cols-2 gap-3">
@@ -633,7 +646,7 @@ export function SafaFittingStage({
             onClick={handleBookStyle}
             className="w-full sm:w-auto px-6 py-3 rounded-full bg-royal-500 hover:bg-royal-400 text-maroon-950 font-black text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 shrink-0"
           >
-            <Crown size={15} /> Book Artist For This Style <ArrowRight size={14} />
+            <Crown size={15} /> {tiedByArtist ? 'Book Artist For This Style' : 'Buy This Safa Online'} <ArrowRight size={14} />
           </button>
         </div>
       </div>

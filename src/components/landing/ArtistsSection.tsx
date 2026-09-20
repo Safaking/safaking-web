@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2, AlertCircle, Loader2, Ruler, X, ShieldCheck } from 'lucide-react';
+import { Crown, Calendar, MapPin, Star, Phone, CheckCircle2, AlertCircle, Loader2, Ruler, X, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { AnimatedSection, StaggerContainer, staggerItem } from './AnimatedSection';
 
 const SAFA_STYLES = [
   {
+    // `name` is the value the database accepts for bookings.safa_style and must
+    // not change; `label` is what the customer reads. "Rounded" meant nothing
+    // to a groom, so the card says Groom Safa.
     name: 'Rounded',
+    label: 'Groom Safa',
     region: 'Pan-India',
     image: '/rounded-gol-safa.jpg',
     imagePosition: 'object-center',
@@ -22,6 +26,7 @@ const SAFA_STYLES = [
   },
   {
     name: 'Jodhpuri',
+    label: 'Jodhpuri',
     region: 'Rajasthan',
     image: '/jodhpuri-safa.jpg',
     imagePosition: 'object-center',
@@ -34,6 +39,7 @@ const SAFA_STYLES = [
   },
   {
     name: 'Barati Safa',
+    label: 'Barati Safa',
     region: 'North India',
     image: '/barati-safa-baraat.jpg',
     imagePosition: 'object-center',
@@ -111,10 +117,17 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
   const [secondEventVenue, setSecondEventVenue] = useState('');
 
   const currentStyleObj = SAFA_STYLES.find((s) => s.name === selectedStyle) || SAFA_STYLES[0];
+  const styleLabel = (value: string) => SAFA_STYLES.find((style) => style.name === value)?.label ?? value;
   const unitPrice = currentStyleObj.price || 50;
   // Bulk count only makes sense for Barati Safa (a group of baraat members) —
   // Rounded/Jodhpuri are the groom's own single safa.
   const isBulkStyle = selectedStyle === 'Barati Safa';
+  /**
+   * Artists go out for baraat tying only. A groom's own safa is bought
+   * online — that is the order we actually want — so the other two styles
+   * send the customer to the shop instead of the booking form.
+   */
+  const artistTiesThisStyle = selectedStyle === 'Barati Safa';
   const effectiveSafaCount = isBulkStyle ? safaCount : 1;
   const totalBookingAmount = effectiveSafaCount * unitPrice;
   const advanceAmount = Math.round(totalBookingAmount * advanceRate);
@@ -237,7 +250,7 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
       customerPhone: customerPhone.trim(),
       cityVenue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${effectiveSafaCount})`,
       eventDate,
-      safaStyle: `${selectedStyle} x ${effectiveSafaCount}`,
+      safaStyle: `${styleLabel(selectedStyle)} x ${effectiveSafaCount}`,
     });
 
     setCustomerName('');
@@ -326,7 +339,7 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
               <div className="relative aspect-[3/4] overflow-hidden">
                 <Image
                   src={style.image}
-                  alt={style.name}
+                  alt={style.label}
                   fill
                   className={`object-cover ${style.imagePosition} transition-transform duration-700 group-hover:scale-110`}
                 />
@@ -355,7 +368,12 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                 {/* Name overlay */}
                 <div className="absolute bottom-0 left-0 right-0 p-6">
                   <p className="text-royal-300 text-[10px] font-bold uppercase tracking-[0.25em] mb-1">{style.region}</p>
-                  <h3 className="text-white font-display font-black text-2xl leading-tight">{style.name}</h3>
+                  <h3 className="text-white font-display font-black text-2xl leading-tight">{style.label}</h3>
+                  <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-royal-200 backdrop-blur-sm">
+                    {style.name === 'Barati Safa'
+                      ? <><Crown size={11} /> Artist ties it</>
+                      : <><ShoppingBag size={11} /> Buy online</>}
+                  </span>
                 </div>
               </div>
 
@@ -377,7 +395,7 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                   animate={{ opacity: selectedStyle === style.name ? 1 : 0, scale: selectedStyle === style.name ? 1 : 0.8 }}
                   className="text-[10px] font-black text-royal-600 bg-royal-100 border border-royal-200 px-3 py-1.5 rounded-full inline-flex items-center gap-1"
                 >
-                  <CheckCircle2 size={11} /> Selected for booking
+                  <CheckCircle2 size={11} /> {style.name === 'Barati Safa' ? 'Selected for booking' : 'Selected — order below'}
                 </motion.div>
               </div>
             </motion.div>
@@ -416,7 +434,7 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                   >
                     <Image
                       src={SAFA_STYLES.find((s) => s.name === selectedStyle)?.image || '/artist-jodhpuri-blue.jpg'}
-                      alt={`${selectedStyle} Safa Artist`}
+                      alt={`${styleLabel(selectedStyle)} Safa Artist`}
                       fill
                       className="object-cover object-center"
                       priority
@@ -444,21 +462,70 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                     <p className="text-white text-xs font-bold">4.9 · Master Safa Artist</p>
                   </div>
                   <span className="px-3 py-1 rounded-full bg-royal-500 text-maroon-950 text-[10px] font-black uppercase tracking-wider">
-                    {selectedStyle}
+                    {styleLabel(selectedStyle)}
                   </span>
                 </motion.div>
               </div>
 
               <div className="p-6 sm:p-8">
                 <div className="mb-5">
-                  <span className="text-royal-300 text-[10px] font-bold uppercase tracking-widest">Book Master Safa Artist</span>
+                  <span className="text-royal-300 text-[10px] font-bold uppercase tracking-widest">
+                    {artistTiesThisStyle ? 'Book Master Safa Artist' : 'Order Your Safa Online'}
+                  </span>
                   <h3 className="text-2xl sm:text-3xl font-display font-black text-white mt-1 leading-tight">
-                    Reserve Artist for <span className="text-royal-400">{selectedStyle}</span>
+                    {artistTiesThisStyle ? 'Reserve Artist for ' : 'Buy Your '}
+                    <span className="text-royal-400">{styleLabel(selectedStyle)}</span>
                   </h3>
                 </div>
 
                 <AnimatePresence mode="wait">
-                  {booked ? (
+                  {!artistTiesThisStyle ? (
+                    <motion.div
+                      key="buy-online"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      className="space-y-4"
+                    >
+                      <p className="text-sm leading-relaxed text-royal-100/85">
+                        A groom&apos;s safa is his own — so we send it to you, tied and finished by our
+                        masters, ready to wear on the day. Sehra, kalgi and brooch come from the same
+                        shop, and it reaches you anywhere in India.
+                      </p>
+
+                      <ul className="space-y-2">
+                        {[
+                          'Tied and finished by a master — nothing to learn on the day',
+                          'Sehra, kalgi and groom accessories in one order',
+                          'Delivered across India, where no artist can reach',
+                        ].map((line) => (
+                          <li key={line} className="flex items-start gap-2 text-xs text-royal-100/80">
+                            <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-royal-400" />
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <Link
+                        href="/shop"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-royal-500 px-6 py-4 text-sm font-black uppercase tracking-widest text-maroon-950 shadow-xl shadow-royal-500/20 transition-colors hover:bg-royal-400"
+                      >
+                        <Crown size={16} /> Buy {styleLabel(selectedStyle)} Online
+                      </Link>
+
+                      <p className="text-center text-[11px] text-royal-200/60">
+                        Need a master artist at your venue? That is for the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStyle('Barati Safa')}
+                          className="font-bold text-royal-300 underline underline-offset-2"
+                        >
+                          baraat safas
+                        </button>
+                        {' '}— we tie those for your whole party.
+                      </p>
+                    </motion.div>
+                  ) : booked ? (
                     <motion.div
                       key="success"
                       initial={{ scale: 0.8, opacity: 0 }}

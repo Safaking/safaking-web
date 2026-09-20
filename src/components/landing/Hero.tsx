@@ -232,7 +232,7 @@ function Stage({ onOpenTryOn }: { onOpenTryOn?: () => void }) {
           <h1 className="mt-5 font-display text-5xl font-black leading-[0.95] tracking-tight sm:text-6xl xl:text-7xl">
             Every groom
             <br />
-            deserves a <span className="italic text-maroon-800">crown.</span>
+            deserves a <span className="italic text-maroon-800">royal crown.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-sm text-base leading-relaxed text-maroon-950/75 lg:mx-0">
             Safas to buy or rent, and a master artist to tie yours on the day.

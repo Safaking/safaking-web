@@ -1,6 +1,8 @@
 // Server-only — reads RESEND_API_KEY (no NEXT_PUBLIC_ prefix), never bundled to the client.
 // Sends from Resend's shared test domain until safaking.in is verified in the
 // Resend dashboard; swap RESEND_FROM once that's done.
+import { BUSINESS } from '@/lib/business';
+
 const RESEND_FROM = process.env.RESEND_FROM || 'SafaKing <onboarding@resend.dev>';
 
 async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
@@ -123,7 +125,7 @@ export async function sendCustomerReplacementEmail({ to, name, eventDate }: { to
         <h2 style="color:#7a1f2b">Namaste ${escapeHtml(name)},</h2>
         <p>The artist originally arranged for your event on <strong>${escapeHtml(eventDate)}</strong> is no longer able to come.</p>
         <p><strong>Your booking stands.</strong> Our team is arranging another verified artist for you now, and you will see them confirmed in My Bookings.</p>
-        <p>If anything is urgent, call us on +91 90013 47143.</p>
+        <p>If anything is urgent, call us on ${BUSINESS.phone}.</p>
         <p style="color:#888;font-size:12px;margin-top:32px">SafaKing &middot; Royal Turban House</p>
       </div>
     `,
