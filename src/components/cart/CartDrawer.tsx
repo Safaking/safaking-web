@@ -189,9 +189,14 @@ export function CartDrawer() {
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 280 }}
           className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col"
+          style={{ paddingBottom: 'var(--sk-safe-bottom, 0px)' }}
         >
-          {/* Drawer Header */}
-          <div className="p-6 bg-maroon-950 text-white flex items-center justify-between border-b border-royal-400/20">
+          {/* Drawer Header — in the app it also runs up behind the phone's
+              status bar, so the close button is never under the clock. */}
+          <div
+            className="p-6 bg-maroon-950 text-white flex items-center justify-between border-b border-royal-400/20"
+            style={{ paddingTop: 'calc(1.5rem + var(--sk-safe-top, 0px))' }}
+          >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-royal-gradient flex items-center justify-center">
                 <ShoppingBag size={18} className="text-maroon-950" />

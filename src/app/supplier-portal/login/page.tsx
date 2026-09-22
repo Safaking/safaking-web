@@ -265,7 +265,7 @@ function SupplierLoginContent() {
   return (
     <div className="min-h-screen bg-royal-50 text-maroon-950 flex flex-col">
       {/* Top Header Bar */}
-      <header className="bg-maroon-950 border-b border-royal-400/20 py-4 px-6 sm:px-12 flex items-center justify-between shrink-0">
+      <header className="sk-web-header bg-maroon-950 border-b border-royal-400/20 py-4 px-6 sm:px-12 flex items-center justify-between shrink-0">
         <Link href="/" className="flex items-center gap-2.5 text-royal-100 hover:text-royal-300 transition-colors">
           <div className="w-8 h-8 shrink-0">
             <Image src="/logo.png" alt="SafaKing" width={32} height={32} className="w-full h-full object-contain" />

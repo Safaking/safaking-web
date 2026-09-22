@@ -13,10 +13,20 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- White clock and battery on the maroon app bar from the very first
+             frame, before the page loads; dark buttons on the white tab bar. -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- The launch screen in the app's own maroon (the system default is a
+             pale grey), with white status icons, so opening the app goes
+             straight from the logo into the maroon app bar. -->
+        <item name="windowSplashScreenBackground">@color/safaking_maroon</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

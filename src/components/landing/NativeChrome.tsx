@@ -16,7 +16,7 @@ export function NativeChrome() {
       const { StatusBar, Style } = await import('@capacitor/status-bar');
       try {
         await StatusBar.setOverlaysWebView({ overlay: false });
-        await StatusBar.setBackgroundColor({ color: '#4A0E1A' });
+        await StatusBar.setBackgroundColor({ color: '#2D060E' });
         await StatusBar.setStyle({ style: Style.Dark });
       } catch {
         // Status bar theming is cosmetic — never block app startup on it.

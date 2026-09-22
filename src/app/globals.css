@@ -264,9 +264,27 @@ button, a {
   display: none !important;
 }
 
+/*
+ * The phone's own bars. From Android 15 the app draws behind the status bar
+ * and the gesture bar, and on a current WebView (140+) Capacitor passes their
+ * heights through — as env() and as --safe-area-inset-* — so the app bar and
+ * tab bar must make room. An older WebView keeps the page between the bars and
+ * reports 0, and the native shell paints the gaps instead (MainActivity).
+ */
+.sk-app {
+  --sk-safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --sk-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+}
+
 .sk-app body {
-  padding-top: 3.5rem;
-  padding-bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+  padding-top: calc(3.5rem + var(--sk-safe-top));
+  padding-bottom: calc(4rem + var(--sk-safe-bottom)) !important;
+}
+
+/* Centred pop-ups keep clear of the phone's bars when they grow tall. */
+.sk-app .fixed.inset-0.items-center {
+  padding-top: max(1rem, var(--sk-safe-top));
+  padding-bottom: max(1rem, var(--sk-safe-bottom));
 }
 
 /* The admin panel keeps its own navigation. */
@@ -277,7 +295,7 @@ button, a {
 
 /* The artist portal's bottom tabs jump to sections; land them below the bar. */
 .sk-app [id^='artist-'] {
-  scroll-margin-top: 4.5rem;
+  scroll-margin-top: calc(4.5rem + var(--sk-safe-top));
 }
 
 /* ---------------------------------------------------------------------------

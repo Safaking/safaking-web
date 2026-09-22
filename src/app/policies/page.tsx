@@ -50,6 +50,10 @@ export default function PoliciesPage() {
   const [settings, setSettings] = useState<Record<string, number>>({});
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Set in the browser when the rules arrive. Printing new Date() during
+  // render put the build day in the pre-rendered page and today's in the
+  // browser, and React threw a hydration error whenever the two differed.
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -62,6 +66,7 @@ export default function PoliciesPage() {
       setSettings(Object.fromEntries(((s.data ?? []) as { key: string; value: number }[])
         .map((row) => [row.key, Number(row.value)])));
       setContracts((c.data as ContractRow[]) ?? []);
+      setLoadedAt(new Date());
       setLoading(false);
     });
   }, []);
@@ -100,9 +105,8 @@ export default function PoliciesPage() {
         <p className="text-sm text-gray-700 leading-relaxed max-w-2xl">
           These are the rules our system actually applies — the refund ladder, advance and change
           windows below are read live from the same settings that run every booking, so what you
-          read here is what will happen. Last loaded {new Date().toLocaleDateString('en-IN', {
-            day: 'numeric', month: 'long', year: 'numeric',
-          })}.
+          read here is what will happen.
+          {loadedAt && ` Last loaded ${loadedAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}.`}
         </p>
 
         {/* Jump links */}
