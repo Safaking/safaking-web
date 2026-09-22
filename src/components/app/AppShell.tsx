@@ -90,6 +90,7 @@ function NativeAppShell() {
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [isSupplier, setIsSupplier] = useState(false);
+  const [typing, setTyping] = useState(false);
   const pullRef = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -142,6 +143,33 @@ function NativeAppShell() {
     toastTimer.current = setTimeout(() => setToast(null), 2000);
   }, []);
 
+  // While the keyboard is up the tab bar would ride on top of it and eat a
+  // row of the little space left, which no native app does. Hide it while a
+  // field has focus and the screen has shrunk for the keyboard.
+  useEffect(() => {
+    let tallest = window.innerHeight;
+    const editing = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return false;
+      if (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+      return el.tagName === 'INPUT'
+        && !['button', 'checkbox', 'radio', 'range', 'submit', 'reset', 'file', 'color'].includes((el as HTMLInputElement).type);
+    };
+    const update = () => {
+      tallest = Math.max(tallest, window.innerHeight);
+      setTyping(editing() && window.innerHeight < tallest * 0.8);
+    };
+    const later = () => setTimeout(update, 250);
+    window.addEventListener('resize', update);
+    document.addEventListener('focusin', later);
+    document.addEventListener('focusout', later);
+    return () => {
+      window.removeEventListener('resize', update);
+      document.removeEventListener('focusin', later);
+      document.removeEventListener('focusout', later);
+    };
+  }, []);
+
   // The Android back button: close what is open, go back, and on Home ask
   // for a second press before leaving the app.
   useEffect(() => {
@@ -162,7 +190,13 @@ function NativeAppShell() {
             showToast('Press back again to exit');
             return;
           }
-          if (canGoBack) window.history.back();
+          // Capacitor's canGoBack asks the native WebView, which does not count
+          // the site's own page changes (history.pushState) — so back from
+          // Home → Shop → Contact landed on Home. The page's Navigation API
+          // counts them; history.length is the fallback for older WebViews.
+          const nav = (window as unknown as { navigation?: { canGoBack?: boolean } }).navigation;
+          const pageCanGoBack = typeof nav?.canGoBack === 'boolean' ? nav.canGoBack : window.history.length > 1;
+          if (canGoBack || pageCanGoBack) window.history.back();
           else router.replace('/');
         })
       )
@@ -346,8 +380,11 @@ function NativeAppShell() {
 
   return (
     <>
-      <header className="fixed top-0 inset-x-0 z-40 h-14 bg-maroon-950 text-white shadow-lg shadow-maroon-950/20">
-        <div className="h-full flex items-center gap-1 px-2">
+      <header
+        className="fixed top-0 inset-x-0 z-40 bg-maroon-950 text-white shadow-lg shadow-maroon-950/20"
+        style={{ paddingTop: 'var(--sk-safe-top, 0px)' }}
+      >
+        <div className="h-14 flex items-center gap-1 px-2">
           {portalRoot ? (
             <Link href={pathname} className="flex items-center gap-2 pl-1.5 min-w-0">
               <Image src="/logo.png" alt="SafaKing" width={34} height={34} className="w-[34px] h-[34px] object-contain shrink-0" priority />
@@ -395,8 +432,8 @@ function NativeAppShell() {
 
       {(pull > 0 || refreshing) && (
         <div
-          className="fixed inset-x-0 top-14 z-30 flex justify-center pointer-events-none"
-          style={{ transform: `translateY(${refreshing ? 20 : pull * 0.6}px)` }}
+          className="fixed inset-x-0 z-30 flex justify-center pointer-events-none"
+          style={{ top: 'calc(3.5rem + var(--sk-safe-top, 0px))', transform: `translateY(${refreshing ? 20 : pull * 0.6}px)` }}
         >
           <span className="w-9 h-9 rounded-full bg-white shadow-lg border border-royal-200 flex items-center justify-center">
             <RefreshCw
@@ -410,7 +447,8 @@ function NativeAppShell() {
 
       <nav
         className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-royal-200/70 shadow-[0_-6px_24px_rgba(74,14,26,0.08)]"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        style={{ paddingBottom: 'var(--sk-safe-bottom, 0px)' }}
+        hidden={typing}
       >
         <div className="grid grid-cols-5 h-16">
           {tabs.map((tab) => {
@@ -488,7 +526,7 @@ function NativeAppShell() {
               onDragEnd={(_, info) => {
                 if (info.offset.y > 100) closeMore();
               }}
-              className="fixed inset-x-0 bottom-0 z-[46] bg-[#FDF6EC] rounded-t-3xl max-h-[85vh] overflow-y-auto pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl"
+              className="fixed inset-x-0 bottom-0 z-[46] bg-[#FDF6EC] rounded-t-3xl max-h-[85vh] overflow-y-auto pb-[calc(1.25rem+var(--sk-safe-bottom,0px))] shadow-2xl"
             >
               <div className="sticky top-0 z-10 bg-[#FDF6EC] pt-3 pb-3 flex justify-center">
                 <span className="w-10 h-1.5 rounded-full bg-maroon-900/15" />
@@ -568,7 +606,7 @@ function NativeAppShell() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 flex justify-center pointer-events-none"
+            className="fixed inset-x-0 bottom-[calc(5rem+var(--sk-safe-bottom,0px))] z-50 flex justify-center pointer-events-none"
           >
             <span className="px-4 py-2.5 rounded-full bg-maroon-950 text-white text-xs font-bold shadow-xl">{toast}</span>
           </motion.div>

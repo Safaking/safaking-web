@@ -35,6 +35,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- No READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE. Photo uploads go through the
+         WebView's file chooser, which hands back one picked file without either;
+         Google Play rejects READ_MEDIA_IMAGES unless the app manages the whole
+         gallery. Camera capture writes to the app's own folder, which needs none. -->
 </manifest>

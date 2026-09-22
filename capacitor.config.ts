@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
   webDir: 'native-shell',
   // Lets the server tell app visits apart in logs and analytics.
   appendUserAgent: 'SafaKingApp',
-  backgroundColor: '#4A0E1A',
+  backgroundColor: '#2D060E',
   server: {
     url: 'https://www.safaking.in',
     cleartext: false,

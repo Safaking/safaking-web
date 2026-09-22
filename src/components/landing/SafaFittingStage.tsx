@@ -346,8 +346,28 @@ export function SafaFittingStage({
     if (!capturedPhoto || saving) return;
     setSaving(true);
     try {
-      const blob = capturedBlobRef.current ?? await (await fetch(capturedPhoto)).blob();
       const fileName = `safaking-${selectedSafa.id}-tryon.png`;
+
+      // Inside the Android app the WebView has neither navigator.share nor
+      // downloads, so both web routes below silently did nothing. Write the
+      // picture to the app's cache and open Android's real share sheet —
+      // WhatsApp, Gallery, Drive — through the native plugins instead.
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+          import('@capacitor/filesystem'),
+          import('@capacitor/share'),
+        ]);
+        const written = await Filesystem.writeFile({
+          path: fileName,
+          data: capturedPhoto.slice(capturedPhoto.indexOf(',') + 1),
+          directory: Directory.Cache,
+        });
+        await Share.share({ title: 'My SafaKing look', files: [written.uri], dialogTitle: 'Share your safa look' });
+        return;
+      }
+
+      const blob = capturedBlobRef.current ?? await (await fetch(capturedPhoto)).blob();
       const file = new File([blob], fileName, { type: 'image/png' });
 
       if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
@@ -365,7 +385,9 @@ export function SafaFittingStage({
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (err) {
       // A share sheet the customer dismissed lands here too — nothing to say.
-      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+      const cancelled = (err instanceof DOMException && err.name === 'AbortError')
+        || /cancel/i.test(String((err as { message?: string })?.message ?? ''));
+      if (!cancelled) {
         console.error('Safa fitting save:', err);
       }
     } finally {
