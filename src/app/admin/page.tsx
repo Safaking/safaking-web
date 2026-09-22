@@ -9,7 +9,7 @@ import {
   TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
   CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
   Phone, User, Navigation, MessageCircle, Search, ZoomIn, MessageSquareWarning,
-  Camera, KeyRound,
+  Camera, KeyRound, UserX,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -40,11 +40,12 @@ import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
 import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
 import { SupplierDesk } from '@/components/admin/SupplierDesk';
+import { DeletionDesk } from '@/components/admin/DeletionDesk';
 import { SupplierPayoutsPanel } from '@/components/admin/SupplierPayoutsPanel';
 
 type Tab =
   | 'orders' | 'rentals' | 'bookings' | 'artist_apps' | 'products'
-  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts' | 'expenses' | 'complaints' | 'security';
+  | 'pincodes' | 'suppliers' | 'academy' | 'careers' | 'users' | 'settings' | 'verification' | 'protection' | 'analytics' | 'liveops' | 'training' | 'messages' | 'payouts' | 'expenses' | 'complaints' | 'security' | 'deletions';
 
 const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'liveops', label: 'Live Ops', icon: Siren },
@@ -66,6 +67,7 @@ const TABS: { id: Tab; label: string; icon: typeof ShoppingBag }[] = [
   { id: 'expenses', label: 'Expenses', icon: Wallet },
   { id: 'messages', label: 'Messages', icon: Mail },
   { id: 'users', label: 'Users & Roles', icon: Users },
+  { id: 'deletions', label: 'Account Deletions', icon: UserX },
   { id: 'settings', label: 'Settings', icon: SlidersHorizontal },
   { id: 'security', label: 'Security', icon: KeyRound },
 ];
@@ -2085,6 +2087,8 @@ export default function AdminPanelPage() {
 
             {/* ---- SUPPLIERS ---- */}
             {activeTab === 'suppliers' && <SupplierDesk />}
+
+            {activeTab === 'deletions' && <DeletionDesk />}
 
             {/* ---- ACADEMY ---- */}
             {activeTab === 'academy' && (

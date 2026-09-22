@@ -131,6 +131,7 @@ export function Footer() {
             <Link href="/policies#privacy" className="hover:text-royal-300 transition-colors">Privacy Policy</Link>
             <Link href="/policies#terms" className="hover:text-royal-300 transition-colors">Terms of Service</Link>
             <Link href="/policies#cancellation" className="hover:text-royal-300 transition-colors">Cancellation &amp; Refund</Link>
+            <Link href="/delete-account" className="hover:text-royal-300 transition-colors">Delete Account</Link>
           </div>
         </div>
       </div>

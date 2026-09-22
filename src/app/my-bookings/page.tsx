@@ -317,6 +317,15 @@ export default function MyBookingsPage() {
             })}
           </>
         )}
+
+        {user && (
+          <p className="pt-6 text-center text-xs text-gray-500">
+            Want to close your account?{' '}
+            <Link href="/delete-account" className="font-bold text-rose-700/80 underline underline-offset-2">
+              Delete my account
+            </Link>
+          </p>
+        )}
       </main>
     </div>
   );

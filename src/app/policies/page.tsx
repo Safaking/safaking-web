@@ -356,8 +356,11 @@ export default function PoliciesPage() {
                   gateway.
                 </li>
                 <li>
-                  Want your account or data removed? Write to {BUSINESS.email} and we will do it,
-                  keeping only what tax law requires us to keep.
+                  Want your account and data removed?{' '}
+                  <Link href="/delete-account" className="font-bold text-maroon-800 underline underline-offset-2">
+                    Delete your account here
+                  </Link>{' '}
+                  — or write to {BUSINESS.email}. We keep only what tax law requires us to keep.
                 </li>
               </ul>
             </Section>
