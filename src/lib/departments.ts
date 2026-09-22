@@ -70,9 +70,9 @@ export function can(unit: StaffUnit | null | undefined, permission: Permission):
 export const DEPARTMENT_TABS: Record<Department, string[]> = {
   operations: [
     'liveops', 'analytics', 'orders', 'rentals', 'bookings', 'suppliers', 'complaints',
-    'messages', 'academy', 'careers', 'training', 'protection', 'security',
+    'messages', 'academy', 'careers', 'training', 'protection', 'security', 'deletions',
   ],
-  support: ['liveops', 'orders', 'rentals', 'bookings', 'complaints', 'messages', 'academy', 'protection', 'security'],
+  support: ['liveops', 'orders', 'rentals', 'bookings', 'complaints', 'messages', 'academy', 'protection', 'security', 'deletions'],
   artist_ops: ['liveops', 'bookings', 'rentals', 'artist_apps', 'verification', 'training', 'complaints', 'users', 'security'],
   finance: ['analytics', 'orders', 'rentals', 'bookings', 'payouts', 'expenses', 'protection', 'security'],
 };

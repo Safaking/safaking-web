@@ -48,6 +48,7 @@ const TITLES: [string, string][] = [
   ['/contact', 'Contact Us'],
   ['/careers', 'Careers'],
   ['/policies', 'Policies'],
+  ['/delete-account', 'Delete Account'],
   ['/documents', 'Document'],
   ['/reset-password', 'Reset Password'],
 ];
@@ -593,6 +594,15 @@ function NativeAppShell() {
                 >
                   <LogOut size={15} /> Log out
                 </button>
+              )}
+              {user && (
+                <Link
+                  href="/delete-account"
+                  onClick={closeMore}
+                  className="mx-4 mt-3 mb-1 block text-center text-[11px] font-bold text-rose-700/80 underline underline-offset-2"
+                >
+                  Delete my account
+                </Link>
               )}
             </motion.div>
           </>
