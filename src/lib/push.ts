@@ -40,8 +40,11 @@ export interface PushResult {
 function serviceAccount(): ServiceAccount {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT is not set.');
-  const parsed = JSON.parse(raw) as ServiceAccount;
-  if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
+  let parsed = JSON.parse(raw) as ServiceAccount | string;
+  // Pasted into a hosting dashboard with its surrounding quotes, it arrives as
+  // a JSON string holding JSON.
+  if (typeof parsed === 'string') parsed = JSON.parse(parsed) as ServiceAccount;
+  if (!parsed || !parsed.project_id || !parsed.client_email || !parsed.private_key) {
     throw new Error('FIREBASE_SERVICE_ACCOUNT is missing project_id, client_email or private_key.');
   }
   // Keys pasted into an env var usually arrive with escaped newlines.
