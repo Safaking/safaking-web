@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "779184011679",
+    "project_id": "safaking",
+    "storage_bucket": "safaking.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:779184011679:android:0bb525ce97e938fb3ee5aa",
+        "android_client_info": {
+          "package_name": "in.safaking.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZPyR9DyhGI0otVWsoURaChWNCLKuWkU4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
