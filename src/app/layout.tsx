@@ -8,6 +8,7 @@ import { CartProvider } from "@/context/CartContext";
 import { MobileTabBar } from "@/components/landing/MobileTabBar";
 import { NativeChrome } from "@/components/landing/NativeChrome";
 import { AppShell } from "@/components/app/AppShell";
+import { PushRegistration } from "@/components/app/PushRegistration";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -93,6 +94,7 @@ export default function RootLayout({
             {children}
             <MobileTabBar />
             <AppShell />
+            <PushRegistration />
           </CartProvider>
           <MfaChallenge />
         </AuthProvider>

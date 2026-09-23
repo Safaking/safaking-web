@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, friendlyError, UserProfile, UserRole } from '@/lib/supabase';
+import { clearPushToken, currentPushToken } from '@/lib/push-token';
 import { logAuthEvent } from '@/lib/auth-events';
 
 export interface SignUpInput {
@@ -161,6 +162,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     // Logged while the session still exists, so the row knows who it was.
     await logAuthEvent('sign_out');
+    // Same reason: drop this phone's notification token before the session
+    // goes, so the next person to use it does not get these alerts.
+    const pushToken = currentPushToken();
+    if (pushToken) {
+      try {
+        await supabase.rpc('forget_device_token', { p_token: pushToken });
+      } catch {
+        // Signing out matters more than tidying the token.
+      }
+      clearPushToken();
+    }
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);

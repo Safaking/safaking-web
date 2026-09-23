@@ -41,6 +41,10 @@ import { ContactInbox } from '@/components/admin/ContactInbox';
 import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
 import { SupplierDesk } from '@/components/admin/SupplierDesk';
 import { DeletionDesk } from '@/components/admin/DeletionDesk';
+import { WhatsAppButton } from '@/components/admin/WhatsAppButton';
+import { PushTestCard } from '@/components/admin/PushTestCard';
+import { bookingDrafts, orderDrafts } from '@/lib/whatsapp';
+import { BUSINESS } from '@/lib/business';
 import { SupplierPayoutsPanel } from '@/components/admin/SupplierPayoutsPanel';
 
 type Tab =
@@ -101,6 +105,8 @@ interface ArtistDispatchProfile {
   display_name: string;
   base_city: string | null;
   service_pincodes: string[];
+  /** Shown to a customer only in the "artist assigned" WhatsApp message. */
+  phone: string | null;
   verified: boolean;
   active: boolean;
   blacklisted: boolean;
@@ -443,7 +449,7 @@ export default function AdminPanelPage() {
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('rental_bookings').select('*').order('start_date', { ascending: true }),
       supabase.from('app_settings').select('*').order('key', { ascending: true }),
-      supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, verified, active, blacklisted, verification_status, rating, total_events, standing, restricted_until'),
+      supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, phone, verified, active, blacklisted, verification_status, rating, total_events, standing, restricted_until'),
       supabase.from('booking_checkins').select('rental_id, booking_id, stage, created_at').order('created_at', { ascending: false }),
       supabase.from('artist_quality_scores').select('*'),
     ]);
@@ -879,6 +885,22 @@ export default function AdminPanelPage() {
           eventDate: booking.event_date,
           cityVenue: booking.city_venue,
           safaStyle: booking.safa_style,
+        }),
+      }).catch(() => {});
+    }
+
+    // And a notification on their phone, which artists actually see — free,
+    // and it needs no DLT registration (supabase/042). Silent if they have
+    // not installed the app.
+    if (booking) {
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          userId: artistId,
+          title: 'New SafaKing job',
+          body: `${booking.safa_style} on ${booking.event_date} — ${booking.city_venue}. Open the portal to accept.`,
+          path: '/artist-portal',
         }),
       }).catch(() => {});
     }
@@ -1435,7 +1457,22 @@ export default function AdminPanelPage() {
                         return (
                           <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
                             <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
-                            <td className="p-4 text-gray-600">{order.customer_phone}</td>
+                            <td className="p-4 text-gray-600">
+                              {order.customer_phone}
+                              <div className="mt-1.5">
+                                <WhatsAppButton
+                                  phone={order.customer_phone}
+                                  drafts={orderDrafts({
+                                    id: order.id,
+                                    customerName: order.customer_name,
+                                    totalAmount: order.total_amount,
+                                    balanceAmount: order.payment_status === 'fully_paid' ? null : (order.balance_amount ?? null),
+                                    status: order.status,
+                                    businessPhone: BUSINESS.phone,
+                                  })}
+                                />
+                              </div>
+                            </td>
                             <td className="p-4 text-gray-600 max-w-xs">
                               {order.shipping_address}
                               {order.notes && (
@@ -1562,6 +1599,23 @@ export default function AdminPanelPage() {
                             <span className="text-[10px] text-gray-400 font-normal">
                               {booking.customer_phone}
                             </span>
+                            <div className="mt-1.5">
+                              <WhatsAppButton
+                                phone={booking.customer_phone}
+                                drafts={bookingDrafts({
+                                  id: booking.id,
+                                  customerName: booking.customer_name,
+                                  eventDate: booking.event_date,
+                                  cityVenue: booking.city_venue,
+                                  safaStyle: booking.safa_style,
+                                  amount: booking.amount,
+                                  balanceAmount: booking.payment_status === 'fully_paid' ? null : booking.balance_amount,
+                                  artistName: booking.artist_name,
+                                  artistPhone: artists.find((a) => a.id === booking.artist_id)?.phone ?? null,
+                                  businessPhone: BUSINESS.phone,
+                                })}
+                              />
+                            </div>
                           </td>
                           <td className="p-4 text-gray-700 font-medium">{booking.event_date}</td>
                           <td className="p-4 text-gray-700">{booking.city_venue}</td>
@@ -2387,6 +2441,7 @@ export default function AdminPanelPage() {
                 title="Settings"
                 subtitle="Prices, rates and fees. A change applies to every new booking and order"
               >
+                <PushTestCard />
                 {settings.length === 0 ? (
                   <Empty label="Settings table not found — run supabase/004_rentals.sql." />
                 ) : (
