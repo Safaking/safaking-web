@@ -19,21 +19,52 @@ export interface Contract {
   audience: ContractAudience;
   title: string;
   body: string;
+  /** The same terms in Hindi, when one has been written (supabase/043). */
+  titleHi: string | null;
+  bodyHi: string | null;
 }
 
+interface ContractRow {
+  id: string;
+  audience: ContractAudience;
+  title: string;
+  body: string;
+  title_hi?: string | null;
+  body_hi?: string | null;
+}
+
+const WITH_HINDI = 'id, audience, title, body, title_hi, body_hi';
+const ENGLISH_ONLY = 'id, audience, title, body';
+
 export async function getActiveContract(audience: ContractAudience): Promise<Contract | null> {
-  const { data, error } = await supabase
-    .from('contracts')
-    .select('id, audience, title, body')
-    .eq('audience', audience)
-    .eq('active', true)
-    .maybeSingle();
+  const read = (columns: string) =>
+    supabase
+      .from('contracts')
+      .select(columns)
+      .eq('audience', audience)
+      .eq('active', true)
+      .maybeSingle();
+
+  let { data, error } = await read(WITH_HINDI);
+  // A database that has not had supabase/043 applied yet has no Hindi columns.
+  // The terms still have to appear, in English.
+  if (error?.code === '42703') ({ data, error } = await read(ENGLISH_ONLY));
 
   if (error) {
     console.warn('Could not load contract:', error.message);
     return null;
   }
-  return data as Contract | null;
+
+  const row = data as unknown as ContractRow | null;
+  if (!row) return null;
+  return {
+    id: row.id,
+    audience: row.audience,
+    title: row.title,
+    body: row.body,
+    titleHi: row.title_hi ?? null,
+    bodyHi: row.body_hi ?? null,
+  };
 }
 
 export async function recordContractAcceptance(params: {
