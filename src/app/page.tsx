@@ -7,6 +7,7 @@ import { Header } from '@/components/landing/Header';
 import { Hero } from '@/components/landing/Hero';
 import { TrustBar } from '@/components/landing/TrustBar';
 import { IntroVideo } from '@/components/landing/IntroVideo';
+import { VIRTUAL_TRYON_ENABLED } from '@/lib/features';
 import { ArtistsSection } from '@/components/landing/ArtistsSection';
 import { FeaturedCollection } from '@/components/landing/FeaturedCollection';
 import { TrainingSection } from '@/components/landing/TrainingSection';
@@ -94,7 +95,9 @@ function LandingContent() {
         <Header onOpenAuth={() => setAuthOpen(true)} wishlistCount={wishlist.length} />
         <Hero onSelectStyle={(style) => setStyleRequest((previous) => ({ style, nonce: (previous?.nonce ?? 0) + 1 }))} />
         <TrustBar />
-        <IntroVideo onSelectStyle={(style) => setStyleRequest((previous) => ({ style, nonce: (previous?.nonce ?? 0) + 1 }))} />
+        {VIRTUAL_TRYON_ENABLED && (
+          <IntroVideo onSelectStyle={(style) => setStyleRequest((previous) => ({ style, nonce: (previous?.nonce ?? 0) + 1 }))} />
+        )}
         <ArtistsSection onRequireSignIn={() => setAuthOpen(true)} styleRequest={styleRequest} />
         <FeaturedCollection
           products={featured.length > 0 ? featured : products.slice(0, 4)}

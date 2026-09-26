@@ -15,6 +15,7 @@ import {
 import { ArrowDown, ArrowUpRight, Crown, Sparkles, ShoppingBag } from 'lucide-react';
 import { SafaRaja } from './SafaRaja';
 import { VirtualSafaTryOn } from './VirtualSafaTryOn';
+import { VIRTUAL_TRYON_ENABLED } from '@/lib/features';
 
 /**
  * The homepage opening: a saffron stage with a groom lifted out of his
@@ -246,12 +247,14 @@ function Stage({ onOpenTryOn }: { onOpenTryOn?: () => void }) {
               <ShoppingBag size={15} /> Shop safas online
               <ArrowUpRight size={14} className="transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <button
-              onClick={() => onOpenTryOn?.()}
-              className="group inline-flex items-center gap-2 rounded-full bg-maroon-950 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-200 shadow-xl shadow-maroon-950/25 transition-all hover:bg-maroon-900 border border-royal-400/30"
-            >
-              <Sparkles size={15} className="text-royal-400" /> Virtual AR Safa Camera Mirror
-            </button>
+            {VIRTUAL_TRYON_ENABLED && (
+              <button
+                onClick={() => onOpenTryOn?.()}
+                className="group inline-flex items-center gap-2 rounded-full bg-maroon-950 px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-royal-200 shadow-xl shadow-maroon-950/25 transition-all hover:bg-maroon-900 border border-royal-400/30"
+              >
+                <Sparkles size={15} className="text-royal-400" /> Virtual AR Safa Camera Mirror
+              </button>
+            )}
             <Link
               href="#artist-booking-form"
               className="inline-flex items-center gap-2 rounded-full border-2 border-maroon-950/70 px-6 py-3 text-xs font-bold uppercase tracking-widest text-maroon-950 transition-colors hover:bg-maroon-950 hover:text-royal-100"
@@ -465,11 +468,13 @@ export function Hero({ onSelectStyle }: { onSelectStyle?: (style: string) => voi
     <>
       <Stage onOpenTryOn={() => setTryOnOpen(true)} />
       <CollectionRail />
-      <VirtualSafaTryOn
-        isOpen={tryOnOpen}
-        onClose={() => setTryOnOpen(false)}
-        onSelectStyle={onSelectStyle}
-      />
+      {VIRTUAL_TRYON_ENABLED && (
+        <VirtualSafaTryOn
+          isOpen={tryOnOpen}
+          onClose={() => setTryOnOpen(false)}
+          onSelectStyle={onSelectStyle}
+        />
+      )}
     </>
   );
 }
