@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Camera, RefreshCw, Share2, Crown, Upload, Move, RotateCcw, Maximize2,
-  AlertCircle, Loader2, ArrowRight,
+  AlertCircle, Loader2, ArrowRight, ScanFace,
 } from 'lucide-react';
+import { FaceReading, StageFit, loadFaceTracker, readingToFit, smoothFit } from '@/lib/face-fit';
 
 export interface SafaOverlayOption {
   id: string;
@@ -104,6 +105,13 @@ export function SafaFittingStage({
   const [fit, setFit] = useState<Fit>(FALLBACK_FIT);
   /** Once the customer has moved anything, the opening size stops overriding it. */
   const fitTouchedRef = useRef(false);
+  /** The safa follows the head by itself until the customer places it. */
+  const [autoFit, setAutoFit] = useState(true);
+  const [following, setFollowing] = useState(false);
+  const [trackerLoading, setTrackerLoading] = useState(false);
+  /** Height ÷ width of the chosen safa — it decides how high above the brow it sits. */
+  const safaAspectRef = useRef(1.2);
+  const smoothedRef = useRef<StageFit | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const photoElRef = useRef<HTMLImageElement | null>(null);
@@ -245,6 +253,7 @@ export function SafaFittingStage({
     if (!drag || !stage || drag.pointerId !== event.pointerId) return;
     const box = stage.getBoundingClientRect();
     fitTouchedRef.current = true;
+    setAutoFit(false);
     setFit((previous) => ({
       ...previous,
       x: clamp(drag.fromX + (event.clientX - drag.startX) / box.width, 0.1, 0.9),
@@ -421,14 +430,83 @@ export function SafaFittingStage({
   };
 
   const fittingReady = !capturedPhoto && (source === 'photo' ? !!photoUrl : cameraState === 'live');
+
+  /**
+   * The safa follows the head. MediaPipe finds the face on the phone itself —
+   * free, private, and it keeps working with no internet once loaded. On a
+   * live camera it runs every frame; on a photo it places the safa once.
+   * If the model will not load, nothing happens and placing by hand still works.
+   */
+  useEffect(() => {
+    if (!fittingReady || !autoFit) {
+      setFollowing(false);
+      setTrackerLoading(false);
+      smoothedRef.current = null;
+      return;
+    }
+    let stopped = false;
+    let frame = 0;
+    setTrackerLoading(true);
+
+    (async () => {
+      const tracker = await loadFaceTracker();
+      if (!stopped) setTrackerLoading(false);
+      if (!tracker || stopped) return;
+
+      const place = (reading: FaceReading | null, mirrored: boolean) => {
+        const stage = stageRef.current;
+        if (!reading || !stage) return false;
+        const box = stage.getBoundingClientRect();
+        const next = readingToFit(reading, { width: box.width, height: box.height }, safaAspectRef.current, mirrored);
+        if (!next) return false;
+        // Eased so the safa settles rather than twitching frame to frame.
+        const smoothed = smoothFit(smoothedRef.current, next);
+        smoothedRef.current = smoothed;
+        setFit({ x: smoothed.x, y: smoothed.y, width: smoothed.width, rotation: smoothed.rotation });
+        return true;
+      };
+
+      if (source === 'photo') {
+        const image = photoElRef.current;
+        if (image) {
+          if (!image.complete) await image.decode().catch(() => {});
+          const reading = await tracker.readImage(image);
+          if (!stopped) setFollowing(place(reading, false));
+        }
+        return;
+      }
+
+      let lastRead = 0;
+      const loop = () => {
+        if (stopped) return;
+        const video = videoRef.current;
+        const now = performance.now();
+        // 25 readings a second is plenty for a head, and far kinder to the
+        // battery than running on every frame.
+        if (video && video.readyState >= 2 && now - lastRead >= 40) {
+          lastRead = now;
+          const found = place(tracker.readVideo(video, now), true);
+          setFollowing((was) => (was === found ? was : found));
+        }
+        frame = requestAnimationFrame(loop);
+      };
+      frame = requestAnimationFrame(loop);
+    })();
+
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [fittingReady, autoFit, source, photoUrl, selectedSafa.id]);
   /** Artists are sent out for baraat safas; a groom's own safa is bought online. */
   const tiedByArtist = selectedSafa.bookingStyle === 'Barati Safa';
 
   // Size the safa to the stage the first time there is something to fit onto.
+  // Only while placing by hand — the tracker sets its own size.
   useEffect(() => {
-    if (!fittingReady || fitTouchedRef.current) return;
+    if (!fittingReady || fitTouchedRef.current || autoFit) return;
     setFit(defaultFit());
-  }, [fittingReady, defaultFit]);
+  }, [fittingReady, autoFit, defaultFit]);
 
   return (
     <>
@@ -499,6 +577,10 @@ export function SafaFittingStage({
                   src={selectedSafa.src}
                   alt={selectedSafa.name}
                   draggable={false}
+                  onLoad={(event) => {
+                    const image = event.currentTarget;
+                    if (image.naturalWidth) safaAspectRef.current = image.naturalHeight / image.naturalWidth;
+                  }}
                   className="w-full h-auto select-none drop-shadow-[0_22px_32px_rgba(0,0,0,0.65)]"
                 />
               </div>
@@ -550,7 +632,17 @@ export function SafaFittingStage({
             {fittingReady && (
               <>
                 <span className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 pointer-events-none">
-                  <Move size={11} /> Drag the safa onto your head
+                  {!autoFit ? (
+                    <><Move size={11} /> Drag the safa onto your head</>
+                  ) : trackerLoading ? (
+                    <><Loader2 size={11} className="animate-spin text-royal-300" /> Getting the mirror ready…</>
+                  ) : following ? (
+                    <><ScanFace size={11} className="text-royal-300" />
+                      {source === 'photo' ? 'Placed on your head' : 'Following your head'}</>
+                  ) : (
+                    <><ScanFace size={11} className="text-royal-300" />
+                      {source === 'photo' ? 'No face found — try a closer photo' : 'Look at the camera'}</>
+                  )}
                 </span>
                 <button
                   onClick={() => void handleSnapPhoto()}
@@ -578,7 +670,7 @@ export function SafaFittingStage({
 
         {fittingReady && (
           <div className="bg-white/5 p-2.5 rounded-2xl border border-white/10 space-y-2.5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid grid-cols-2 gap-3 transition-opacity ${autoFit ? 'opacity-40' : ''}`}>
               <label className="flex flex-col gap-1">
                 <span className="text-[10px] font-bold uppercase text-royal-300 flex items-center gap-1">
                   <Maximize2 size={11} /> Size
@@ -588,7 +680,7 @@ export function SafaFittingStage({
                   min={30}
                   max={130}
                   value={Math.round(fit.width * 100)}
-                  onChange={(event) => { fitTouchedRef.current = true; setFit((previous) => ({ ...previous, width: Number(event.target.value) / 100 })); }}
+                  onChange={(event) => { fitTouchedRef.current = true; setAutoFit(false); setFit((previous) => ({ ...previous, width: Number(event.target.value) / 100 })); }}
                   className="accent-royal-400 h-1.5 bg-white/20 rounded-lg cursor-pointer"
                 />
               </label>
@@ -601,18 +693,33 @@ export function SafaFittingStage({
                   min={-30}
                   max={30}
                   value={fit.rotation}
-                  onChange={(event) => { fitTouchedRef.current = true; setFit((previous) => ({ ...previous, rotation: Number(event.target.value) })); }}
+                  onChange={(event) => { fitTouchedRef.current = true; setAutoFit(false); setFit((previous) => ({ ...previous, rotation: Number(event.target.value) })); }}
                   className="accent-royal-400 h-1.5 bg-white/20 rounded-lg cursor-pointer"
                 />
               </label>
             </div>
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <button
-                onClick={resetFit}
-                className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
-              >
-                <RefreshCw size={11} /> Reset fit
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setAutoFit((on) => !on);
+                    fitTouchedRef.current = false;
+                    smoothedRef.current = null;
+                  }}
+                  aria-pressed={autoFit}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                    autoFit ? 'bg-royal-500 text-maroon-950' : 'bg-white/10 text-white'
+                  }`}
+                >
+                  <ScanFace size={11} /> {autoFit ? 'Following you' : 'Place it for me'}
+                </button>
+                <button
+                  onClick={resetFit}
+                  className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+                >
+                  <RefreshCw size={11} /> Reset fit
+                </button>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => fileRef.current?.click()}

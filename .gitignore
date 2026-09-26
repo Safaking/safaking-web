@@ -56,3 +56,6 @@ android/capacitor-cordova-android-plugins/build/
 android/.kotlin/
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
+
+# The face-tracking model and its runtime (15 MB) — fetched on demand, see src/lib/features.ts
+public/mediapipe/
