@@ -8,11 +8,12 @@ import { motion } from 'framer-motion';
 import {
   Mail, Lock, User, Phone, MapPin, Eye, EyeOff, AlertCircle,
   CheckCircle2, Loader2, MessageCircle, Wallet, Navigation, Briefcase,
-  Users, IndianRupee, Link as LinkIcon, Camera, Sparkles, ScrollText, Store, Crown,
+  Users, IndianRupee, Link as LinkIcon, Camera, Sparkles, Store, Crown,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError } from '@/lib/supabase';
 import { getActiveContract, recordContractAcceptance, Contract } from '@/lib/client-update';
+import { ContractCheckbox } from '@/components/booking/ContractCheckbox';
 
 const SAFA_SPECIALTIES = [
   'Jodhpuri Silk Safa',
@@ -632,32 +633,14 @@ function ArtistLoginContent() {
                   </div>
                 )}
 
-                {contract && (
-                  <div className="rounded-xl border border-royal-200 bg-white overflow-hidden">
-                    <div className="px-3 py-2 bg-royal-50/60 border-b border-royal-200 flex items-center gap-1.5">
-                      <ScrollText size={13} className="text-maroon-800/50" />
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-maroon-800/70">
-                        {contract.title}
-                      </p>
-                    </div>
-                    <p className="p-3 text-[11px] text-maroon-800/70 leading-relaxed max-h-28 overflow-y-auto custom-scrollbar">
-                      {contract.body}
-                    </p>
-                    <label className="flex items-start gap-2 p-3 border-t border-royal-200 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={contractAccepted}
-                        onChange={(e) => setContractAccepted(e.target.checked)}
-                        className="mt-0.5 accent-maroon-900"
-                      />
-                      <span className="text-[11px] text-maroon-800/80">
-                        I have read and accept this agreement, including arriving on time, wearing a
-                        helmet, carrying insurance, and never accepting payment directly from a
-                        customer.
-                      </span>
-                    </label>
-                  </div>
-                )}
+                {/* The agreement, in Hindi as well as English — most artists read it there. */}
+                <ContractCheckbox
+                  contract={contract}
+                  audience="artist"
+                  theme="royal"
+                  accepted={contractAccepted}
+                  onChange={setContractAccepted}
+                />
 
                 <button
                   type="submit"

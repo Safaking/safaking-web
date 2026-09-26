@@ -686,6 +686,8 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                         </div>
                       </div>
 
+                      {/* What comes back if they cancel, then the terms — the same pair as /rent. */}
+                      <CancellationTerms theme="dark" />
                       <ContractCheckbox accepted={contractAccepted} onChange={setContractAccepted} theme="dark" />
 
                       {!user && !authLoading && (
