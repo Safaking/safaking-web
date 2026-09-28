@@ -97,6 +97,7 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerPhoneAlt, setCustomerPhoneAlt] = useState('');
+  const [headSize, setHeadSize] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
   const [bookingStartTime, setBookingStartTime] = useState('');
@@ -189,7 +190,7 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
       booking_start_time: bookingStartTime || null,
       booking_end_time: bookingEndTime || null,
       city_venue: `${cityVenue.trim()} (Pincode: ${pincode}, Count: ${effectiveSafaCount} Safas)`,
-      venue_address: venueAddress.trim() || null,
+      venue_address: [venueAddress.trim(), headSize.trim() ? `Head Size: ${headSize.trim()}` : null].filter(Boolean).join(' | ') || null,
       // Must be exactly one of 'Rounded' | 'Jodhpuri' | 'Barati Safa' — the DB
       // has a check constraint on this column. Count is already recorded in
       // city_venue above.
@@ -641,6 +642,50 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                         onChange={(e) => setVenueAddress(e.target.value)}
                         className="w-full px-3.5 py-2 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
                       />
+
+                      {/* Head Size Input & Guide Photo side-by-side */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-royal-300">
+                            Head Size / सर का साइज़ (Inches)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowMeasureGuide(true)}
+                            className="text-[10px] font-bold text-royal-300 hover:text-royal-200 underline flex items-center gap-1"
+                          >
+                            <Ruler size={11} /> साइज़ कैसे नापें?
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <Ruler size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-royal-400" />
+                            <input
+                              type="text"
+                              placeholder="e.g. 22 Inches / 22 इंच (Optional)"
+                              value={headSize}
+                              onChange={(e) => setHeadSize(e.target.value)}
+                              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-royal-400/20 bg-white/10 text-white placeholder:text-royal-200/40 text-xs focus:outline-none focus:ring-2 focus:ring-royal-400/30 transition-all"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowMeasureGuide(true)}
+                            className="relative w-10 h-10 rounded-xl overflow-hidden border border-royal-400/40 shrink-0 hover:border-royal-300 transition-all group bg-white/10"
+                            title="Click to view head size measuring guide photo"
+                          >
+                            <Image
+                              src="/head-size-guide.jpg"
+                              alt="Head size guide photo"
+                              fill
+                              className="object-cover group-hover:scale-110 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-maroon-950/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Ruler size={14} className="text-royal-300" />
+                            </div>
+                          </button>
+                        </div>
+                      </div>
 
                       {/* Safa Count Selector — Barati Safa only */}
                       {isBulkStyle && (

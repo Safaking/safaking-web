@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import {
-  X, ShoppingBag, Trash2, Plus, Minus, CheckCircle2, ArrowRight, AlertCircle, Loader2, LogIn,
+  X, ShoppingBag, Trash2, Plus, Minus, CheckCircle2, ArrowRight, AlertCircle, Loader2, LogIn, Ruler,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -23,6 +24,8 @@ export function CartDrawer() {
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [headSize, setHeadSize] = useState('');
+  const [showMeasureGuide, setShowMeasureGuide] = useState(false);
   const [address, setAddress] = useState('');
   const [pincode, setPincode] = useState('302001');
   const [pincodeResult, setPincodeResult] = useState<PincodeCheckResult | null>({
@@ -130,7 +133,8 @@ export function CartDrawer() {
     }
 
     setSubmitting(true);
-    const customer = { name: name.trim(), phone: phone.trim(), address: address.trim(), pincode };
+    const fullAddress = headSize.trim() ? `${address.trim()} (Head Size: ${headSize.trim()})` : address.trim();
+    const customer = { name: name.trim(), phone: phone.trim(), address: fullAddress, pincode };
 
     try {
       // The server prices the order from the products table and opens a
@@ -359,6 +363,45 @@ export function CartDrawer() {
                     />
                   </div>
                   <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                        Head Size / सर का साइज़ (Inches)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowMeasureGuide(true)}
+                        className="text-[10px] font-bold text-maroon-800 hover:underline flex items-center gap-1"
+                      >
+                        <Ruler size={11} /> साइज़ कैसे नापें?
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. 22 Inches / 22 इंच (Optional)"
+                        value={headSize}
+                        onChange={(e) => setHeadSize(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-maroon-800/20 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowMeasureGuide(true)}
+                        className="relative w-12 h-11 rounded-xl overflow-hidden border border-gray-300 shrink-0 hover:border-maroon-800 transition-all group shadow-sm bg-gray-100"
+                        title="Click to view head size measuring guide photo"
+                      >
+                        <Image
+                          src="/head-size-guide.jpg"
+                          alt="Head size guide photo"
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Ruler size={14} className="text-white" />
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                  <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
                       Delivery Pincode (6-Digits)
                     </label>
@@ -521,6 +564,54 @@ export function CartDrawer() {
           )}
         </motion.div>
       </div>
+
+      {/* Head-size measurement guide modal */}
+      <AnimatePresence>
+        {showMeasureGuide && (
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-maroon-950/80 backdrop-blur-md"
+            onClick={() => setShowMeasureGuide(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-sm overflow-hidden bg-white rounded-3xl shadow-2xl border border-royal-200 text-left"
+            >
+              <button
+                onClick={() => setShowMeasureGuide(false)}
+                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/80 hover:bg-white flex items-center justify-center text-maroon-950 transition-colors shadow-md"
+              >
+                <X size={16} />
+              </button>
+              <div className="relative w-full aspect-square">
+                <Image
+                  src="/head-size-guide.jpg"
+                  alt="Measuring head size with a tape around the forehead"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="p-6 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-royal-gradient flex items-center justify-center -mt-14 relative z-10 border-4 border-white shadow-lg">
+                  <Ruler size={22} className="text-maroon-950" />
+                </div>
+                <h4 className="font-display font-black text-lg text-maroon-950">
+                  How to Measure Head Size / सर का नाप कैसे लें
+                </h4>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Wrap a measuring tape around your forehead, just above your ears, and note the
+                  reading in inches.
+                </p>
+                <p className="text-sm text-gray-600 leading-relaxed border-t border-gray-100 pt-3">
+                  टेप को अपने माथे के चारों ओर, कानों के थोड़ा ऊपर से लपेटें और इंच (Inches) में नाप लिखें।
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }
