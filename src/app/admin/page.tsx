@@ -383,6 +383,7 @@ export default function AdminPanelPage() {
   const [bookingsFilter, setBookingsFilter] = useState({ status: '', search: '' });
   const [artistAppsFilter, setArtistAppsFilter] = useState({ status: '', search: '' });
   const [productsFilter, setProductsFilter] = useState({ status: '', search: '' });
+  const [productsSource, setProductsSource] = useState<'all' | 'house' | 'supplier'>('all');
   const [enrollmentsFilter, setEnrollmentsFilter] = useState({ status: '', search: '' });
   const [jobAppsFilter, setJobAppsFilter] = useState({ status: '', search: '' });
   const [usersFilter, setUsersFilter] = useState({ status: '', search: '' });
@@ -406,12 +407,14 @@ export default function AdminPanelPage() {
   );
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
+      if (productsSource === 'house' && p.supplier_id) return false;
+      if (productsSource === 'supplier' && !p.supplier_id) return false;
       if (productsFilter.status === 'active' && !p.active) return false;
       if (productsFilter.status === 'inactive' && p.active) return false;
       if (productsFilter.status === 'pending_sync' && !p.pending_sync) return false;
       return matchesFilter(p, productsFilter.search, ['name', 'code', 'category']);
     });
-  }, [products, productsFilter]);
+  }, [products, productsFilter, productsSource]);
   const filteredEnrollments = useMemo(
     () => enrollments.filter((e) => matchesFilter(e, enrollmentsFilter.search, ['full_name', 'phone', 'city'], enrollmentsFilter.status, 'status')),
     [enrollments, enrollmentsFilter]
@@ -1965,6 +1968,40 @@ export default function AdminPanelPage() {
             {activeTab === 'products' && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center gap-3 flex-wrap">
+                  {/* Inventory Source Sub-Tabs */}
+                  <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-amber-100/70 border border-amber-200/80 text-xs font-bold">
+                    <button
+                      onClick={() => setProductsSource('all')}
+                      className={`px-3.5 py-2 rounded-xl transition-all ${
+                        productsSource === 'all'
+                          ? 'bg-maroon-950 text-royal-200 shadow-md font-black'
+                          : 'text-maroon-900 hover:bg-white/60'
+                      }`}
+                    >
+                      All ({products.length})
+                    </button>
+                    <button
+                      onClick={() => setProductsSource('house')}
+                      className={`px-3.5 py-2 rounded-xl transition-all ${
+                        productsSource === 'house'
+                          ? 'bg-maroon-950 text-royal-200 shadow-md font-black'
+                          : 'text-maroon-900 hover:bg-white/60'
+                      }`}
+                    >
+                      🏠 Joshi Safa House ({products.filter((p) => !p.supplier_id).length})
+                    </button>
+                    <button
+                      onClick={() => setProductsSource('supplier')}
+                      className={`px-3.5 py-2 rounded-xl transition-all ${
+                        productsSource === 'supplier'
+                          ? 'bg-maroon-950 text-royal-200 shadow-md font-black'
+                          : 'text-maroon-900 hover:bg-white/60'
+                      }`}
+                    >
+                      🏭 Supplier Marketplace ({products.filter((p) => !!p.supplier_id).length})
+                    </button>
+                  </div>
+
                   {selectedProductIds.size > 0 ? (
                     <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200">
                       <span className="text-xs font-bold text-maroon-950">
@@ -2004,11 +2041,11 @@ export default function AdminPanelPage() {
                 </div>
 
                 <Panel
-                  title="Catalogue"
+                  title="Catalogue & Inventory"
                   subtitle={
                     products.some((p) => p.pending_sync)
                       ? `${products.length} products · ${products.filter((p) => p.pending_sync).length} new from desktop, needs review`
-                      : `${products.length} products`
+                      : `${products.length} products total`
                   }
                   toolbar={
                     <FilterBar
@@ -2041,8 +2078,8 @@ export default function AdminPanelPage() {
                             )}
                           </th>
                           <th className={TH}>Product</th>
-                          <th className={TH}>Code</th>
-                          <th className={TH}>Price</th>
+                          <th className={TH}>Inventory Source</th>
+                          <th className={TH}>Pricing (Selling / MRP / Rent)</th>
                           <th className={TH}>Stock</th>
                           <th className={TH}>Flags</th>
                           <th className={TH}>Actions</th>
@@ -2068,16 +2105,48 @@ export default function AdminPanelPage() {
                               )}
                               {product.name}
                               <span className="block text-[10px] text-gray-400 font-normal">
-                                {product.category} · {product.fabric}
+                                {product.code ? `Code: ${product.code} · ` : ''}{product.category} · {product.fabric}
                               </span>
                             </td>
-                            <td className="p-4 text-gray-500 font-mono text-[11px]">{product.code}</td>
-                            <td className="p-4 font-black text-gradient-gold">
-                              ₹{product.price.toLocaleString()}
-                              {product.desktop_price != null && product.desktop_price !== product.price && (
-                                <span className="block text-[10px] font-bold text-amber-700 normal-case">
-                                  Desktop: ₹{product.desktop_price.toLocaleString()}
+                            <td className="p-4">
+                              {product.supplier_id ? (
+                                <span className="px-2.5 py-1 rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold uppercase border border-sky-200">
+                                  🏭 Supplier Item
                                 </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold uppercase border border-amber-200">
+                                  🏠 Joshi Safa House
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 font-bold">
+                              <div className="text-maroon-950 font-black text-sm">
+                                ₹{product.price.toLocaleString()}
+                              </div>
+                              {product.original_price != null && product.original_price > product.price && (
+                                <div className="text-[10px] text-gray-500 line-through">
+                                  MRP: ₹{product.original_price.toLocaleString()}
+                                </div>
+                              )}
+                              {(() => {
+                                const p = product as DBProduct & {
+                                  is_rentable?: boolean;
+                                  rent_price_per_day?: number;
+                                  rent_deposit?: number;
+                                };
+                                return (
+                                  p.is_rentable && (
+                                    <div className="text-[10px] font-bold text-amber-800">
+                                      Rent: ₹{(p.rent_price_per_day ?? 0).toLocaleString()}/day
+                                      {p.rent_deposit ? ` (+₹${p.rent_deposit.toLocaleString()} dep)` : ''}
+                                    </div>
+                                  )
+                                );
+                              })()}
+                              {product.desktop_price != null && product.desktop_price !== product.price && (
+                                <div className="text-[10px] font-bold text-amber-700">
+                                  POS Desktop: ₹{product.desktop_price.toLocaleString()}
+                                </div>
                               )}
                             </td>
                             <td className="p-4">
@@ -2784,40 +2853,155 @@ export default function AdminPanelPage() {
               </button>
             </div>
 
-            <div className="p-7 space-y-4">
+            <div className="p-7 space-y-5">
+              {/* Basic Product Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {(
-                  [
-                    ['name', 'Product Name', 'text', true],
-                    ['code', 'Product Code', 'text', false],
-                    ['price', 'Price (₹)', 'number', true],
-                    ['original_price', 'Original Price (₹)', 'number', false],
-                    ['stock', 'Stock Quantity', 'number', true],
-                    ['category', 'Category (Groom / Jodhpuri / Bandhani)', 'text', false],
-                    ['color', 'Colour', 'text', false],
-                    ['fabric', 'Fabric', 'text', false],
-                    ['style', 'Style', 'text', false],
-                    ['occasion', 'Occasion', 'text', false],
-                    ['rent_price_per_day', 'Rent per day (₹)', 'number', false],
-                    ['rent_deposit', 'Refundable deposit (₹)', 'number', false],
-                    ['image', 'New photo address (leave empty to keep the current photo)', 'text', false],
-                  ] as const
-                ).map(([key, label, type, required]) => (
-                  <div key={key} className={key === 'image' ? 'sm:col-span-2' : ''}>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
-                      {label}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                    Product Name / नाम *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={productForm.name}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Royal Marwari Groom Safa"
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                    Product Code / SKU
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.code}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, code: e.target.value }))}
+                    placeholder="e.g. SK-JODH-001"
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                    Stock Quantity / स्टॉक संख्या *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={productForm.stock}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, stock: e.target.value }))}
+                    placeholder="e.g. 25"
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20 font-bold text-emerald-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                    Category (Groom / Jodhpuri / Bandhani)
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.category}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, category: e.target.value }))}
+                    placeholder="e.g. Groom Safa"
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Colour</label>
+                  <input
+                    type="text"
+                    value={productForm.color}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, color: e.target.value }))}
+                    placeholder="e.g. Gold Brocade"
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Fabric</label>
+                  <input
+                    type="text"
+                    value={productForm.fabric}
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, fabric: e.target.value }))}
+                    placeholder="e.g. Chanderi Silk"
+                    className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                  />
+                </div>
+              </div>
+
+              {/* Prominent Pricing & Rental Options */}
+              <div className="p-5 rounded-2xl bg-amber-50/80 border-2 border-amber-300/80 space-y-3 shadow-sm">
+                <h4 className="font-display font-bold text-xs uppercase tracking-wider text-maroon-950 flex items-center gap-1.5 border-b border-amber-200/80 pb-2">
+                  💰 Pricing &amp; Rental Options (मूल्य एवं किराया विवरण)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-maroon-900 mb-1">
+                      Selling Price / विक्रय मूल्य (₹) *
                     </label>
                     <input
-                      type={type}
-                      required={required}
-                      value={productForm[key]}
-                      onChange={(e) =>
-                        setProductForm((prev) => ({ ...prev, [key]: e.target.value }))
-                      }
-                      className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                      type="number"
+                      required
+                      min={1}
+                      value={productForm.price}
+                      onChange={(e) => setProductForm((prev) => ({ ...prev, price: e.target.value }))}
+                      placeholder="e.g. 1500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-amber-300 text-sm font-black text-maroon-950 focus:outline-none focus:ring-2 focus:ring-maroon-800/20 bg-white"
                     />
                   </div>
-                ))}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-600 mb-1">
+                      Original Price / MRP (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={productForm.original_price}
+                      onChange={(e) => setProductForm((prev) => ({ ...prev, original_price: e.target.value }))}
+                      placeholder="e.g. 2500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-amber-300 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-600 mb-1">
+                      Rent Price per Day / प्रति दिन किराया (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={productForm.rent_price_per_day}
+                      onChange={(e) => setProductForm((prev) => ({ ...prev, rent_price_per_day: e.target.value }))}
+                      placeholder="e.g. 500"
+                      className="w-full px-4 py-2.5 rounded-xl border border-amber-300 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-600 mb-1">
+                      Refundable Deposit / अमानत राशि (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={productForm.rent_deposit}
+                      onChange={(e) => setProductForm((prev) => ({ ...prev, rent_deposit: e.target.value }))}
+                      placeholder="e.g. 1000"
+                      className="w-full px-4 py-2.5 rounded-xl border border-amber-300 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+                  Photo URL / फोटो पता (Leave empty to keep existing photo)
+                </label>
+                <input
+                  type="text"
+                  value={productForm.image}
+                  onChange={(e) => setProductForm((prev) => ({ ...prev, image: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-amber-200/70 text-sm focus:outline-none focus:ring-2 focus:ring-maroon-800/20"
+                />
               </div>
 
               <div>
