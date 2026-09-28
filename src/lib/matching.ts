@@ -112,12 +112,7 @@ export async function buildMatchQuote(
     .eq('active', true)
     .maybeSingle();
 
-  const city = pin?.city_state ?? deliveryPin?.city_state ?? null;
-  if (!city) {
-    throw new MatchingError(
-      `We do not serve pincode ${pincode} yet. Contact us and we will arrange travel.`
-    );
-  }
+  const city = pin?.city_state ?? deliveryPin?.city_state ?? `Location (${pincode})`;
 
   const settings = await loadSettings(admin);
   const guestToSafaRatio = settings.guest_to_safa_ratio ?? 1;

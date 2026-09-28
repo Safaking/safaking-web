@@ -30,23 +30,27 @@ export interface PincodeCheckResult {
 }
 
 /**
- * Checks if a given 6-digit Indian pincode is deliverable via Supabase or local fallback.
+ * Checks if a given pincode/postal code is deliverable.
+ * Delivery is active for ALL pincodes across India and International.
  */
 export async function checkPincode(pincode: string): Promise<PincodeCheckResult> {
-  const cleanCode = pincode.replace(/\D/g, '').trim();
+  const cleanCode = pincode.trim();
 
-  if (cleanCode.length !== 6) {
+  if (!cleanCode) {
     return {
       deliverable: false,
-      message: 'Please enter a valid 6-digit Indian Pincode.',
+      message: 'Please enter a valid Pincode or Postal Code.',
     };
   }
 
   try {
+    const numericOnly = cleanCode.replace(/\D/g, '');
+    const searchCode = numericOnly.length >= 5 ? numericOnly : cleanCode;
+
     const { data } = await supabase
       .from('deliverable_pincodes')
       .select('*')
-      .eq('pincode', cleanCode)
+      .eq('pincode', searchCode)
       .eq('active', true)
       .maybeSingle();
 
@@ -54,11 +58,11 @@ export async function checkPincode(pincode: string): Promise<PincodeCheckResult>
       return {
         deliverable: true,
         pincodeObj: data as DBDeliverablePincode,
-        message: `✓ Delivery Available to ${data.city_state} (Est. ${data.estimated_days || 3} days)`,
+        message: `✓ Express Delivery Available to ${data.city_state} (Est. ${data.estimated_days || 3} days)`,
       };
     }
   } catch (err) {
-    console.warn('Supabase pincode fetch warning, using static fallback:', err);
+    console.warn('Supabase pincode fetch warning:', err);
   }
 
   // Fallback to static list
@@ -67,34 +71,38 @@ export async function checkPincode(pincode: string): Promise<PincodeCheckResult>
     return {
       deliverable: true,
       pincodeObj: match,
-      message: `✓ Delivery Available to ${match.city_state} (Est. ${match.estimated_days} days)`,
+      message: `✓ Express Delivery Available to ${match.city_state} (Est. ${match.estimated_days} days)`,
     };
   }
 
   return {
-    deliverable: false,
-    message: `✕ Delivery currently unavailable for Pincode ${cleanCode}. We are expanding soon!`,
+    deliverable: true,
+    message: `✓ Express Delivery Available to Pincode ${cleanCode} (India & International)`,
   };
 }
 
 /**
- * Checks if Master Safa Artists are available in a given 6-digit pincode for event booking.
+ * Checks if Master Safa Artists are available in a given pincode for event booking.
+ * Active for all locations.
  */
 export async function checkArtistPincode(pincode: string): Promise<PincodeCheckResult> {
-  const cleanCode = pincode.replace(/\D/g, '').trim();
+  const cleanCode = pincode.trim();
 
-  if (cleanCode.length !== 6) {
+  if (!cleanCode) {
     return {
       deliverable: false,
-      message: 'Please enter a 6-digit Pincode for venue location.',
+      message: 'Please enter a Pincode for venue location.',
     };
   }
 
   try {
+    const numericOnly = cleanCode.replace(/\D/g, '');
+    const searchCode = numericOnly.length >= 5 ? numericOnly : cleanCode;
+
     const { data } = await supabase
       .from('artist_pincodes')
       .select('*')
-      .eq('pincode', cleanCode)
+      .eq('pincode', searchCode)
       .eq('active', true)
       .maybeSingle();
 
@@ -119,7 +127,7 @@ export async function checkArtistPincode(pincode: string): Promise<PincodeCheckR
   }
 
   return {
-    deliverable: false,
-    message: `✕ Safa Artist service not listed for Pincode ${cleanCode}. Contact us for travel arrangements.`,
+    deliverable: true,
+    message: `✓ Master Safa Artist Service Available for Pincode ${cleanCode}!`,
   };
 }

@@ -91,17 +91,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   // ---- Deliverability -----------------------------------------------------
-  const cleanPincode = String(pincode ?? '').replace(/\D/g, '');
-  if (cleanPincode.length !== 6) return bad('Enter a valid 6-digit pincode.');
-
-  const { data: pin } = await admin
-    .from('deliverable_pincodes')
-    .select('pincode')
-    .eq('pincode', cleanPincode)
-    .eq('active', true)
-    .maybeSingle();
-
-  if (!pin) return bad(`We do not deliver to ${cleanPincode} yet.`);
+  const cleanPincode = String(pincode ?? '').trim();
+  if (!cleanPincode) return bad('Enter a valid pincode / postal code.');
+  // Express delivery is enabled across all India & International pincodes
 
   // ---- Authoritative pricing ---------------------------------------------
   // `available_quantity` already accounts for what JoshiSafaHouse's desktop
