@@ -10,6 +10,9 @@ import {
   deliverySetupMissing, rupees,
 } from '@/lib/supplier';
 
+import { getWhatsAppClickLink, supplierApprovedWhatsAppText } from '@/lib/whatsapp';
+import { BUSINESS } from '@/lib/business';
+
 type View = 'applications' | 'suppliers' | 'listings' | 'orders';
 
 interface ShipmentRow {
@@ -141,12 +144,28 @@ export function SupplierDesk() {
     await load();
   };
 
-  const approveApplication = (app: DBSupplierApplication) =>
-    run(
+  const approveApplication = async (app: DBSupplierApplication) => {
+    await run(
       app.id,
       () => supabase.rpc('approve_supplier_application', { p_application_id: app.id }),
-      `${app.business_name} is now a SafaKing supplier. They can sign in to the Supplier Portal.`
+      `${app.business_name} is now a SafaKing supplier. Email notification sent & WhatsApp welcome opened.`
     );
+
+    // Send Welcome Email
+    if (app.email) {
+      fetch('/api/notify-supplier-approved', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: app.email, name: app.contact_name, businessName: app.business_name }),
+      }).catch(() => {});
+    }
+
+    // Open WhatsApp Welcome Message
+    if (app.phone) {
+      const text = supplierApprovedWhatsAppText(app.contact_name, app.business_name, BUSINESS.phone);
+      window.open(getWhatsAppClickLink(app.phone, text), '_blank');
+    }
+  };
 
   const rejectApplication = (app: DBSupplierApplication) => {
     const note = window.prompt(`Why is ${app.business_name} not approved? They will see this.`);

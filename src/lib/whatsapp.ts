@@ -240,3 +240,29 @@ export function artistJobDraft(input: {
       sign(input.businessPhone),
   };
 }
+
+/** Welcome WhatsApp message when an artist application is approved. */
+export function artistApprovedWhatsAppText(name: string, businessPhone: string): string {
+  const shortName = name.split(' ')[0] || 'ji';
+  return (
+    `Namaste ${shortName} ji 🙏\n\n` +
+    `👑 *CONGRATULATIONS! YOUR SAFAKING ARTIST APPLICATION IS APPROVED!*\n\n` +
+    `Welcome to India's premier Royal Turban Master Artist Network.\n\n` +
+    `*Next Step:* Sign in to your Artist Portal, complete your KYC (Aadhaar & Selfie), and start getting event bookings!\n\n` +
+    `Portal Link: https://www.safaking.in/artist-portal/login` +
+    sign(businessPhone)
+  );
+}
+
+/** Welcome WhatsApp message when a supplier application is approved. */
+export function supplierApprovedWhatsAppText(contactName: string, businessName: string, businessPhone: string): string {
+  const shortName = contactName.split(' ')[0] || 'ji';
+  return (
+    `Namaste ${shortName} ji 🙏\n\n` +
+    `👑 *CONGRATULATIONS! YOUR SUPPLIER ACCOUNT IS APPROVED!*\n\n` +
+    `Your business *${businessName}* is now an official SafaKing Marketplace Supplier.\n\n` +
+    `*Next Step:* Log in to your Supplier Portal, set up your shop profile, list your safa collection, and start receiving customer orders!\n\n` +
+    `Portal Link: https://www.safaking.in/supplier-portal/login` +
+    sign(businessPhone)
+  );
+}

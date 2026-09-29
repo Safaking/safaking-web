@@ -57,6 +57,28 @@ export async function sendArtistApprovedEmail({ to, name }: { to: string; name: 
   });
 }
 
+export async function sendSupplierApprovedEmail({ to, name, businessName }: { to: string; name: string; businessName: string }) {
+  return sendEmail({
+    to,
+    subject: "Your Supplier Account is Approved — SafaKing Marketplace",
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+        <h2 style="color:#7a1f2b">Welcome to SafaKing Marketplace!</h2>
+        <p>Namaste ${escapeHtml(name)},</p>
+        <p>Your supplier application for <strong>${escapeHtml(businessName)}</strong> has been reviewed and <strong>approved</strong> by SafaKing!</p>
+        <p>You can now sign in to your Supplier Portal to list your safas, set delivery charges, and start receiving orders from customers across India and Worldwide.</p>
+        <p style="margin-top:24px">
+          <a href="https://www.safaking.in/supplier-portal/login"
+             style="background:#7a1f2b;color:#f5d98e;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">
+            Sign In to Supplier Portal
+          </a>
+        </p>
+        <p style="color:#888;font-size:12px;margin-top:32px">SafaKing &middot; Royal Turban House</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendArtistBookingOfferEmail({
   to, name, eventDate, cityVenue, safaStyle,
 }: { to: string; name: string; eventDate: string; cityVenue: string; safaStyle: string }) {

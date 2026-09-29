@@ -18,7 +18,7 @@ import {
   DBJobApplication, DBProduct, DBRentalBooking, DBAppSetting, UserProfile, UserRole,
   PAYMENT_MODES, PAYMENT_MODE_LABEL,
 } from '@/lib/supabase';
-import { getWhatsAppClickLink } from '@/lib/whatsapp';
+import { getWhatsAppClickLink, artistApprovedWhatsAppText } from '@/lib/whatsapp';
 import { STATIC_PINCODES } from '@/lib/pincodes';
 import { VerificationQueue } from '@/components/verification/VerificationQueue';
 import { KycChaseList } from '@/components/verification/KycChaseList';
@@ -671,8 +671,7 @@ export default function AdminPanelPage() {
         setUsers((prev) => prev.map((u) => (u.id === application.user_id ? { ...u, role: 'artist' } : u)));
       }
 
-      // Best-effort — the approval itself is already saved above, so a failed
-      // email (e.g. RESEND_API_KEY not yet configured) shouldn't block it.
+      // Best-effort welcome notifications (Email & WhatsApp)
       const applicantEmail = users.find((u) => u.id === application.user_id)?.email;
       if (applicantEmail) {
         fetch('/api/notify-artist-approved', {
@@ -680,6 +679,11 @@ export default function AdminPanelPage() {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ email: applicantEmail, name: application.full_name }),
         }).catch(() => {});
+      }
+
+      if (application.phone) {
+        const text = artistApprovedWhatsAppText(application.full_name, BUSINESS.phone);
+        window.open(getWhatsAppClickLink(application.phone, text), '_blank');
       }
     }
   }
