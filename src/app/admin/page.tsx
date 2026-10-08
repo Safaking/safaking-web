@@ -36,6 +36,7 @@ import {
   ArtistStanding, STANDING_LABEL, STANDING_ORDER, STANDING_TONE, INCIDENT_LABEL, IncidentKind, blocksWork,
 } from '@/lib/artist-standing';
 import { TrainingManager } from '@/components/admin/TrainingManager';
+import { JobOpeningsManager } from '@/components/admin/JobOpeningsManager';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
 import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
@@ -2274,6 +2275,9 @@ export default function AdminPanelPage() {
 
             {/* ---- CAREERS ---- */}
             {activeTab === 'careers' && (
+              <>
+              {/* Post and close the roles the applications below come from. */}
+              <JobOpeningsManager />
               <Panel
                 title="Job Applications"
                 toolbar={
@@ -2336,6 +2340,7 @@ export default function AdminPanelPage() {
                   </table>
                 )}
               </Panel>
+              </>
             )}
 
             {/* ---- RENTALS ---- */}
