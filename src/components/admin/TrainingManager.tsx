@@ -5,6 +5,7 @@ import {
   GraduationCap, Plus, Loader2, AlertCircle, Award, CheckCircle2, XCircle, Users,
 } from 'lucide-react';
 import { supabase, friendlyError } from '@/lib/supabase';
+import { TRAINING_CENTRES } from '@/lib/business';
 
 interface Course { id: string; name: string; duration_days: number; fee: number; active: boolean }
 interface Batch {
@@ -40,7 +41,7 @@ export function TrainingManager() {
   const [openBatch, setOpenBatch] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
-    course_id: '', centre: 'Partapur',
+    course_id: '', centre: TRAINING_CENTRES[0] as string,
     start_date: '', end_date: '', seats: '15', trainer_name: '',
   });
   const [newStudent, setNewStudent] = useState({ full_name: '', phone: '', city: '' });

@@ -9,6 +9,7 @@ import { MobileTabBar } from "@/components/landing/MobileTabBar";
 import { NativeChrome } from "@/components/landing/NativeChrome";
 import { AppShell } from "@/components/app/AppShell";
 import { PushRegistration } from "@/components/app/PushRegistration";
+import { JsonLd, organizationJsonLd, localBusinessJsonLd } from "@/lib/seo";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -38,8 +39,9 @@ export const metadata: Metadata = {
   description:
     "Premium royal safas and groom turbans. Book master safa artists, register as a supplier, or join our artist training academy.",
   keywords: [
-    "safa", "pagdi", "turban", "groom safa", "wedding safa", "safa artist",
-    "safa on rent", "Jodhpuri safa", "Rajasthani pagdi", "Jaipur",
+    "safa", "pagdi", "turban", "groom safa", "wedding safa", "sehra",
+    "safa artist", "safa on rent", "barati safa", "Jodhpuri safa",
+    "Rajasthani pagdi", "safa Ahmedabad", "safa tying training",
   ],
   // Without these a WhatsApp or Instagram share — how most of this audience
   // actually arrives — shows a bare link instead of the brand.
@@ -85,6 +87,9 @@ export default function RootLayout({
       >
         {/* Inside the Android app, the site's own headers give way to the
             app bar before first paint — see src/lib/native-app.ts. */}
+        {/* Who we are and where the shop is, in the form a search engine reads. */}
+        <JsonLd data={[organizationJsonLd(), localBusinessJsonLd()]} />
+
         <Script id="sk-app-flag" strategy="beforeInteractive">
           {`if (typeof window !== 'undefined' && (window.androidBridge || window.Capacitor || (navigator.userAgent && navigator.userAgent.indexOf('SafaKingApp') !== -1))) { document.documentElement.classList.add('sk-app'); }`}
         </Script>
