@@ -189,7 +189,8 @@ export function SupplierProducts({ supplier, rates }: { supplier: SupplierProfil
     const name = draft.name.trim();
     const price = Math.round(Number(draft.price));
     const stock = Math.round(Number(draft.stock));
-    const mrp = draft.originalPrice.trim() ? Math.round(Number(draft.originalPrice)) : null;
+    // Blank and 0 both mean there is no MRP to strike through.
+    const mrp = Math.round(Number(draft.originalPrice)) || null;
 
     if (name.length < 3) return setError('Give the product a name of at least 3 characters.');
     if (!Number.isFinite(price) || price < 1 || price > 500000) return setError('Enter a price between ₹1 and ₹5,00,000.');
@@ -424,7 +425,7 @@ export function SupplierProducts({ supplier, rates }: { supplier: SupplierProfil
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>MRP (optional)</label>
-                <input type="number" min={1} value={draft.originalPrice} onChange={(e) => update('originalPrice', e.target.value)} className={inputClass} />
+                <input type="number" min={0} value={draft.originalPrice} onChange={(e) => update('originalPrice', e.target.value)} className={inputClass} />
               </div>
               <div>
                 <label className={labelClass}>In stock</label>

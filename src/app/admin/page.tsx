@@ -1140,7 +1140,7 @@ export default function AdminPanelPage() {
       name: productForm.name.trim(),
       code: productForm.code.trim() || null,
       price: Number(productForm.price) || 0,
-      original_price: productForm.original_price ? Number(productForm.original_price) : null,
+      original_price: Number(productForm.original_price) || null,
       category: productForm.category.trim() || null,
       color: productForm.color.trim() || null,
       fabric: productForm.fabric.trim() || null,
@@ -1153,10 +1153,9 @@ export default function AdminPanelPage() {
       featured: productForm.featured,
       active: productForm.active,
       is_rentable: productForm.is_rentable,
-      rent_price_per_day: productForm.rent_price_per_day
-        ? Number(productForm.rent_price_per_day)
-        : null,
-      rent_deposit: productForm.rent_deposit ? Number(productForm.rent_deposit) : null,
+      // 0 and empty both mean "not for rent" — never a safa listed at ₹0 a day.
+      rent_price_per_day: Number(productForm.rent_price_per_day) || null,
+      rent_deposit: Number(productForm.rent_deposit) || null,
       // Any manual save counts as the admin having reviewed it — clears the
       // "new from desktop, needs review" flag whether or not this row came
       // from a sync (a no-op for ordinary products).
@@ -2841,6 +2840,10 @@ export default function AdminPanelPage() {
             initial={{ scale: 0.92, opacity: 0, y: 24 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             onSubmit={saveProduct}
+            onInvalidCapture={(e) => {
+              const field = e.target as HTMLElement;
+              field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }}
             className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl max-h-[92vh] overflow-y-auto"
           >
             <div className="sticky top-0 bg-maroon-950 px-7 py-5 flex items-center justify-between relative overflow-hidden">
@@ -2959,7 +2962,7 @@ export default function AdminPanelPage() {
                     </label>
                     <input
                       type="number"
-                      min={1}
+                      min={0}
                       value={productForm.original_price}
                       onChange={(e) => setProductForm((prev) => ({ ...prev, original_price: e.target.value }))}
                       placeholder="e.g. 2500"
@@ -2968,11 +2971,11 @@ export default function AdminPanelPage() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-600 mb-1">
-                      Rent Price per Day / प्रति दिन किराया (₹)
+                      Rent Price per Day / प्रति दिन किराया (₹) — 0 = किराये पर नहीं
                     </label>
                     <input
                       type="number"
-                      min={1}
+                      min={0}
                       value={productForm.rent_price_per_day}
                       onChange={(e) => setProductForm((prev) => ({ ...prev, rent_price_per_day: e.target.value }))}
                       placeholder="e.g. 500"
