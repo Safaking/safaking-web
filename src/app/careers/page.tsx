@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,119 +10,10 @@ import {
   ArrowUpRight, CheckCircle2, Sparkles, Phone, Mail, AlertCircle, Loader2,
 } from 'lucide-react';
 import { supabase, friendlyError } from '@/lib/supabase';
+import {
+  JobOpening, FALLBACK_JOBS, loadJobOpenings, jobIcon, jobAccent,
+} from '@/lib/jobs';
 import { useAuth } from '@/context/AuthContext';
-
-/* ── Job Listings ── */
-const JOBS = [
-  {
-    id: 'job-01',
-    title: 'Master Safa Artist',
-    department: 'Artist Network',
-    location: 'Jaipur / Delhi / Mumbai',
-    type: 'Full-time',
-    experience: '2+ years',
-    salary: '₹25,000 – ₹50,000/month',
-    icon: Crown,
-    color: 'bg-royal-100 text-royal-700',
-    highlight: true,
-    desc: 'Join our elite network of safa artists and travel across India to tie safas at premium weddings and events. Work with top grooms, receive premium bookings, and grow your career.',
-    responsibilities: [
-      'Tie safas at client weddings & events across India',
-      'Style Jodhpuri, Rounded & Barati safa variations',
-      'Place kalgi, brooch & accessory elements',
-      'Coordinate with wedding planners & event teams',
-      'Maintain high client satisfaction standards',
-    ],
-    requirements: [
-      'Minimum 2 years of safa tying experience',
-      'Proficiency in 2+ safa styles',
-      'Willingness to travel for events',
-      'Good communication with clients',
-      'SafaKing training certification (preferred)',
-    ],
-  },
-  {
-    id: 'job-02',
-    title: 'Safa Tying Trainer',
-    department: 'SafaKing Academy',
-    location: 'Jaipur / Delhi',
-    type: 'Full-time',
-    experience: '4+ years',
-    salary: '₹30,000 – ₹55,000/month',
-    icon: GraduationCap,
-    color: 'bg-amber-100 text-amber-700',
-    highlight: false,
-    desc: 'Teach the next generation of safa artists at SafaKing Academy. Conduct hands-on training sessions, demonstrate regional tying styles, and certify new artists.',
-    responsibilities: [
-      'Conduct daily safa tying training sessions',
-      'Demonstrate all 3 signature styles',
-      'Evaluate and certify student performance',
-      'Maintain training materials and curriculum',
-      'Report batch progress to academy head',
-    ],
-    requirements: [
-      '4+ years of professional safa tying',
-      'Previous teaching or mentoring experience',
-      'Strong knowledge of regional safa styles',
-      'Patient and effective communication',
-      'Available for both Jaipur & Delhi centers',
-    ],
-  },
-  {
-    id: 'job-03',
-    title: 'Sales & Supplier Coordinator',
-    department: 'Business Development',
-    location: 'Jaipur (On-site)',
-    type: 'Full-time',
-    experience: '1+ year',
-    salary: '₹18,000 – ₹30,000/month',
-    icon: Briefcase,
-    color: 'bg-emerald-100 text-emerald-700',
-    highlight: false,
-    desc: 'Handle B2B supplier relationships, onboard new fabric suppliers, and manage wholesale safa orders. Ideal for someone with a background in textile sales.',
-    responsibilities: [
-      'Onboard and manage safa fabric suppliers',
-      'Handle wholesale enquiries and orders',
-      'Coordinate between suppliers and warehouse',
-      'Maintain supplier database and pricing',
-      'Negotiate fabric rates and delivery terms',
-    ],
-    requirements: [
-      '1+ year in sales or textile industry',
-      'Strong negotiation & communication skills',
-      'Proficiency in MS Excel / Google Sheets',
-      'Knowledge of Rajasthani/Indian fabric market',
-      'Hindi & English communication',
-    ],
-  },
-  {
-    id: 'job-04',
-    title: 'Social Media & Content Creator',
-    department: 'Marketing',
-    location: 'Remote / Jaipur',
-    type: 'Full-time / Part-time',
-    experience: 'Fresher welcome',
-    salary: '₹12,000 – ₹22,000/month',
-    icon: Star,
-    color: 'bg-pink-100 text-pink-700',
-    highlight: false,
-    desc: 'Create stunning Reels, posts, and content showcasing SafaKing safas, artists, and training. Help us grow our social presence and attract grooms across India.',
-    responsibilities: [
-      'Create Instagram & YouTube video content',
-      'Shoot behind-the-scenes safa tying videos',
-      'Write product captions and campaign copy',
-      'Manage daily posting schedule',
-      'Track engagement metrics and report',
-    ],
-    requirements: [
-      'Portfolio of social media content',
-      'Experience with Reels / short video editing',
-      'Eye for Indian wedding aesthetics',
-      'Basic Canva / CapCut / Adobe skills',
-      'Passion for Indian culture & fashion',
-    ],
-  },
-];
 
 const PERKS = [
   { icon: Crown,         title: 'Premium Brand',       desc: 'Work with India\'s top safa house' },
@@ -145,12 +36,20 @@ const EMPTY_APPLICATION = {
 
 export default function CareersPage() {
   const { user } = useAuth();
+  const [jobs, setJobs] = useState<JobOpening[]>(FALLBACK_JOBS);
   const [openJob, setOpenJob] = useState<string | null>(null);
   const [applying, setApplying] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_APPLICATION);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadJobOpenings().then(({ jobs: live, tableMissing }) => {
+      // A database without supabase/044 keeps the built-in roles.
+      if (!tableMissing) setJobs(live);
+    });
+  }, []);
 
   const field = (key: keyof typeof EMPTY_APPLICATION) => ({
     value: form[key],
@@ -160,7 +59,7 @@ export default function CareersPage() {
 
   const handleApply = async (e: React.FormEvent, jobId: string) => {
     e.preventDefault();
-    const job = JOBS.find((j) => j.id === jobId);
+    const job = jobs.find((j) => j.id === jobId);
     if (!job) return;
 
     setError(null);
@@ -168,7 +67,9 @@ export default function CareersPage() {
 
     const { error: insertErr } = await supabase.from('job_applications').insert({
       user_id: user?.id ?? null,
-      job_id: job.id,
+      // The slug, not the row id, so an application still names its role
+      // after the job is edited or reposted.
+      job_id: job.slug,
       job_title: job.title,
       full_name: form.fullName.trim(),
       phone: form.phone.trim(),
@@ -375,12 +276,12 @@ export default function CareersPage() {
               Find Your Role
             </h2>
             <p className="text-sm text-maroon-800/50 mt-2 max-w-md mx-auto">
-              {JOBS.length} positions open across Artist Network, Academy, Sales & Marketing
+              {jobs.length} position{jobs.length === 1 ? '' : 's'} open across Artist Network, Academy, Sales & Marketing
             </p>
           </motion.div>
 
           <div className="space-y-4">
-            {JOBS.map((job, i) => (
+            {jobs.map((job, i) => (
               <motion.div
                 key={job.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -397,8 +298,8 @@ export default function CareersPage() {
                   className="w-full text-left p-6 flex items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl ${job.color} flex items-center justify-center shrink-0 shadow-sm`}>
-                      <job.icon size={22} />
+                    <div className={`w-12 h-12 rounded-2xl ${jobAccent(job.accent)} flex items-center justify-center shrink-0 shadow-sm`}>
+                      {(() => { const Icon = jobIcon(job.icon); return <Icon size={22} />; })()}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -417,7 +318,7 @@ export default function CareersPage() {
                           <MapPin size={11} /> {job.location}
                         </span>
                         <span className="flex items-center gap-1 text-[11px] text-maroon-800/60 font-medium">
-                          <Clock size={11} /> {job.type}
+                          <Clock size={11} /> {job.employmentType}
                         </span>
                       </div>
                     </div>
@@ -445,7 +346,7 @@ export default function CareersPage() {
                       className="overflow-hidden"
                     >
                       <div className="px-6 pb-8 border-t border-amber-100 pt-6">
-                        <p className="text-sm text-maroon-800/65 leading-relaxed mb-7">{job.desc}</p>
+                        <p className="text-sm text-maroon-800/65 leading-relaxed mb-7">{job.summary}</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8">
                           <div>
@@ -521,10 +422,10 @@ export default function CareersPage() {
                 <div className="relative">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-royal-400 mb-1">Apply for</p>
                   <h3 className="text-xl font-display font-black text-white">
-                    {JOBS.find((j) => j.id === applying)?.title}
+                    {jobs.find((j) => j.id === applying)?.title}
                   </h3>
                   <p className="text-xs text-royal-200/55 mt-0.5">
-                    {JOBS.find((j) => j.id === applying)?.department} · {JOBS.find((j) => j.id === applying)?.location}
+                    {jobs.find((j) => j.id === applying)?.department} · {jobs.find((j) => j.id === applying)?.location}
                   </p>
                 </div>
               </div>
