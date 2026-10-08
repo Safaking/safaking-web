@@ -6,6 +6,7 @@ import { GraduationCap, CheckCircle2, Phone, AlertCircle, Loader2 } from 'lucide
 import { AnimatedSection } from './AnimatedSection';
 import { supabase, friendlyError } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { TRAINING_CENTRES } from '@/lib/business';
 
 export function TrainingSection() {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export function TrainingSection() {
   // Training runs at a SafaKing centre, or in the trainee's own city once
   // enough people there ask for it — the location is not fixed.
   const [trainAt, setTrainAt] = useState<'my-city' | 'centre'>('my-city');
-  const [centre, setCentre] = useState('Partapur');
+  const [centre, setCentre] = useState<string>(TRAINING_CENTRES[0]);
   const [gender, setGender] = useState('');
   const [qualification, setQualification] = useState('');
   const [currentOccupation, setCurrentOccupation] = useState('');
@@ -260,7 +261,7 @@ export function TrainingSection() {
 
                       { value: 'my-city', label: 'In my own city', hint: 'We run a batch there once enough people ask' },
 
-                      { value: 'centre', label: 'At a SafaKing training centre', hint: 'Partapur or Chitri Sagawara' },
+                      { value: 'centre', label: 'At a SafaKing training centre', hint: TRAINING_CENTRES.join(' or ') },
 
                     ] as const).map((option) => (
 
@@ -305,9 +306,11 @@ export function TrainingSection() {
 
                       >
 
-                        <option value="Partapur" className="text-maroon-900 bg-white">Partapur</option>
+                        {TRAINING_CENTRES.map((name) => (
 
-                        <option value="Chitri Sagawara Store" className="text-maroon-900 bg-white">Chitri Sagawara Store</option>
+                          <option key={name} value={name} className="text-maroon-900 bg-white">{name}</option>
+
+                        ))}
 
                       </select>
 

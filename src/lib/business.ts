@@ -23,6 +23,14 @@ export const BUSINESS = {
   hours: 'Monday to Saturday, 10 AM – 8 PM',
 } as const;
 
+/**
+ * Where the academy teaches, in the order shown to a trainee.
+ *
+ * It used to be a hard-coded "Partapur or Chitri Sagawara" in two separate
+ * files, which is why the site went on naming the old town after the move.
+ */
+export const TRAINING_CENTRES = ['Ahmedabad (Narol)'] as const;
+
 /** `tel:` href for the business number. */
 export const telHref = `tel:+${BUSINESS.phoneDigits}`;
 

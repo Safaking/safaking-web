@@ -61,6 +61,8 @@ export function Footer() {
             <ul className="space-y-2.5 text-xs">
               {[
                 { href: '/shop', label: 'Shop All Safas' },
+                { href: '/gallery', label: 'Photo Gallery' },
+                { href: '/faq', label: 'FAQ · सवाल-जवाब' },
                 { href: '/about', label: 'About Us' },
                 { href: '/contact', label: 'Contact Us' },
                 { href: '#artist-booking-form', label: 'Book Safa Artist' },

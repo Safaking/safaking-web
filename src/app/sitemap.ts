@@ -11,6 +11,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const pages: { path: string; priority: number; changeFrequency: 'daily' | 'weekly' | 'monthly' }[] = [
     { path: '/', priority: 1.0, changeFrequency: 'weekly' },
     { path: '/shop', priority: 0.9, changeFrequency: 'daily' },
+    { path: '/gallery', priority: 0.8, changeFrequency: 'monthly' },
+    { path: '/faq', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/rent', priority: 0.9, changeFrequency: 'daily' },
     { path: '/artists', priority: 0.8, changeFrequency: 'weekly' },
     { path: '/enquiry', priority: 0.8, changeFrequency: 'weekly' },
