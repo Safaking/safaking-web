@@ -51,7 +51,7 @@ export class SafaArRenderer {
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
   private group: THREE.Group;
-  private safa: THREE.Mesh | null = null;
+  private safa: THREE.Object3D | null = null;
   private head: THREE.Mesh;
   private texture: THREE.Texture | null = null;
   private width = 0;
@@ -108,8 +108,16 @@ export class SafaArRenderer {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Loads a safa cut-out and shapes a curved surface with its proportions. */
+  /**
+   * Shows a safa. A .glb is a real three-dimensional safa — photographed from
+   * every side and rebuilt as a solid (see docs/safa-3d-scanning.md). Anything
+   * else is a cut-out photograph, bent over a curve.
+   */
   async setSafa(url: string): Promise<void> {
+    if (/\.(glb|gltf)(\?|$)/i.test(url)) {
+      await this.setModel(url);
+      return;
+    }
     const three = this.three;
     const texture = await new Promise<THREE.Texture | null>((resolve) => {
       new three.TextureLoader().load(url, resolve, undefined, () => resolve(null));
@@ -125,12 +133,6 @@ export class SafaArRenderer {
     this.texture?.dispose();
     this.texture = texture;
 
-    if (this.safa) {
-      this.group.remove(this.safa);
-      this.safa.geometry.dispose();
-      (this.safa.material as THREE.Material).dispose();
-    }
-
     // A plane bent towards the camera across its width, keeping its flat UVs
     // so the photograph lands exactly as it did when seen head-on.
     const geometry = new three.PlaneGeometry(1, this.aspect, 48, 32);
@@ -145,19 +147,79 @@ export class SafaArRenderer {
     position.needsUpdate = true;
     geometry.computeVertexNormals();
 
-    this.safa = new three.Mesh(
-      geometry,
-      new three.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        // Keeps the cut-out's soft edge from punching holes in the depth buffer.
-        alphaTest: 0.04,
-        side: three.DoubleSide,
-        toneMapped: false,
-      })
+    this.replaceSafa(
+      new three.Mesh(
+        geometry,
+        new three.MeshBasicMaterial({
+          map: texture,
+          transparent: true,
+          // Keeps the cut-out's soft edge from punching holes in the depth buffer.
+          alphaTest: 0.04,
+          side: three.DoubleSide,
+          toneMapped: false,
+        })
+      )
     );
-    this.safa.renderOrder = 1;
-    this.group.add(this.safa);
+  }
+
+  /**
+   * A real safa, scanned from the shop's own stock. Whatever size and centre
+   * the model came out of the scanner with, it is normalised here to one unit
+   * wide and centred on itself, so the tracker's measurements place it exactly
+   * as they place a photograph.
+   */
+  private async setModel(url: string): Promise<void> {
+    const three = this.three;
+    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const gltf = await new Promise<{ scene: THREE.Group } | null>((resolve) => {
+      new GLTFLoader().load(url, (loaded) => resolve(loaded), undefined, () => resolve(null));
+    });
+    if (!gltf) return;
+
+    const model = gltf.scene;
+    const box = new three.Box3().setFromObject(model);
+    const size = box.getSize(new three.Vector3());
+    const centre = box.getCenter(new three.Vector3());
+    if (!size.x) return;
+
+    model.position.sub(centre);
+    const holder = new three.Group();
+    holder.add(model);
+    holder.scale.setScalar(1 / size.x);
+    this.aspect = size.y / size.x;
+
+    model.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      // A scanned safa carries its own lighting in its colours, so it is shown
+      // as photographed rather than relit by a lamp that is not in the room.
+      if (material && 'toneMapped' in material) material.toneMapped = false;
+    });
+
+    this.replaceSafa(holder);
+  }
+
+  /** Swaps whatever is currently on the head for this. */
+  private replaceSafa(object: THREE.Object3D) {
+    if (this.safa) {
+      this.group.remove(this.safa);
+      this.disposeTree(this.safa);
+    }
+    object.renderOrder = 1;
+    this.group.add(object);
+    this.safa = object;
+  }
+
+  private disposeTree(object: THREE.Object3D) {
+    object.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.geometry?.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) material.forEach((m) => m.dispose());
+      else material?.dispose();
+    });
   }
 
   /** The safa's proportions, so the caller can size it the same way it always did. */
@@ -206,10 +268,7 @@ export class SafaArRenderer {
 
   dispose() {
     this.texture?.dispose();
-    if (this.safa) {
-      this.safa.geometry.dispose();
-      (this.safa.material as THREE.Material).dispose();
-    }
+    if (this.safa) this.disposeTree(this.safa);
     this.head.geometry.dispose();
     (this.head.material as THREE.Material).dispose();
     this.renderer.dispose();

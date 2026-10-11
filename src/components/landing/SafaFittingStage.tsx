@@ -15,6 +15,13 @@ export interface SafaOverlayOption {
   src: string;
   /** Must match a style in SAFA_STYLES (ArtistsSection) — it drives the booking form. */
   bookingStyle: 'Rounded' | 'Jodhpuri' | 'Barati Safa';
+  /**
+   * A real safa, scanned from the shop's own stock
+   * (tools/safa-scan, docs/safa-3d-scanning.md). When one exists the mirror
+   * wears the solid safa instead of bending the photograph over a curve;
+   * `src` stays, for the picker's thumbnail and for phones without WebGL.
+   */
+  model?: string;
 }
 
 /**
@@ -487,7 +494,8 @@ export function SafaFittingStage({
   useEffect(() => {
     if (!arReady) return;
     let cancelled = false;
-    void arRef.current?.setSafa(selectedSafa.src).then(() => {
+    // The scanned safa when there is one, the photograph otherwise.
+    void arRef.current?.setSafa(selectedSafa.model ?? selectedSafa.src).then(() => {
       if (!cancelled && arRef.current) safaAspectRef.current = arRef.current.safaAspect;
     });
     return () => {
