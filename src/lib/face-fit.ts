@@ -30,6 +30,12 @@ export interface FaceReading {
   faceHeightPx: number;
   /** Head tilt in degrees, clockwise. */
   rotationDeg: number;
+  /** Where the head itself is, for the shape that hides the far side of a safa. */
+  headX: number;
+  headY: number;
+  /** Turn and nod in degrees, from the model's own head-pose matrix. */
+  yawDeg: number;
+  pitchDeg: number;
   sourceWidth: number;
   sourceHeight: number;
 }
@@ -61,6 +67,9 @@ async function create(): Promise<FaceTracker | null> {
       baseOptions: { modelAssetPath: '/mediapipe/face_landmarker.task', delegate },
       runningMode: 'VIDEO',
       numFaces: 1,
+      // The 4x4 head pose. Landmarks alone say where a head is, not which way
+      // it is facing — this is what lets the safa turn with it.
+      outputFacialTransformationMatrixes: true,
     });
   // The graphics card does this far faster, but some WebViews have no WebGL2.
   const landmarker = await open('GPU').catch(() => open('CPU'));
@@ -76,13 +85,23 @@ async function create(): Promise<FaceTracker | null> {
     readVideo(video, timestampMs) {
       if (mode !== 'VIDEO' || !video.videoWidth) return null;
       const result = landmarker.detectForVideo(video, timestampMs);
-      return toReading(result?.faceLandmarks?.[0], video.videoWidth, video.videoHeight);
+      return toReading(
+        result?.faceLandmarks?.[0],
+        result?.facialTransformationMatrixes?.[0]?.data,
+        video.videoWidth,
+        video.videoHeight
+      );
     },
     async readImage(image) {
       if (!image.naturalWidth) return null;
       await setMode('IMAGE');
       const result = (landmarker as FaceLandmarker).detect(image);
-      return toReading(result?.faceLandmarks?.[0], image.naturalWidth, image.naturalHeight);
+      return toReading(
+        result?.faceLandmarks?.[0],
+        result?.facialTransformationMatrixes?.[0]?.data,
+        image.naturalWidth,
+        image.naturalHeight
+      );
     },
     close() {
       landmarker.close();
@@ -91,8 +110,23 @@ async function create(): Promise<FaceTracker | null> {
   };
 }
 
+/**
+ * Turn and nod out of the model's 4x4 head pose (column-major), read the same
+ * way three.js reads a YXZ rotation. Without a pose the safa simply stays
+ * face-on, as it did before.
+ */
+function poseAngles(matrix: number[] | Float32Array | undefined): { yawDeg: number; pitchDeg: number } {
+  if (!matrix || matrix.length < 11) return { yawDeg: 0, pitchDeg: 0 };
+  const clamp = (value: number) => Math.min(1, Math.max(-1, value));
+  const pitch = Math.asin(-clamp(matrix[9]));
+  const yaw = Math.abs(matrix[9]) < 0.9999999 ? Math.atan2(matrix[8], matrix[10]) : Math.atan2(-matrix[2], matrix[0]);
+  const degrees = (radians: number) => (radians * 180) / Math.PI;
+  return { yawDeg: degrees(yaw), pitchDeg: degrees(pitch) };
+}
+
 function toReading(
   landmarks: NormalizedLandmark[] | undefined,
+  matrix: number[] | Float32Array | undefined,
   width: number,
   height: number
 ): FaceReading | null {
@@ -108,11 +142,18 @@ function toReading(
 
   const span = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
+  const { yawDeg, pitchDeg } = poseAngles(matrix);
+
   return {
     foreheadX: forehead.x,
     foreheadY: forehead.y,
     faceWidthPx: span(leftCheek, rightCheek),
     faceHeightPx: span(forehead, chin),
+    // Between the brow and the chin, which is about where a head's centre is.
+    headX: (forehead.x + chin.x) / 2,
+    headY: (forehead.y + chin.y) / 2,
+    yawDeg,
+    pitchDeg,
     // The line between the eyes says which way the head is tilted.
     rotationDeg: (Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * 180) / Math.PI,
     sourceWidth: width,
@@ -126,6 +167,14 @@ export interface StageFit {
   y: number;
   width: number;
   rotation: number;
+  /** The head on the stage, in the same fractions — what hides the far side. */
+  headX: number;
+  headY: number;
+  faceWidth: number;
+  faceHeight: number;
+  /** Turn and nod, degrees, already mirrored to match what is on screen. */
+  yaw: number;
+  pitch: number;
 }
 
 /** A safa is wider than the head it sits on. */
@@ -145,14 +194,21 @@ export function readingToFit(
 ): StageFit | null {
   if (!stage.width || !stage.height || !reading.faceWidthPx) return null;
 
-  const safaWidthPx = reading.faceWidthPx * SAFA_TO_FACE_WIDTH;
+  // A turned head measures narrower across the cheeks than it really is, and
+  // a nodding one measures shorter. Left uncorrected the safa shrinks as soon
+  // as somebody looks away, and slips down their brow as they look down.
+  const cosine = (degrees: number) => Math.max(0.55, Math.cos((degrees * Math.PI) / 180));
+  const trueFaceWidth = reading.faceWidthPx / cosine(reading.yawDeg);
+  const trueFaceHeight = reading.faceHeightPx / cosine(reading.pitchDeg);
+
+  const safaWidthPx = trueFaceWidth * SAFA_TO_FACE_WIDTH;
   const safaHeightPx = safaWidthPx * safaAspect;
 
   // Straight up from the head, whichever way it is tilted.
   const radians = (reading.rotationDeg * Math.PI) / 180;
   const upX = Math.sin(radians);
   const upY = -Math.cos(radians);
-  const lift = safaHeightPx / 2 - reading.faceHeightPx * FOREHEAD_OVERLAP;
+  const lift = safaHeightPx / 2 - trueFaceHeight * FOREHEAD_OVERLAP;
 
   const centreX = reading.foreheadX + upX * lift;
   const centreY = reading.foreheadY + upY * lift;
@@ -166,12 +222,21 @@ export function readingToFit(
 
   const x = (offsetX + centreX * cover) / stage.width;
   const y = (offsetY + centreY * cover) / stage.height;
+  const headX = (offsetX + reading.headX * cover) / stage.width;
+  const headY = (offsetY + reading.headY * cover) / stage.height;
 
   return {
     x: mirrored ? 1 - x : x,
     y,
     width: (safaWidthPx * cover) / stage.width,
     rotation: mirrored ? -reading.rotationDeg : reading.rotationDeg,
+    headX: mirrored ? 1 - headX : headX,
+    headY,
+    faceWidth: (trueFaceWidth * cover) / stage.width,
+    faceHeight: (trueFaceHeight * cover) / stage.height,
+    // A mirror turns a head the other way; the nod is unchanged.
+    yaw: mirrored ? -reading.yawDeg : reading.yawDeg,
+    pitch: reading.pitchDeg,
   };
 }
 
@@ -184,5 +249,11 @@ export function smoothFit(previous: StageFit | null, next: StageFit, ease = 0.35
     y: blend(previous.y, next.y),
     width: blend(previous.width, next.width),
     rotation: blend(previous.rotation, next.rotation),
+    headX: blend(previous.headX, next.headX),
+    headY: blend(previous.headY, next.headY),
+    faceWidth: blend(previous.faceWidth, next.faceWidth),
+    faceHeight: blend(previous.faceHeight, next.faceHeight),
+    yaw: blend(previous.yaw, next.yaw),
+    pitch: blend(previous.pitch, next.pitch),
   };
 }
