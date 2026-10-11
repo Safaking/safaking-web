@@ -127,6 +127,13 @@ export function SafaFittingStage({
   const [trackerLoading, setTrackerLoading] = useState(false);
   /** The safa drawn as a curved surface that turns with the head (src/lib/safa-ar.ts). */
   const [arReady, setArReady] = useState(false);
+  /**
+   * Bumped when a chosen photograph has actually decoded. A photograph is
+   * read for a face exactly once, so that one attempt has to come after the
+   * picture exists — otherwise the safa waits to be dragged on by hand for a
+   * face that was perfectly findable.
+   */
+  const [photoLoadedAt, setPhotoLoadedAt] = useState(0);
   /** Height ÷ width of the chosen safa — it decides how high above the brow it sits. */
   const safaAspectRef = useRef(1.2);
   const smoothedRef = useRef<StageFit | null>(null);
@@ -626,6 +633,7 @@ export function SafaFittingStage({
 
       if (source === 'photo') {
         const image = photoElRef.current;
+        if (!image?.naturalWidth && !image?.complete) return;
         if (image) {
           if (!image.complete) await image.decode().catch(() => {});
           const reading = await tracker.readImage(image);
@@ -655,7 +663,7 @@ export function SafaFittingStage({
       stopped = true;
       cancelAnimationFrame(frame);
     };
-  }, [fittingReady, autoFit, source, photoUrl, selectedSafa.id, drawAr]);
+  }, [fittingReady, autoFit, source, photoUrl, photoLoadedAt, selectedSafa.id, drawAr]);
   /** Artists are sent out for baraat safas; a groom's own safa is bought online. */
   const tiedByArtist = selectedSafa.bookingStyle === 'Barati Safa';
 
@@ -707,6 +715,7 @@ export function SafaFittingStage({
                 ref={photoElRef}
                 src={photoUrl}
                 alt="Your photo"
+                onLoad={() => setPhotoLoadedAt(Date.now())}
                 onError={() => {
                   setPhotoUrl((previous) => {
                     if (previous) URL.revokeObjectURL(previous);
