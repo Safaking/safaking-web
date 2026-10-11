@@ -152,6 +152,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const resetPassword = useCallback(async (email: string) => {
+    // Our own branded email first (/api/account/password-reset). It answers
+    // the same whether or not the address has an account, and asks for the
+    // fallback when the mail service is not configured or refuses.
+    try {
+      const res = await fetch('/api/account/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.ok && !body.fallback) return null;
+      if (res.status === 400 && body.error) return body.error as string;
+    } catch {
+      // Offline or the route is unreachable — Supabase can still send it.
+    }
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
