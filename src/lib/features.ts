@@ -9,16 +9,12 @@
  * The virtual safa mirror — the camera try-on, the "Meet SafaKing" section on
  * the home page and the hero button that opens it.
  *
- * Switched off while the app goes through the Play Store. Turning it back on
- * is this one line, plus the tracker files, which are not kept in git because
- * they are 15 MB and unused while this is off:
+ * It now places the safa as a curved surface that turns with the head and
+ * disappears behind it in profile (src/lib/safa-ar.ts), with the tracking
+ * model and its runtime served from public/mediapipe — our own domain, so
+ * nothing about a customer's face leaves their phone.
  *
- *   mkdir -p public/mediapipe/wasm
- *   curl -L -o public/mediapipe/face_landmarker.task \
- *     https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
- *   cp node_modules/@mediapipe/tasks-vision/wasm/vision_wasm_internal.{js,wasm} public/mediapipe/wasm/
- *
- * Without those files the mirror still works — the safa is placed by hand
- * instead of following the head.
+ * Set this to false to take it off the site in one line; the Play listing
+ * mentions the mirror, so change the listing text and screenshot too.
  */
-export const VIRTUAL_TRYON_ENABLED = false;
+export const VIRTUAL_TRYON_ENABLED = true;

@@ -30,6 +30,41 @@ async function sendEmail({ to, subject, html }: { to: string; subject: string; h
   return { ok: true };
 }
 
+/**
+ * The "set a new password" link, in Hindi and English because half the people
+ * who need it are reading on a phone in Hindi. The link is minted by Supabase
+ * (see /api/account/password-reset) and expires on its own.
+ */
+export async function sendPasswordResetEmail({ to, link }: { to: string; link: string }) {
+  return sendEmail({
+    to,
+    subject: 'Set a new SafaKing password · नया पासवर्ड बनाएँ',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#2d060e">
+        <h2 style="color:#7a1f2b;margin-bottom:4px">Set a new password</h2>
+        <p style="color:#7a1f2b;font-size:15px;margin-top:0">नया पासवर्ड बनाएँ</p>
+        <p style="font-size:14px">Somebody asked to reset the password for this email address on
+           SafaKing. Tap the button to choose a new one.</p>
+        <p style="font-size:14px">किसी ने SafaKing पर इस ईमेल का पासवर्ड बदलने के लिए कहा है।
+           नया पासवर्ड चुनने के लिए नीचे दबाएँ।</p>
+        <p style="margin:28px 0">
+          <a href="${link}"
+             style="background:#7a1f2b;color:#f5d98e;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block">
+            Set a new password · नया पासवर्ड बनाएँ
+          </a>
+        </p>
+        <p style="font-size:13px;color:#666">If you did not ask for this, nothing has changed —
+           you can ignore this email and your password stays as it is.</p>
+        <p style="font-size:13px;color:#666">अगर आपने यह नहीं कहा था, तो कुछ नहीं बदला है —
+           इस ईमेल को छोड़ दीजिए, आपका पासवर्ड वैसा ही रहेगा।</p>
+        <p style="color:#888;font-size:12px;margin-top:28px">
+          ${BUSINESS.name} &middot; ${BUSINESS.phone}
+        </p>
+      </div>
+    `,
+  });
+}
+
 export async function sendArtistApprovedEmail({ to, name }: { to: string; name: string }) {
   return sendEmail({
     to,

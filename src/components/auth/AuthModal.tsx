@@ -80,7 +80,11 @@ export function AuthModal({ isOpen, onClose, redirectTo }: AuthModalProps) {
         setError(resetMessage);
         return;
       }
-      setNotice('If an account exists for that email, a reset link is on its way — check your inbox.');
+      setNotice(
+        'If an account exists for that email, a reset link is on its way. '
+        + 'Check the spam folder too — the link works for a short while only. '
+        + 'अगर उस ईमेल का अकाउंट है तो लिंक भेज दिया गया है — स्पैम फ़ोल्डर भी देख लीजिए।'
+      );
       return;
     }
 

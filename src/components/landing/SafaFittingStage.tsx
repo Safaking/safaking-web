@@ -6,6 +6,7 @@ import {
   AlertCircle, Loader2, ArrowRight, ScanFace,
 } from 'lucide-react';
 import { FaceReading, StageFit, loadFaceTracker, readingToFit, smoothFit } from '@/lib/face-fit';
+import { SafaArRenderer } from '@/lib/safa-ar';
 
 export interface SafaOverlayOption {
   id: string;
@@ -109,6 +110,8 @@ export function SafaFittingStage({
   const [autoFit, setAutoFit] = useState(true);
   const [following, setFollowing] = useState(false);
   const [trackerLoading, setTrackerLoading] = useState(false);
+  /** The safa drawn as a curved surface that turns with the head (src/lib/safa-ar.ts). */
+  const [arReady, setArReady] = useState(false);
   /** Height ÷ width of the chosen safa — it decides how high above the brow it sits. */
   const safaAspectRef = useRef(1.2);
   const smoothedRef = useRef<StageFit | null>(null);
@@ -116,6 +119,10 @@ export function SafaFittingStage({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const photoElRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const arCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const arRef = useRef<SafaArRenderer | null>(null);
+  /** Read by snap(), which is defined before the flag itself exists. */
+  const arDrawingRef = useRef(false);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -328,13 +335,20 @@ export function SafaFittingStage({
       ctx.drawImage(base, drawX, drawY, drawWidth, drawHeight);
       ctx.restore();
 
-      const safaWidth = width * fit.width;
-      const safaHeight = safaWidth * (overlay.naturalHeight / overlay.naturalWidth);
-      ctx.save();
-      ctx.translate(width * fit.x, height * fit.y);
-      ctx.rotate((fit.rotation * Math.PI) / 180);
-      ctx.drawImage(overlay, -safaWidth / 2, -safaHeight / 2, safaWidth, safaHeight);
-      ctx.restore();
+      // Whatever the customer was looking at is what gets saved: the curved
+      // safa when it is the one on screen, the flat one otherwise.
+      const arCanvas = arDrawingRef.current ? arRef.current?.canvas : null;
+      if (arCanvas && arCanvas.width && arCanvas.height) {
+        ctx.drawImage(arCanvas, 0, 0, width, height);
+      } else {
+        const safaWidth = width * fit.width;
+        const safaHeight = safaWidth * (overlay.naturalHeight / overlay.naturalWidth);
+        ctx.save();
+        ctx.translate(width * fit.x, height * fit.y);
+        ctx.rotate((fit.rotation * Math.PI) / 180);
+        ctx.drawImage(overlay, -safaWidth / 2, -safaHeight / 2, safaWidth, safaHeight);
+        ctx.restore();
+      }
 
       setCapturedPhoto(canvas.toDataURL('image/png'));
       canvas.toBlob((blob) => { capturedBlobRef.current = blob; }, 'image/png');
@@ -437,11 +451,57 @@ export function SafaFittingStage({
    * live camera it runs every frame; on a photo it places the safa once.
    * If the model will not load, nothing happens and placing by hand still works.
    */
+  // The 3D renderer is built once the stage is showing something, and only
+  // then — three.js is a large library and nobody waiting for the camera
+  // should pay for it. Without WebGL it simply never arrives, and the flat
+  // overlay carries on.
+  useEffect(() => {
+    if (!fittingReady || arRef.current) return;
+    let cancelled = false;
+    (async () => {
+      const canvas = arCanvasRef.current;
+      if (!canvas) return;
+      const renderer = await SafaArRenderer.create(canvas);
+      if (cancelled || !renderer) {
+        renderer?.dispose();
+        return;
+      }
+      arRef.current = renderer;
+      setArReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fittingReady]);
+
+  useEffect(
+    () => () => {
+      arRef.current?.dispose();
+      arRef.current = null;
+    },
+    []
+  );
+
+  // The chosen safa becomes the texture on the curved surface. Its
+  // proportions also decide how high above the brow it sits.
+  useEffect(() => {
+    if (!arReady) return;
+    let cancelled = false;
+    void arRef.current?.setSafa(selectedSafa.src).then(() => {
+      if (!cancelled && arRef.current) safaAspectRef.current = arRef.current.safaAspect;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [arReady, selectedSafa.src]);
+
   useEffect(() => {
     if (!fittingReady || !autoFit) {
       setFollowing(false);
       setTrackerLoading(false);
       smoothedRef.current = null;
+      // Placing by hand goes back to the flat overlay.
+      arRef.current?.clear();
       return;
     }
     let stopped = false;
@@ -455,14 +515,39 @@ export function SafaFittingStage({
 
       const place = (reading: FaceReading | null, mirrored: boolean) => {
         const stage = stageRef.current;
-        if (!reading || !stage) return false;
+        if (!reading || !stage) {
+          arRef.current?.clear();
+          return false;
+        }
         const box = stage.getBoundingClientRect();
         const next = readingToFit(reading, { width: box.width, height: box.height }, safaAspectRef.current, mirrored);
-        if (!next) return false;
+        if (!next) {
+          arRef.current?.clear();
+          return false;
+        }
         // Eased so the safa settles rather than twitching frame to frame.
         const smoothed = smoothFit(smoothedRef.current, next);
         smoothedRef.current = smoothed;
         setFit({ x: smoothed.x, y: smoothed.y, width: smoothed.width, rotation: smoothed.rotation });
+
+        // The same placement in three dimensions: turned with the head, and
+        // with the far side hidden behind it.
+        const ar = arRef.current;
+        if (ar) {
+          ar.setSize(box.width, box.height);
+          ar.render({
+            x: smoothed.x * box.width,
+            y: smoothed.y * box.height,
+            width: smoothed.width * box.width,
+            roll: smoothed.rotation,
+            yaw: smoothed.yaw,
+            pitch: smoothed.pitch,
+            headX: smoothed.headX * box.width,
+            headY: smoothed.headY * box.height,
+            faceWidth: smoothed.faceWidth * box.width,
+            faceHeight: smoothed.faceHeight * box.height,
+          });
+        }
         return true;
       };
 
@@ -500,6 +585,10 @@ export function SafaFittingStage({
   }, [fittingReady, autoFit, source, photoUrl, selectedSafa.id]);
   /** Artists are sent out for baraat safas; a groom's own safa is bought online. */
   const tiedByArtist = selectedSafa.bookingStyle === 'Barati Safa';
+
+  /** True while the curved, head-turning safa is the one being drawn. */
+  const arDrawing = arReady && autoFit && following;
+  arDrawingRef.current = arDrawing;
 
   // Size the safa to the stage the first time there is something to fit onto.
   // Only while placing by hand — the tracker sets its own size.
@@ -558,6 +647,14 @@ export function SafaFittingStage({
               />
             ) : null}
 
+            {/* The safa in three dimensions. Empty until a face is found. */}
+            <canvas
+              ref={arCanvasRef}
+              className={`absolute inset-0 h-full w-full pointer-events-none transition-opacity duration-200 ${
+                arDrawing ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+
             {fittingReady && (
               <div
                 onPointerDown={onDragStart}
@@ -581,7 +678,9 @@ export function SafaFittingStage({
                     const image = event.currentTarget;
                     if (image.naturalWidth) safaAspectRef.current = image.naturalHeight / image.naturalWidth;
                   }}
-                  className="w-full h-auto select-none drop-shadow-[0_22px_32px_rgba(0,0,0,0.65)]"
+                  className={`w-full h-auto select-none drop-shadow-[0_22px_32px_rgba(0,0,0,0.65)] transition-opacity duration-200 ${
+                    arDrawing ? 'opacity-0' : 'opacity-100'
+                  }`}
                 />
               </div>
             )}
