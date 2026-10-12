@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const pages: { path: string; priority: number; changeFrequency: 'daily' | 'weekly' | 'monthly' }[] = [
     { path: '/', priority: 1.0, changeFrequency: 'weekly' },
     { path: '/shop', priority: 0.9, changeFrequency: 'daily' },
+    { path: '/try-on', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/gallery', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/faq', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/rent', priority: 0.9, changeFrequency: 'daily' },
@@ -22,6 +23,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/about', priority: 0.5, changeFrequency: 'monthly' },
     { path: '/contact', priority: 0.5, changeFrequency: 'monthly' },
     { path: '/careers', priority: 0.4, changeFrequency: 'monthly' },
+    { path: '/privacy', priority: 0.5, changeFrequency: 'monthly' },
     { path: '/policies', priority: 0.4, changeFrequency: 'monthly' },
     { path: '/delete-account', priority: 0.2, changeFrequency: 'monthly' },
   ];

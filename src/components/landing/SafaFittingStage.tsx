@@ -15,6 +15,13 @@ export interface SafaOverlayOption {
   src: string;
   /** Must match a style in SAFA_STYLES (ArtistsSection) — it drives the booking form. */
   bookingStyle: 'Rounded' | 'Jodhpuri' | 'Barati Safa';
+  /**
+   * A real safa, scanned from the shop's own stock
+   * (tools/safa-scan, docs/safa-3d-scanning.md). A scan beats a built shape
+   * where one exists; `src` stays, for the picker's thumbnail and for phones
+   * without WebGL.
+   */
+  model?: string;
 }
 
 /**
@@ -104,6 +111,14 @@ export function SafaFittingStage({
   const [snapping, setSnapping] = useState(false);
   const [snapError, setSnapError] = useState<string | null>(null);
   const [fit, setFit] = useState<Fit>(FALLBACK_FIT);
+  /**
+   * Where the safa is right now. The tracker writes here and straight to the
+   * element's style: a React render per frame would have the whole panel —
+   * every button, every thumbnail — rebuilt twenty-five times a second, which
+   * a ₹8,000 Android feels immediately.
+   */
+  const fitRef = useRef<Fit>(FALLBACK_FIT);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   /** Once the customer has moved anything, the opening size stops overriding it. */
   const fitTouchedRef = useRef(false);
   /** The safa follows the head by itself until the customer places it. */
@@ -112,6 +127,13 @@ export function SafaFittingStage({
   const [trackerLoading, setTrackerLoading] = useState(false);
   /** The safa drawn as a curved surface that turns with the head (src/lib/safa-ar.ts). */
   const [arReady, setArReady] = useState(false);
+  /**
+   * Bumped when a chosen photograph has actually decoded. A photograph is
+   * read for a face exactly once, so that one attempt has to come after the
+   * picture exists — otherwise the safa waits to be dragged on by hand for a
+   * face that was perfectly findable.
+   */
+  const [photoLoadedAt, setPhotoLoadedAt] = useState(0);
   /** Height ÷ width of the chosen safa — it decides how high above the brow it sits. */
   const safaAspectRef = useRef(1.2);
   const smoothedRef = useRef<StageFit | null>(null);
@@ -123,12 +145,37 @@ export function SafaFittingStage({
   const arRef = useRef<SafaArRenderer | null>(null);
   /** Read by snap(), which is defined before the flag itself exists. */
   const arDrawingRef = useRef(false);
+  /** When the room's light was last read out of the picture. */
+  const lastLightRef = useRef(0);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const startingRef = useRef(false);
   const wantCameraRef = useRef(false);
   const capturedBlobRef = useRef<Blob | null>(null);
+
+  /** Moves the safa without re-rendering anything. */
+  const applyFit = useCallback((next: Fit) => {
+    fitRef.current = next;
+    const node = overlayRef.current;
+    if (!node) return;
+    node.style.left = `${next.x * 100}%`;
+    node.style.top = `${next.y * 100}%`;
+    node.style.width = `${next.width * 100}%`;
+    node.style.transform = `translate(-50%, -50%) rotate(${next.rotation}deg)`;
+  }, []);
+
+  /** Dragging and the sliders go through React, as they always did. */
+  const changeFit = useCallback(
+    (next: Fit | ((previous: Fit) => Fit)) => {
+      setFit((previous) => {
+        const resolved = typeof next === 'function' ? next(previous) : next;
+        fitRef.current = resolved;
+        return resolved;
+      });
+    },
+    []
+  );
 
   const defaultFit = useCallback((): Fit => {
     const box = stageRef.current?.getBoundingClientRect();
@@ -138,7 +185,7 @@ export function SafaFittingStage({
 
   const resetFit = useCallback(() => {
     fitTouchedRef.current = false;
-    setFit(defaultFit());
+    changeFit(defaultFit());
   }, [defaultFit]);
 
   // ---- Camera ---------------------------------------------------------------
@@ -223,7 +270,7 @@ export function SafaFittingStage({
     setCapturedPhoto(null);
     capturedBlobRef.current = null;
     fitTouchedRef.current = false;
-    setFit(FALLBACK_FIT);
+    changeFit(FALLBACK_FIT);
     setSource('camera');
     setCameraState('idle');
     setCameraError(null);
@@ -249,8 +296,8 @@ export function SafaFittingStage({
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      fromX: fit.x,
-      fromY: fit.y,
+      fromX: fitRef.current.x,
+      fromY: fitRef.current.y,
     };
   };
 
@@ -261,7 +308,7 @@ export function SafaFittingStage({
     const box = stage.getBoundingClientRect();
     fitTouchedRef.current = true;
     setAutoFit(false);
-    setFit((previous) => ({
+    changeFit((previous) => ({
       ...previous,
       x: clamp(drag.fromX + (event.clientX - drag.startX) / box.width, 0.1, 0.9),
       y: clamp(drag.fromY + (event.clientY - drag.startY) / box.height, 0, 0.95),
@@ -341,11 +388,12 @@ export function SafaFittingStage({
       if (arCanvas && arCanvas.width && arCanvas.height) {
         ctx.drawImage(arCanvas, 0, 0, width, height);
       } else {
-        const safaWidth = width * fit.width;
+        const placed = fitRef.current;
+        const safaWidth = width * placed.width;
         const safaHeight = safaWidth * (overlay.naturalHeight / overlay.naturalWidth);
         ctx.save();
-        ctx.translate(width * fit.x, height * fit.y);
-        ctx.rotate((fit.rotation * Math.PI) / 180);
+        ctx.translate(width * placed.x, height * placed.y);
+        ctx.rotate((placed.rotation * Math.PI) / 180);
         ctx.drawImage(overlay, -safaWidth / 2, -safaHeight / 2, safaWidth, safaHeight);
         ctx.restore();
       }
@@ -451,6 +499,45 @@ export function SafaFittingStage({
    * live camera it runs every frame; on a photo it places the safa once.
    * If the model will not load, nothing happens and placing by hand still works.
    */
+  /**
+   * Draws the 3D safa from the last reading.
+   *
+   * A still photograph is read once, so if the safa finished loading a moment
+   * after that reading, nothing would ever draw it — the flat overlay had
+   * already stepped aside for a 3D safa that was not there yet. Anything that
+   * changes the safa calls this again.
+   */
+  const drawAr = useCallback(() => {
+    const ar = arRef.current;
+    const stage = stageRef.current;
+    const smoothed = smoothedRef.current;
+    if (!ar || !stage || !smoothed) return;
+
+    const box = stage.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+    ar.setSize(box.width, box.height);
+
+    // Once a second is plenty for a room's light, and costs nothing.
+    const now = performance.now();
+    if (now - lastLightRef.current > 1000) {
+      lastLightRef.current = now;
+      ar.matchLighting(source === 'camera' ? videoRef.current : photoElRef.current);
+    }
+
+    ar.render({
+      x: smoothed.x * box.width,
+      y: smoothed.y * box.height,
+      width: smoothed.width * box.width,
+      roll: smoothed.rotation,
+      yaw: smoothed.yaw,
+      pitch: smoothed.pitch,
+      headX: smoothed.headX * box.width,
+      headY: smoothed.headY * box.height,
+      faceWidth: smoothed.faceWidth * box.width,
+      faceHeight: smoothed.faceHeight * box.height,
+    });
+  }, [source]);
+
   // The 3D renderer is built once the stage is showing something, and only
   // then — three.js is a large library and nobody waiting for the camera
   // should pay for it. Without WebGL it simply never arrives, and the flat
@@ -487,13 +574,21 @@ export function SafaFittingStage({
   useEffect(() => {
     if (!arReady) return;
     let cancelled = false;
-    void arRef.current?.setSafa(selectedSafa.src).then(() => {
-      if (!cancelled && arRef.current) safaAspectRef.current = arRef.current.safaAspect;
+    // A scan of the real safa where there is one; otherwise the photograph,
+    // bent over a curve. Building a safa out of geometry was tried and looked
+    // like stacked rings — a tied safa's folds are not something maths
+    // invents (docs/safa-3d-scanning.md).
+    const ready = arRef.current?.setSafa(selectedSafa.model ?? selectedSafa.src);
+    void ready?.then(() => {
+      if (cancelled || !arRef.current) return;
+      safaAspectRef.current = arRef.current.safaAspect;
+      // The reading may already have happened — a photograph is read once.
+      drawAr();
     });
     return () => {
       cancelled = true;
     };
-  }, [arReady, selectedSafa.src]);
+  }, [arReady, selectedSafa.src, selectedSafa.model, drawAr]);
 
   useEffect(() => {
     if (!fittingReady || !autoFit) {
@@ -528,31 +623,17 @@ export function SafaFittingStage({
         // Eased so the safa settles rather than twitching frame to frame.
         const smoothed = smoothFit(smoothedRef.current, next);
         smoothedRef.current = smoothed;
-        setFit({ x: smoothed.x, y: smoothed.y, width: smoothed.width, rotation: smoothed.rotation });
+        applyFit({ x: smoothed.x, y: smoothed.y, width: smoothed.width, rotation: smoothed.rotation });
 
         // The same placement in three dimensions: turned with the head, and
         // with the far side hidden behind it.
-        const ar = arRef.current;
-        if (ar) {
-          ar.setSize(box.width, box.height);
-          ar.render({
-            x: smoothed.x * box.width,
-            y: smoothed.y * box.height,
-            width: smoothed.width * box.width,
-            roll: smoothed.rotation,
-            yaw: smoothed.yaw,
-            pitch: smoothed.pitch,
-            headX: smoothed.headX * box.width,
-            headY: smoothed.headY * box.height,
-            faceWidth: smoothed.faceWidth * box.width,
-            faceHeight: smoothed.faceHeight * box.height,
-          });
-        }
+        drawAr();
         return true;
       };
 
       if (source === 'photo') {
         const image = photoElRef.current;
+        if (!image?.naturalWidth && !image?.complete) return;
         if (image) {
           if (!image.complete) await image.decode().catch(() => {});
           const reading = await tracker.readImage(image);
@@ -582,7 +663,7 @@ export function SafaFittingStage({
       stopped = true;
       cancelAnimationFrame(frame);
     };
-  }, [fittingReady, autoFit, source, photoUrl, selectedSafa.id]);
+  }, [fittingReady, autoFit, source, photoUrl, photoLoadedAt, selectedSafa.id, drawAr]);
   /** Artists are sent out for baraat safas; a groom's own safa is bought online. */
   const tiedByArtist = selectedSafa.bookingStyle === 'Barati Safa';
 
@@ -594,7 +675,7 @@ export function SafaFittingStage({
   // Only while placing by hand — the tracker sets its own size.
   useEffect(() => {
     if (!fittingReady || fitTouchedRef.current || autoFit) return;
-    setFit(defaultFit());
+    changeFit(defaultFit());
   }, [fittingReady, autoFit, defaultFit]);
 
   return (
@@ -634,6 +715,7 @@ export function SafaFittingStage({
                 ref={photoElRef}
                 src={photoUrl}
                 alt="Your photo"
+                onLoad={() => setPhotoLoadedAt(Date.now())}
                 onError={() => {
                   setPhotoUrl((previous) => {
                     if (previous) URL.revokeObjectURL(previous);
@@ -662,6 +744,7 @@ export function SafaFittingStage({
                 onPointerUp={onDragEnd}
                 onPointerCancel={onDragEnd}
                 className="absolute touch-none cursor-grab active:cursor-grabbing"
+                ref={overlayRef}
                 style={{
                   left: `${fit.x * 100}%`,
                   top: `${fit.y * 100}%`,
@@ -779,7 +862,7 @@ export function SafaFittingStage({
                   min={30}
                   max={130}
                   value={Math.round(fit.width * 100)}
-                  onChange={(event) => { fitTouchedRef.current = true; setAutoFit(false); setFit((previous) => ({ ...previous, width: Number(event.target.value) / 100 })); }}
+                  onChange={(event) => { fitTouchedRef.current = true; setAutoFit(false); changeFit((previous) => ({ ...previous, width: Number(event.target.value) / 100 })); }}
                   className="accent-royal-400 h-1.5 bg-white/20 rounded-lg cursor-pointer"
                 />
               </label>
@@ -792,7 +875,7 @@ export function SafaFittingStage({
                   min={-30}
                   max={30}
                   value={fit.rotation}
-                  onChange={(event) => { fitTouchedRef.current = true; setAutoFit(false); setFit((previous) => ({ ...previous, rotation: Number(event.target.value) })); }}
+                  onChange={(event) => { fitTouchedRef.current = true; setAutoFit(false); changeFit((previous) => ({ ...previous, rotation: Number(event.target.value) })); }}
                   className="accent-royal-400 h-1.5 bg-white/20 rounded-lg cursor-pointer"
                 />
               </label>

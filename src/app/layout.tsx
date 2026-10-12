@@ -9,6 +9,7 @@ import { MobileTabBar } from "@/components/landing/MobileTabBar";
 import { NativeChrome } from "@/components/landing/NativeChrome";
 import { AppShell } from "@/components/app/AppShell";
 import { PushRegistration } from "@/components/app/PushRegistration";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 import { JsonLd, organizationJsonLd, localBusinessJsonLd } from "@/lib/seo";
 
 const playfair = Playfair_Display({
@@ -100,6 +101,7 @@ export default function RootLayout({
             <MobileTabBar />
             <AppShell />
             <PushRegistration />
+        <ChatWidget />
           </CartProvider>
           <MfaChallenge />
         </AuthProvider>

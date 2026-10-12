@@ -45,14 +45,29 @@ const BULGE = 0.34;
 /** The hiding solid, as a share of the measured face width. */
 const HEAD_RADIUS = 0.62;
 
+/**
+ * A solid safa is measured edge to edge, while a cut-out photograph carries
+ * empty margins inside its box — so the same measurement from a face puts a
+ * solid one on a little small, and a little high. These two put it back on
+ * the head, and are the only numbers to touch if a safa sits wrong.
+ */
+const SOLID_SCALE = 1.34;
+const SOLID_DROP = 0.2;
+
 export class SafaArRenderer {
   private three: typeof THREE;
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
   private group: THREE.Group;
-  private safa: THREE.Mesh | null = null;
+  private safa: THREE.Object3D | null = null;
   private head: THREE.Mesh;
+  private sky: THREE.HemisphereLight;
+  private key: THREE.DirectionalLight;
+  /** Reused for reading the room's light out of the camera picture. */
+  private lightProbe: HTMLCanvasElement | null = null;
+  /** True when the safa is an object rather than a photograph on a curve. */
+  private solid = false;
   private texture: THREE.Texture | null = null;
   private width = 0;
   private height = 0;
@@ -76,6 +91,14 @@ export class SafaArRenderer {
     // Turns with the head; the safa sits at its offset inside it.
     this.group = new three.Group();
     this.scene.add(this.group);
+
+    // Cloth has to be lit by something. These two are then tuned to the
+    // room, from the camera picture itself — see matchLighting().
+    this.sky = new three.HemisphereLight(0xffffff, 0x4a3b33, 2.1);
+    this.scene.add(this.sky);
+    this.key = new three.DirectionalLight(0xffffff, 1.5);
+    this.key.position.set(-0.4, 0.8, 1);
+    this.scene.add(this.key);
 
     // An invisible head: it writes depth but no colour, so anything behind it
     // simply is not drawn.
@@ -108,8 +131,16 @@ export class SafaArRenderer {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Loads a safa cut-out and shapes a curved surface with its proportions. */
+  /**
+   * Shows a safa. A .glb is a real three-dimensional safa — photographed from
+   * every side and rebuilt as a solid (see docs/safa-3d-scanning.md). Anything
+   * else is a cut-out photograph, bent over a curve.
+   */
   async setSafa(url: string): Promise<void> {
+    if (/\.(glb|gltf)(\?|$)/i.test(url)) {
+      await this.setModel(url);
+      return;
+    }
     const three = this.three;
     const texture = await new Promise<THREE.Texture | null>((resolve) => {
       new three.TextureLoader().load(url, resolve, undefined, () => resolve(null));
@@ -125,12 +156,6 @@ export class SafaArRenderer {
     this.texture?.dispose();
     this.texture = texture;
 
-    if (this.safa) {
-      this.group.remove(this.safa);
-      this.safa.geometry.dispose();
-      (this.safa.material as THREE.Material).dispose();
-    }
-
     // A plane bent towards the camera across its width, keeping its flat UVs
     // so the photograph lands exactly as it did when seen head-on.
     const geometry = new three.PlaneGeometry(1, this.aspect, 48, 32);
@@ -145,19 +170,140 @@ export class SafaArRenderer {
     position.needsUpdate = true;
     geometry.computeVertexNormals();
 
-    this.safa = new three.Mesh(
-      geometry,
-      new three.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        // Keeps the cut-out's soft edge from punching holes in the depth buffer.
-        alphaTest: 0.04,
-        side: three.DoubleSide,
-        toneMapped: false,
-      })
+    this.solid = false;
+    this.replaceSafa(
+      new three.Mesh(
+        geometry,
+        new three.MeshBasicMaterial({
+          map: texture,
+          transparent: true,
+          // Keeps the cut-out's soft edge from punching holes in the depth buffer.
+          alphaTest: 0.04,
+          side: three.DoubleSide,
+          toneMapped: false,
+        })
+      )
     );
-    this.safa.renderOrder = 1;
-    this.group.add(this.safa);
+  }
+
+  /**
+   * A real safa, scanned from the shop's own stock. Whatever size and centre
+   * the model came out of the scanner with, it is normalised here to one unit
+   * wide and centred on itself, so the tracker's measurements place it exactly
+   * as they place a photograph.
+   */
+  private async setModel(url: string): Promise<void> {
+    const three = this.three;
+    const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+    const gltf = await new Promise<{ scene: THREE.Group } | null>((resolve) => {
+      new GLTFLoader().load(url, (loaded) => resolve(loaded), undefined, () => resolve(null));
+    });
+    if (!gltf) return;
+
+    const model = gltf.scene;
+    const box = new three.Box3().setFromObject(model);
+    const size = box.getSize(new three.Vector3());
+    const centre = box.getCenter(new three.Vector3());
+    if (!size.x) return;
+
+    // Same two-step as a built safa: normalise inside, leave the holder's
+    // scale for the mirror to set.
+    model.position.sub(centre);
+    const normalised = new three.Group();
+    normalised.add(model);
+    normalised.scale.setScalar(1 / size.x);
+    const holder = new three.Group();
+    holder.add(normalised);
+    this.aspect = size.y / size.x;
+    this.solid = true;
+
+    model.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const material = mesh.material as THREE.MeshStandardMaterial;
+      // A scanned safa carries its own lighting in its colours, so it is shown
+      // as photographed rather than relit by a lamp that is not in the room.
+      if (material && 'toneMapped' in material) material.toneMapped = false;
+    });
+
+    this.replaceSafa(holder);
+  }
+
+  /** Swaps whatever is currently on the head for this. */
+  private replaceSafa(object: THREE.Object3D) {
+    if (this.safa) {
+      this.group.remove(this.safa);
+      this.disposeTree(this.safa);
+    }
+    object.renderOrder = 1;
+    this.group.add(object);
+    this.safa = object;
+  }
+
+  private disposeTree(object: THREE.Object3D) {
+    object.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.geometry?.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) material.forEach((m) => m.dispose());
+      else material?.dispose();
+    });
+  }
+
+  /**
+   * Takes the colour and brightness of the room out of the camera picture and
+   * lights the safa with it.
+   *
+   * This is the difference between an object that is in the room and one that
+   * has been pasted on top of it: a safa lit by a lamp nobody can see reads as
+   * a sticker however good its shape is. A few dozen pixels, once a second,
+   * are enough.
+   */
+  matchLighting(source: HTMLVideoElement | HTMLImageElement | null) {
+    if (!source) return;
+    const width = source instanceof HTMLVideoElement ? source.videoWidth : source.naturalWidth;
+    if (!width) return;
+
+    if (!this.lightProbe) {
+      this.lightProbe = document.createElement('canvas');
+      this.lightProbe.width = 8;
+      this.lightProbe.height = 8;
+    }
+    const context = this.lightProbe.getContext('2d', { willReadFrequently: true });
+    if (!context) return;
+
+    try {
+      context.drawImage(source, 0, 0, 8, 8);
+    } catch {
+      // A frame that cannot be read (a tainted canvas) simply leaves the
+      // lighting as it was.
+      return;
+    }
+    const { data } = context.getImageData(0, 0, 8, 8);
+    let red = 0;
+    let green = 0;
+    let blue = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      red += data[i];
+      green += data[i + 1];
+      blue += data[i + 2];
+    }
+    const pixels = data.length / 4;
+    const average = (channel: number) => channel / pixels / 255;
+    const r = average(red);
+    const g = average(green);
+    const b = average(blue);
+    const brightness = Math.max(0.12, (r + g + b) / 3);
+
+    // The room's own colour, pulled back towards white so a warm lamp tints
+    // the safa without dyeing it.
+    const mix = (channel: number) => 0.45 + 0.55 * (channel / Math.max(0.08, brightness));
+    this.sky.color.setRGB(mix(r), mix(g), mix(b));
+    this.key.color.copy(this.sky.color);
+    // A dim room should not get a safa that glows.
+    this.sky.intensity = 1.1 + 2.0 * brightness;
+    this.key.intensity = 0.5 + 1.6 * brightness;
   }
 
   /** The safa's proportions, so the caller can size it the same way it always did. */
@@ -191,7 +337,12 @@ export class SafaArRenderer {
     // head is turned — so that stays its position, and the turn is applied
     // about the safa's own centre. The head above does the hiding.
     const [safaX, safaY] = toScene(pose.x, pose.y);
-    this.group.position.set(safaX, safaY, radius * 0.12);
+    const width = pose.width * (this.solid ? SOLID_SCALE : 1);
+    this.group.position.set(
+      safaX,
+      safaY - (this.solid ? pose.width * SOLID_DROP : 0),
+      radius * 0.12
+    );
     this.group.rotation.set(
       three.MathUtils.degToRad(pose.pitch),
       three.MathUtils.degToRad(pose.yaw),
@@ -199,19 +350,18 @@ export class SafaArRenderer {
       'YXZ'
     );
     this.safa.position.set(0, 0, 0);
-    this.safa.scale.setScalar(pose.width);
+    this.safa.scale.setScalar(width);
 
     this.renderer.render(this.scene, this.camera);
   }
 
   dispose() {
     this.texture?.dispose();
-    if (this.safa) {
-      this.safa.geometry.dispose();
-      (this.safa.material as THREE.Material).dispose();
-    }
+    if (this.safa) this.disposeTree(this.safa);
     this.head.geometry.dispose();
     (this.head.material as THREE.Material).dispose();
+    this.sky.dispose();
+    this.key.dispose();
     this.renderer.dispose();
   }
 }

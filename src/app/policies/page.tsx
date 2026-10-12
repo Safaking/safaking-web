@@ -338,6 +338,16 @@ export default function PoliciesPage() {
             </Section>
 
             <Section id="privacy" icon={Lock} title="Your data">
+              {/* The policy itself lives on its own page, written out in full and
+                  without anything to load — which is what Google Play asks for. */}
+              <p className="mb-4">
+                The full privacy policy — everything we collect, who it is shared with, how long it
+                is kept and how to have it deleted —{' '}
+                <Link href="/privacy" className="font-bold text-maroon-800 underline">
+                  is on its own page here ↗
+                </Link>
+                . In short:
+              </p>
               <ul>
                 <li>
                   We collect what a booking needs: name, phone, event date, venue address, and — only

@@ -61,6 +61,7 @@ export function Footer() {
             <ul className="space-y-2.5 text-xs">
               {[
                 { href: '/shop', label: 'Shop All Safas' },
+                { href: '/try-on', label: 'Try a Safa On' },
                 { href: '/gallery', label: 'Photo Gallery' },
                 { href: '/faq', label: 'FAQ · सवाल-जवाब' },
                 { href: '/about', label: 'About Us' },
@@ -130,7 +131,7 @@ export function Footer() {
           <div className="flex gap-6">
             {/* These pointed at "#" — a dead policy link on a site that takes
                 advance payments is worse than no link at all. */}
-            <Link href="/policies#privacy" className="hover:text-royal-300 transition-colors">Privacy Policy</Link>
+            <Link href="/privacy" className="hover:text-royal-300 transition-colors">Privacy Policy</Link>
             <Link href="/policies#terms" className="hover:text-royal-300 transition-colors">Terms of Service</Link>
             <Link href="/policies#cancellation" className="hover:text-royal-300 transition-colors">Cancellation &amp; Refund</Link>
             <Link href="/delete-account" className="hover:text-royal-300 transition-colors">Delete Account</Link>
