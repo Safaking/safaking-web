@@ -221,9 +221,14 @@ export class SafaArRenderer {
       const mesh = child as THREE.Mesh;
       if (!mesh.isMesh) return;
       const material = mesh.material as THREE.MeshStandardMaterial;
+      if (!material) return;
+      // A scan's colour often lives on the points of the mesh rather than in a
+      // texture; without this the safa renders as a grey lump.
+      if ('vertexColors' in material) material.vertexColors = true;
       // A scanned safa carries its own lighting in its colours, so it is shown
       // as photographed rather than relit by a lamp that is not in the room.
-      if (material && 'toneMapped' in material) material.toneMapped = false;
+      if ('toneMapped' in material) material.toneMapped = false;
+      material.needsUpdate = true;
     });
 
     this.replaceSafa(holder);
