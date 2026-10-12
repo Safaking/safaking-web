@@ -95,15 +95,38 @@ export async function POST(req: Request) {
 
   try {
     const facts = await knowledge();
-    const body = JSON.stringify({
-      systemInstruction: { parts: [{ text: RULES + facts }] },
-      contents: turns,
-      generationConfig: { temperature: 0.4, maxOutputTokens: 500, topP: 0.9 },
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-      ],
-    });
+
+    /**
+     * No thinking budget. These models will otherwise spend the whole
+     * allowance reasoning and then run out of room mid-sentence — a customer
+     * asked what a groom safa costs and got "such as ₹" and nothing more,
+     * because 479 of the 500 tokens had gone on thoughts. A shop assistant
+     * reading from notes does not need to deliberate, and answers arrive
+     * faster without it.
+     */
+    const ask = (thinking: boolean) =>
+      JSON.stringify({
+        systemInstruction: { parts: [{ text: RULES + facts }] },
+        contents: turns,
+        generationConfig: {
+          temperature: 0.4,
+          // Room for a full answer even where the setting below is ignored.
+          maxOutputTokens: 1200,
+          topP: 0.9,
+          ...(thinking ? {} : { thinkingConfig: { thinkingBudget: 0 } }),
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+        ],
+      });
+
+    const call = (model: string, thinking: boolean) =>
+      fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: ask(thinking),
+      });
 
     let reply: string | undefined;
     let lastProblem = '';
@@ -111,21 +134,34 @@ export async function POST(req: Request) {
     for (let attempt = 0; attempt < MODELS.length && !reply; attempt += 1) {
       const index = (preferred + attempt) % MODELS.length;
       const model = MODELS[index];
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
-      );
-      const data = await res.json().catch(() => ({}));
 
+      let res = await call(model, false);
+      // An older model that has never heard of a thinking budget says so;
+      // asked again without it, it answers perfectly well.
+      if (res.status === 400) res = await call(model, true);
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         lastProblem = `${model}: ${res.status} ${data?.error?.status ?? ''}`;
         continue;
       }
-      reply = data?.candidates?.[0]?.content?.parts
+
+      const candidate = data?.candidates?.[0];
+      const text = candidate?.content?.parts
         ?.map((part: { text?: string }) => part.text ?? '')
         .join('')
         .trim();
-      if (reply) preferred = index;
+
+      // Half a sentence is worse than no answer: let another model have a go.
+      if (candidate?.finishReason === 'MAX_TOKENS' && (text?.length ?? 0) < 80) {
+        lastProblem = `${model}: ran out of room (${candidate?.finishReason})`;
+        continue;
+      }
+
+      if (text) {
+        reply = text;
+        preferred = index;
+      }
     }
 
     if (!reply && lastProblem) console.error('Assistant could not reach a model —', lastProblem);

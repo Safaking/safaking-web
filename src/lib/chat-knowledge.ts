@@ -125,7 +125,8 @@ Payment is online — UPI, cards, net banking. Customers must never pay an artis
   Shop: /shop          Rent: /rent            Try a safa on: /try-on
   Book an artist: /#artist-booking-form       Photo gallery: /gallery
   Questions: /faq      Policies: /policies    Academy: /academy
-  Careers: /careers    Contact: /contact      Become a supplier: /supplier-portal/login?tab=join`);
+  Careers: /careers    Contact: /contact      Become a supplier: /supplier-portal/login?tab=join
+  Privacy policy: /privacy                    Delete your account: /delete-account`);
 
   const text = parts.join('\n\n');
   cached = { text, at: Date.now() };
