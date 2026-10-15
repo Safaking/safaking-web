@@ -62,6 +62,7 @@ export function Footer() {
               {[
                 { href: '/shop', label: 'Shop All Safas' },
                 { href: '/try-on', label: 'Try a Safa On' },
+                { href: '/refer', label: 'Refer & Earn' },
                 { href: '/gallery', label: 'Photo Gallery' },
                 { href: '/faq', label: 'FAQ · सवाल-जवाब' },
                 { href: '/about', label: 'About Us' },

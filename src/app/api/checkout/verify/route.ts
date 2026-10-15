@@ -146,6 +146,15 @@ export async function POST(request: Request) {
     .update({ payment_status: 'advance_paid', razorpay_payment_id })
     .eq('id', payment.order_id);
 
+  // Somebody who was referred has now actually paid for something, which is
+  // when the person who referred them earns their credit — not at signup,
+  // because paying on signup is paying for invented accounts (supabase/045).
+  // A failure here must never fail a paid order; it is logged and left.
+  const { error: referralErr } = await admin.rpc('settle_referral_for_order', {
+    p_order_id: payment.order_id,
+  });
+  if (referralErr) console.error('Referral could not be settled:', referralErr.message);
+
   // Reserve the physical stock now that money has actually arrived.
   // Returns any line we could not satisfy; the payment still stands, so the
   // order is flagged for the admin rather than silently overselling.
