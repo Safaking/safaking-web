@@ -12,6 +12,7 @@ import { ArtistsSection } from '@/components/landing/ArtistsSection';
 import { FeaturedCollection } from '@/components/landing/FeaturedCollection';
 import { TrainingSection } from '@/components/landing/TrainingSection';
 import { SupplierSection } from '@/components/landing/SupplierSection';
+import { ReferSection } from '@/components/landing/ReferSection';
 import { Footer } from '@/components/landing/Footer';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { CartDrawer } from '@/components/cart/CartDrawer';
@@ -106,6 +107,10 @@ function LandingContent() {
           onToggleWishlist={toggleWishlist}
         />
         <TrainingSection />
+        {/* After the catalogue and the training, before the supplier pitch:
+            by here somebody has seen what is sold and who makes it, which is
+            the point at which asking them to pass it on means anything. */}
+        <ReferSection />
         <SupplierSection />
         <Footer />
       </div>
