@@ -61,7 +61,6 @@ export function Footer() {
             <ul className="space-y-2.5 text-xs">
               {[
                 { href: '/shop', label: 'Shop All Safas' },
-                { href: '/try-on', label: 'Try a Safa On' },
                 { href: '/refer', label: 'Refer & Earn' },
                 { href: '/gallery', label: 'Photo Gallery' },
                 { href: '/faq', label: 'FAQ · सवाल-जवाब' },

@@ -8,10 +8,11 @@ const SITE = 'https://www.safaking.in';
  * them here would promise a crawler content it cannot see without JavaScript.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
+  // /try-on is left out while the mirror is switched off — it answers 404,
+  // and offering a crawler a dead address is worse than offering nothing.
   const pages: { path: string; priority: number; changeFrequency: 'daily' | 'weekly' | 'monthly' }[] = [
     { path: '/', priority: 1.0, changeFrequency: 'weekly' },
     { path: '/shop', priority: 0.9, changeFrequency: 'daily' },
-    { path: '/try-on', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/refer', priority: 0.6, changeFrequency: 'monthly' },
     { path: '/gallery', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/faq', priority: 0.8, changeFrequency: 'monthly' },
