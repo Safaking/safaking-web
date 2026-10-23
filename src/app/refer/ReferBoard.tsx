@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Gift, Copy, Check, MessageCircle, Loader2, AlertCircle, Users } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
+import { Gift, Copy, Check, MessageCircle, Loader2, AlertCircle, Users, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { BUSINESS } from '@/lib/business';
@@ -57,7 +58,10 @@ export function ReferBoard() {
       supabase.rpc('credit_balance', { p_user: user.id }),
       supabase.from('referrals').select('id', { count: 'exact', head: true }),
     ]);
+    // A failure here used to leave "…" sitting in place of the code for ever,
+    // with the share buttons dead and nothing on screen saying why.
     if (mine.data) setCode(mine.data as string);
+    else if (mine.error) setError(mine.error.message);
     if (bal.data !== null && bal.data !== undefined) setBalance(Number(bal.data));
     setJoined(people.count ?? 0);
   }, [user]);
@@ -66,7 +70,25 @@ export function ReferBoard() {
     void load();
   }, [load]);
 
-  const link = code ? `https://www.safaking.in/refer?code=${code}` : '';
+  // The QR and the WhatsApp message both point at /r/<code>, which saves the
+  // code and then sends the person on to the app or the site. A bare
+  // /refer?code= link only worked for somebody who already had the app.
+  const link = code ? `https://www.safaking.in/r/${code}` : '';
+  const qrRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Hand the QR over as a file the customer can keep — print it, put it on a
+   * card, send it in a group. Drawn at 4x and scaled down so it survives
+   * being printed rather than blurring.
+   */
+  const downloadQr = () => {
+    const canvas = qrRef.current?.querySelector('canvas');
+    if (!canvas || !code) return;
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `safaking-${code}.png`;
+    a.click();
+  };
   const invitation = hi
     ? `नमस्ते! SafaKing से शाही साफे ऑनलाइन मँगवाइए। मेरा कोड ${code} इस्तेमाल कीजिए, आपको छूट मिलेगी: ${link}`
     : `Namaste! Order a royal safa from SafaKing. Use my code ${code} and you get credit off your first order: ${link}`;
@@ -82,7 +104,7 @@ export function ReferBoard() {
     }
   };
 
-  const claim = async () => {
+  const claim = useCallback(async (silent = false) => {
     const wanted = entry.trim().toUpperCase();
     if (!wanted || busy) return;
     setBusy(true);
@@ -93,7 +115,12 @@ export function ReferBoard() {
 
     const result = data as { ok?: boolean; error?: string; credit?: number } | null;
     if (rpcError || !result?.ok) {
-      setError(result?.error ?? rpcError?.message ?? (hi ? 'कोड नहीं लग पाया।' : 'That code could not be used.'));
+      // A code applied on the person's behalf failing is not their mistake
+      // and not worth an error across their screen — they never asked for it
+      // to happen just then. The field stays filled so they can try it.
+      if (!silent) {
+        setError(result?.error ?? rpcError?.message ?? (hi ? 'कोड नहीं लग पाया।' : 'That code could not be used.'));
+      }
       return;
     }
     try {
@@ -107,7 +134,31 @@ export function ReferBoard() {
         : `Done — ₹${result.credit} credit is on your account, and comes off your next order automatically.`
     );
     void load();
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry, busy, hi, load]);
+
+  /**
+   * A code that arrived by QR or link applies itself the moment there is an
+   * account to put it on — which is the whole point of the QR. Asking the
+   * customer to press a button for something they already agreed to by
+   * scanning loses most of them at exactly the wrong moment.
+   *
+   * Runs once per sign-in, and only while the code is still pending: claim()
+   * clears it, so a second pass has nothing to do.
+   */
+  const autoClaimed = useRef(false);
+  useEffect(() => {
+    if (!user || autoClaimed.current || !entry.trim()) return;
+    let pending = '';
+    try {
+      pending = localStorage.getItem(PENDING_CODE) ?? '';
+    } catch {
+      return;
+    }
+    if (!pending) return;
+    autoClaimed.current = true;
+    void claim(true);
+  }, [user, entry, claim]);
 
   if (loading) {
     return (
@@ -172,6 +223,49 @@ export function ReferBoard() {
           </a>
         </div>
       </div>
+
+      {/* The same code as something that can be held up, printed or stuck on
+          a card. Scanning it installs the app with the code already attached,
+          so nobody has to read five characters out over a counter. */}
+      {code && (
+        <div className="rounded-2xl border border-royal-400/25 bg-white/5 p-6">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-royal-200/60">
+            {hi ? 'आपका QR' : 'Your QR'}
+          </p>
+          <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+            <div ref={qrRef} className="rounded-xl bg-white p-3">
+              <QRCodeCanvas
+                value={link}
+                size={640}
+                // Higher correction so a printed card still scans with a
+                // thumbprint or a crease across it.
+                level="Q"
+                // The four-module quiet zone is part of the symbol, not
+                // decoration: without it the downloaded PNG scans poorly off
+                // paper, where there is no white page around it to help.
+                marginSize={4}
+                // Drawn large and shown small: a QR scaled up from a small
+                // canvas prints as mush.
+                style={{ width: 148, height: 148 }}
+              />
+            </div>
+            <div className="min-w-0 flex-1 text-center sm:text-left">
+              <p className="text-sm leading-relaxed text-royal-100/80">
+                {hi
+                  ? 'इसे स्कैन करने पर ऐप खुलेगा और आपका कोड अपने आप लग जाएगा।'
+                  : 'Scanning this opens the app with your code already applied.'}
+              </p>
+              <button
+                type="button"
+                onClick={downloadQr}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-royal-400/40 px-5 py-3 text-xs font-bold uppercase tracking-widest text-royal-200"
+              >
+                <Download size={14} /> {hi ? 'QR डाउनलोड करें' : 'Download the QR'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-royal-400/20 bg-white/5 p-5">
