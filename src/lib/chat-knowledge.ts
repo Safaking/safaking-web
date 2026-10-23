@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { VIRTUAL_TRYON_ENABLED } from '@/lib/features';
 import { BUSINESS } from '@/lib/business';
 import { FAQ_GROUPS, FAQ_FALLBACKS, fillTokens } from '@/lib/faq';
 
@@ -121,8 +122,10 @@ Payment is online — UPI, cards, net banking. Customers must never pay an artis
       ).join('\n\n')
   );
 
+  // The try-on only belongs here while it exists; sending somebody to a page
+  // that answers 404 is worse than not mentioning it.
   parts.push(`PAGES YOU CAN SEND PEOPLE TO
-  Shop: /shop          Rent: /rent            Try a safa on: /try-on
+  Shop: /shop          Rent: /rent${VIRTUAL_TRYON_ENABLED ? '            Try a safa on: /try-on' : ''}
   Book an artist: /#artist-booking-form       Photo gallery: /gallery
   Questions: /faq      Policies: /policies    Academy: /academy
   Careers: /careers    Contact: /contact      Become a supplier: /supplier-portal/login?tab=join

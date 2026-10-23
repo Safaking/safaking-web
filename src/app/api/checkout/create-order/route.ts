@@ -190,10 +190,29 @@ export async function POST(request: Request) {
 
   const itemsAmount = priced.reduce((sum, l) => sum + l.price * l.quantity, 0);
   const totalAmount = itemsAmount + shippingAmount;
-  const advanceAmount = Math.round(totalAmount * advanceRate);
-  const balanceAmount = totalAmount - advanceAmount;
 
   if (itemsAmount <= 0) return bad('Order total must be greater than zero.');
+
+  // ---- Store credit, read here and nowhere else ---------------------------
+  // The browser never says how much credit to use: it is read from the ledger
+  // under the server's own key, capped at the share of an order the shop
+  // allows, and spent in a ledger row tied to this order. The database refuses
+  // a second spend row for the same order, so a retried checkout cannot spend
+  // the same rupees twice (supabase/045).
+  let creditApplied = 0;
+  if (user) {
+    const [{ data: balanceRow }, { data: shareRow }] = await Promise.all([
+      admin.rpc('credit_balance', { p_user: user.id }),
+      admin.from('app_settings').select('value').eq('key', 'credit_max_share').maybeSingle(),
+    ]);
+    const available = Math.max(0, Math.floor(Number(balanceRow ?? 0)));
+    const maxShare = Math.min(100, Math.max(0, Number(shareRow?.value ?? 50)));
+    creditApplied = Math.min(available, Math.floor((totalAmount * maxShare) / 100));
+  }
+
+  const payableAmount = totalAmount - creditApplied;
+  const advanceAmount = Math.round(payableAmount * advanceRate);
+  const balanceAmount = payableAmount - advanceAmount;
 
   // ---- Create the SafaKing order first, so a payment always has a home ----
   const { data: order, error: orderErr } = await admin
@@ -207,6 +226,7 @@ export async function POST(request: Request) {
       pincode: cleanPincode,
       shipping_amount: shippingAmount,
       total_amount: totalAmount,
+      credit_applied: creditApplied,
       advance_amount: advanceAmount,
       balance_amount: balanceAmount,
       payment_status: 'advance_pending',
@@ -217,6 +237,22 @@ export async function POST(request: Request) {
 
   if (orderErr || !order) {
     return bad(`Could not create the order: ${orderErr?.message ?? 'unknown error'}`, 500);
+  }
+
+  // The discount above is only honest if the credit is actually taken off the
+  // ledger. If that fails the order must not stand, or the shop has given
+  // money away without recording it.
+  if (creditApplied > 0 && user) {
+    const { error: spendErr } = await admin.from('credit_ledger').insert({
+      user_id: user.id,
+      amount: -creditApplied,
+      reason: 'Used on an order',
+      order_id: order.id,
+    });
+    if (spendErr) {
+      await admin.from('orders').delete().eq('id', order.id);
+      return bad('Your credit could not be applied just now. Please try again.', 500);
+    }
   }
 
   const { error: itemsErr } = await admin.from('order_items').insert(
@@ -273,7 +309,12 @@ export async function POST(request: Request) {
       amount: rzpOrder.amount,
       currency: rzpOrder.currency,
       status: 'created',
-      notes: { total_amount: totalAmount, advance_amount: advanceAmount, shipping_amount: shippingAmount },
+      notes: {
+        total_amount: totalAmount,
+        credit_applied: creditApplied,
+        advance_amount: advanceAmount,
+        shipping_amount: shippingAmount,
+      },
     });
 
     return NextResponse.json({
@@ -286,6 +327,8 @@ export async function POST(request: Request) {
       itemsAmount,
       shippingAmount,
       totalAmount,
+      creditApplied,
+      payableAmount,
       advanceAmount,
       balanceAmount,
       advanceRate,

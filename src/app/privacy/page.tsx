@@ -106,12 +106,12 @@ export default function PrivacyPage() {
             The app asks for two permissions, and only for these reasons:
           </p>
           <List items={[
-            'Camera — for the virtual safa try-on, and so you can take or choose a photograph when one is asked for. The try-on runs entirely on your own device: the camera picture is never uploaded, never stored and never reaches our servers. A photograph is only sent to us if you deliberately upload one, for example an artist adding work to their portfolio or sending documents for verification.',
+            'Camera — so you can take or choose a photograph when one is asked for. A photograph is only sent to us if you deliberately upload one, for example an artist adding work to their portfolio or sending documents for verification.',
             'Location — used by safa artists to check in when they reach a venue, so we can confirm the job started. Customers are never asked for GPS location; a booking needs only the venue address and pincode you type in.',
           ]} />
           <p className="mt-3">
             Both permissions can be refused or withdrawn in Android settings. Refusing the camera
-            only turns off the try-on and photo uploads; everything else continues to work.
+            only turns off photo uploads; everything else continues to work.
           </p>
         </Section>
 

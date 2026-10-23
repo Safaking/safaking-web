@@ -3,9 +3,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Camera, ShieldCheck } from 'lucide-react';
 import { TryOnStage } from './TryOnStage';
+import { notFound } from 'next/navigation';
 import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
+import { VIRTUAL_TRYON_ENABLED } from '@/lib/features';
 
-export const metadata: Metadata = {
+const TRY_ON_METADATA: Metadata = {
   title: 'Try a safa on',
   description:
     'See a royal safa on your own head before you buy it. Open the camera, and the safa follows you — Jodhpuri, rounded and barati styles. Nothing leaves your phone.',
@@ -17,7 +19,18 @@ export const metadata: Metadata = {
   },
 };
 
+// A page that answers 404 should not still be describing itself to crawlers:
+// a canonical address and an inviting title are how a dead URL stays in
+// search results long after it stopped working.
+export const metadata: Metadata = VIRTUAL_TRYON_ENABLED
+  ? TRY_ON_METADATA
+  : { title: 'Not found', robots: { index: false, follow: false } };
+
 export default function TryOnPage() {
+  // The flag hid everything that linked here, but the address still answered
+  // — and a page nobody links to is exactly the one a crawler keeps.
+  if (!VIRTUAL_TRYON_ENABLED) notFound();
+
   return (
     <div className="min-h-screen bg-maroon-950 text-royal-100">
       <JsonLd data={breadcrumbJsonLd([{ name: 'Try a safa on', path: '/try-on' }])} />
