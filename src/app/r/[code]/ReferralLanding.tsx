@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Gift, Smartphone, Globe } from 'lucide-react';
-import { useTermsLanguage } from '@/lib/terms-language';
 
 const PENDING_CODE = 'sk-referral-code';
 const PLAY_ID = 'in.safaking.app';
@@ -18,8 +17,6 @@ const PLAY_ID = 'in.safaking.app';
  * signs up the next morning.
  */
 export function ReferralLanding({ code }: { code: string }) {
-  const [language] = useTermsLanguage();
-  const hi = language === 'hi';
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -45,24 +42,23 @@ export function ReferralLanding({ code }: { code: string }) {
         <div className="flex flex-col items-center text-center">
           <Image src="/logo.png" alt="" width={72} height={72} className="h-16 w-auto" priority />
           <h1 className="mt-4 text-2xl font-black tracking-tight text-royal-200">
-            {hi ? 'आपको न्योता मिला है' : 'You have been invited'}
+            You have been invited
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-royal-100/75">
-            {hi
-              ? 'इस कोड से आपके पहले ऑर्डर पर क्रेडिट मिलेगा — और जिसने भेजा, उसे भी।'
-              : 'This code gives you credit off your first order — and the person who sent it gets some too.'}
+            This code gives you credit off your first order — and the person who sent it gets
+            some too.
           </p>
         </div>
 
         <div className="rounded-2xl border border-royal-400/25 bg-white/5 p-6 text-center">
           <p className="text-[10px] font-bold uppercase tracking-widest text-royal-200/60">
-            {hi ? 'कोड' : 'The code'}
+            The code
           </p>
           <p className="mt-2 font-mono text-4xl font-black tracking-[0.2em] text-royal-300">{code}</p>
           {saved && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-royal-200/60">
               <Gift size={12} />
-              {hi ? 'सुरक्षित — साइन इन करते ही लग जाएगा' : 'Saved — it applies as soon as you sign in'}
+              Saved — it applies as soon as you sign in
             </p>
           )}
         </div>
@@ -71,20 +67,18 @@ export function ReferralLanding({ code }: { code: string }) {
           href={playUrl}
           className="flex items-center justify-center gap-2 rounded-full bg-royal-400 px-6 py-4 text-xs font-bold uppercase tracking-widest text-maroon-950"
         >
-          <Smartphone size={15} /> {hi ? 'ऐप इंस्टॉल करें' : 'Install the app'}
+          <Smartphone size={15} /> Install the app
         </a>
 
         <Link
           href="/"
           className="flex items-center justify-center gap-2 rounded-full border border-royal-400/40 px-6 py-4 text-xs font-bold uppercase tracking-widest text-royal-200"
         >
-          <Globe size={15} /> {hi ? 'वेबसाइट पर देखें' : 'Carry on to the website'}
+          <Globe size={15} /> Carry on to the website
         </Link>
 
         <p className="text-center text-[11px] leading-relaxed text-royal-200/50">
-          {hi
-            ? 'ऐप इंस्टॉल करने के बाद यही कोड साइन-अप पर डाल दीजिए, अगर अपने आप न लगे।'
-            : 'After installing, type this code at sign-up if it has not applied itself.'}
+          After installing, type this code at sign-up if it has not applied itself.
         </p>
       </div>
     </div>
