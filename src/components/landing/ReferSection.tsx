@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Gift, QrCode, IndianRupee, ArrowRight, Users } from 'lucide-react';
+import { Gift, QrCode, IndianRupee, ArrowRight, Users, Briefcase } from 'lucide-react';
 import { AnimatedSection, StaggerContainer, staggerItem } from './AnimatedSection';
 
 /**
@@ -68,12 +68,22 @@ export function ReferSection() {
         </StaggerContainer>
 
         <AnimatedSection className="mt-12 text-center">
-          <Link
-            href="/refer"
-            className="inline-flex items-center gap-2 rounded-full bg-royal-400 px-8 py-4 text-xs font-bold uppercase tracking-widest text-maroon-950 transition-colors hover:bg-royal-300"
-          >
-            Get your code and QR <ArrowRight size={15} />
-          </Link>
+          {/* Two ways in, side by side. A shop or a planner is not going to
+              find "business partner" buried at the bottom of another page. */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/refer"
+              className="inline-flex items-center gap-2 rounded-full bg-royal-400 px-8 py-4 text-xs font-bold uppercase tracking-widest text-maroon-950 transition-colors hover:bg-royal-300"
+            >
+              Get your code and QR <ArrowRight size={15} />
+            </Link>
+            <Link
+              href="/refer#partner"
+              className="inline-flex items-center gap-2 rounded-full border border-royal-400/40 px-8 py-4 text-xs font-bold uppercase tracking-widest text-royal-200 transition-colors hover:border-royal-400/70"
+            >
+              <Briefcase size={15} /> Sign up as a business partner
+            </Link>
+          </div>
           <p className="mt-4 text-xs text-royal-200/45">
             Credit comes off your next order on its own — nothing to remember at checkout.
           </p>

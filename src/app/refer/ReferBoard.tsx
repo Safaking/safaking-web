@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Gift, Copy, Check, MessageCircle, Loader2, AlertCircle, Users, Download, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { isNativeApp } from '@/lib/native-app';
+import { buildReferPoster } from '@/lib/refer-poster';
 import { useAuth } from '@/context/AuthContext';
 import { BUSINESS } from '@/lib/business';
 import { useTermsLanguage } from '@/lib/terms-language';
@@ -115,13 +117,57 @@ export function ReferBoard() {
    * card, send it in a group. Drawn at 4x and scaled down so it survives
    * being printed rather than blurring.
    */
-  const downloadQr = () => {
+  const [savingQr, setSavingQr] = useState(false);
+
+  /**
+   * Hand over an A4 sheet, not a bare QR.
+   *
+   * In the app an <a download> does nothing at all — the WebView has no
+   * downloads folder and swallows the click, which is why this never worked
+   * on a phone. There the file is written to the device and offered to the
+   * share sheet instead, so it can go to WhatsApp, Files or a printer.
+   */
+  const downloadQr = async () => {
     const canvas = qrRef.current?.querySelector('canvas');
-    if (!canvas || !code) return;
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = `safaking-${code}.png`;
-    a.click();
+    if (!canvas || !code || savingQr) return;
+    setSavingQr(true);
+    setError(null);
+    try {
+      const blob = await buildReferPoster(code, canvas);
+      if (!blob) throw new Error('The poster could not be drawn.');
+      const filename = `safaking-${code}.png`;
+
+      if (isNativeApp()) {
+        const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+          import('@capacitor/filesystem'),
+          import('@capacitor/share'),
+        ]);
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('Could not read the poster.'));
+          // A data URL, of which only the part after the comma is the file.
+          reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+          reader.readAsDataURL(blob);
+        });
+        const saved = await Filesystem.writeFile({
+          path: filename,
+          data: base64,
+          directory: Directory.Cache,
+        });
+        await Share.share({ title: 'My SafaKing referral QR', files: [saved.uri] });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        // Blob URLs stay in memory until released.
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the QR.');
+    }
+    setSavingQr(false);
   };
   const invitation = hi
     ? `नमस्ते! SafaKing से शाही साफे ऑनलाइन मँगवाइए। मेरा कोड ${code} इस्तेमाल कीजिए, आपको छूट मिलेगी: ${link}`
@@ -202,6 +248,14 @@ export function ReferBoard() {
     setNotice('You are registered as a business partner. Your code is above — start sharing it.');
     void load();
   };
+
+  // Arriving on /refer#partner means they already pressed "sign up as a
+  // business partner" on the way here. Making them press it again, on a card
+  // they have to find first, is asking the same question twice.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash === '#partner') setPartnerForm(true);
+  }, []);
 
   const autoClaimed = useRef(false);
   useEffect(() => {
@@ -314,10 +368,14 @@ export function ReferBoard() {
               </p>
               <button
                 type="button"
-                onClick={downloadQr}
+                onClick={() => void downloadQr()}
+                disabled={savingQr}
                 className="mt-4 inline-flex items-center gap-2 rounded-full border border-royal-400/40 px-5 py-3 text-xs font-bold uppercase tracking-widest text-royal-200"
               >
-                <Download size={14} /> {hi ? 'QR डाउनलोड करें' : 'Download the QR'}
+                <Download size={14} />{' '}
+                {savingQr
+                  ? hi ? 'बन रहा है…' : 'Preparing…'
+                  : hi ? 'QR पोस्टर (A4)' : 'Download A4 poster'}
               </button>
             </div>
           </div>
@@ -346,7 +404,7 @@ export function ReferBoard() {
 
       {/* For the other kind of referrer. The code and the rate are the same;
           what this adds is the shop knowing who it is dealing with. */}
-      <div className="rounded-2xl border border-royal-400/25 bg-white/5 p-6">
+      <div id="partner" className="scroll-mt-24 rounded-2xl border border-royal-400/25 bg-white/5 p-6">
         <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-royal-200/60">
           <Briefcase size={11} /> Business partner
         </p>
