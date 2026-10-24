@@ -10,7 +10,7 @@ const BENEFITS = [
   {
     icon: IndianRupee,
     title: 'Your Price, Your Stock',
-    desc: 'You decide what each safa costs and how many you have. See what you receive before you list.',
+    desc: 'You decide what each piece costs and how many you have. See what you receive before you list.',
   },
   {
     icon: Truck,
@@ -48,11 +48,12 @@ export function SupplierSection() {
               <Package size={14} /> Supplier Network
             </span>
             <h2 className="text-4xl sm:text-5xl font-display font-black text-maroon-900 mb-6 leading-tight">
-              Sell Your Safas on <span className="text-gradient-maroon italic">SafaKing</span>
+              Sell Your Groom&rsquo;s Wear on <span className="text-gradient-maroon italic">SafaKing</span>
             </h2>
             <p className="text-maroon-800/60 text-base leading-relaxed mb-8">
-              Are you a safa maker, silk weaver or accessory artisan? List your products on SafaKing and reach
-              grooms and wedding families who are already shopping for safas.
+              Safas, kalgi and sarpech, sehra and mukut, dupattas and stoles, mojari — anything a groom
+              wears or carries. Make it, weave it, stitch it or stock it, and list it on SafaKing to reach
+              the families already shopping for the wedding.
             </p>
 
             <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">

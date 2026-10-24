@@ -237,10 +237,10 @@ export const FAQ_GROUPS: FaqGroup[] = [
       },
       {
         id: 'supplier',
-        q: { en: 'Can I sell my safas on SafaKing?', hi: 'क्या मैं अपने साफे SafaKing पर बेच सकता हूँ?' },
+        q: { en: 'Can I sell my products on SafaKing?', hi: 'क्या मैं अपना सामान SafaKing पर बेच सकता हूँ?' },
         a: {
-          en: 'Yes — register through the supplier portal. Once approved you can list your safas, and orders reach you through the portal.',
-          hi: 'हाँ — सप्लायर पोर्टल से रजिस्टर करें। मंज़ूरी के बाद आप अपने साफे लिस्ट कर सकते हैं, और ऑर्डर पोर्टल के ज़रिए आप तक पहुँचते हैं।',
+          en: 'Yes — register through the supplier portal. Safas, kalgi, sehra, mojari, dupattas, anything a groom wears. Once approved you can list them, and orders reach you through the portal.',
+          hi: 'हाँ — सप्लायर पोर्टल से रजिस्टर करें। साफ़ा, कलगी, सेहरा, मोजड़ी, दुपट्टा — दूल्हे का कोई भी सामान। मंज़ूरी के बाद लिस्ट कर सकते हैं, और ऑर्डर पोर्टल से आप तक पहुँचते हैं।',
         },
       },
     ],
