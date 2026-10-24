@@ -74,11 +74,15 @@ interface ArtistsSectionProps {
 
 export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSectionProps = {}) {
   const { user, loading: authLoading } = useAuth();
-  const [selectedStyle, setSelectedStyle] = useState(SAFA_STYLES[0].name);
+  // Artists go out for baraat tying and nothing else — the other two styles
+  // only ever sent the customer to the shop. Picking a style was therefore a
+  // choice between booking and not booking, dressed up as a style question,
+  // so it is settled here instead of being asked.
+  const selectedStyle = 'Barati Safa';
 
   useEffect(() => {
     if (!styleRequest) return;
-    if (SAFA_STYLES.some((style) => style.name === styleRequest.style)) setSelectedStyle(styleRequest.style);
+    // Nothing to select any more; a style link still scrolls to the form.
   }, [styleRequest]);
   const [safaCount, setSafaCount] = useState<number>(25);
   const [pincode, setPincode] = useState('302001');
@@ -122,13 +126,15 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
   const unitPrice = currentStyleObj.price || 50;
   // Bulk count only makes sense for Barati Safa (a group of baraat members) —
   // Rounded/Jodhpuri are the groom's own single safa.
-  const isBulkStyle = selectedStyle === 'Barati Safa';
+  // Always, now that baraat tying is the only thing booked here: a baraat is
+  // a group, so the count is asked for.
+  const isBulkStyle = true;
   /**
    * Artists go out for baraat tying only. A groom's own safa is bought
    * online — that is the order we actually want — so the other two styles
    * send the customer to the shop instead of the booking form.
    */
-  const artistTiesThisStyle = selectedStyle === 'Barati Safa';
+  const artistTiesThisStyle = true;
   const effectiveSafaCount = isBulkStyle ? safaCount : 1;
   const totalBookingAmount = effectiveSafaCount * unitPrice;
   const advanceAmount = Math.round(totalBookingAmount * advanceRate);
@@ -325,16 +331,10 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
             <motion.div
               key={style.name}
               variants={staggerItem}
-              onClick={() => setSelectedStyle(style.name)}
               onHoverStart={() => setHovered(style.name)}
               onHoverEnd={() => setHovered(null)}
               whileHover={{ y: -10, scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`group cursor-pointer rounded-3xl overflow-hidden border-2 transition-all duration-300 shadow-lg ${
-                selectedStyle === style.name
-                  ? 'border-royal-500 shadow-2xl shadow-royal-500/25'
-                  : 'border-transparent hover:border-royal-300 bg-white'
-              }`}
+              className="group rounded-3xl overflow-hidden border-2 border-transparent bg-white shadow-lg transition-all duration-300"
             >
               {/* Image */}
               <div className="relative aspect-[3/4] overflow-hidden">
@@ -355,16 +355,6 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                 >
                   {style.tag}
                 </motion.span>
-
-                {/* Selected tick */}
-                {selectedStyle === style.name && (
-                  <motion.div
-                    layoutId="selectedBadge"
-                    className="absolute top-4 right-4 w-8 h-8 bg-royal-500 rounded-full flex items-center justify-center shadow-lg"
-                  >
-                    <CheckCircle2 size={16} className="text-maroon-950" />
-                  </motion.div>
-                )}
 
                 {/* Name overlay */}
                 <div className="absolute bottom-0 left-0 right-0 p-6">
@@ -392,12 +382,15 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                   ))}
                 </ul>
 
-                <motion.div
-                  animate={{ opacity: selectedStyle === style.name ? 1 : 0, scale: selectedStyle === style.name ? 1 : 0.8 }}
-                  className="text-[10px] font-black text-royal-600 bg-royal-100 border border-royal-200 px-3 py-1.5 rounded-full inline-flex items-center gap-1"
-                >
-                  <CheckCircle2 size={11} /> {style.name === 'Barati Safa' ? 'Selected for booking' : 'Selected — order below'}
-                </motion.div>
+                {/* What this style actually leads to, rather than whether it
+                    happens to be ticked. */}
+                <div className="inline-flex items-center gap-1 rounded-full border border-royal-200 bg-royal-100 px-3 py-1.5 text-[10px] font-black text-royal-600">
+                  {style.name === 'Barati Safa' ? (
+                    <><Crown size={11} /> Book an artist below</>
+                  ) : (
+                    <><ShoppingBag size={11} /> Buy this one online</>
+                  )}
+                </div>
               </div>
             </motion.div>
           ))}
@@ -480,53 +473,7 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                 </div>
 
                 <AnimatePresence mode="wait">
-                  {!artistTiesThisStyle ? (
-                    <motion.div
-                      key="buy-online"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      className="space-y-4"
-                    >
-                      <p className="text-sm leading-relaxed text-royal-100/85">
-                        A groom&apos;s safa is his own — so we send it to you, tied and finished by our
-                        masters, ready to wear on the day. Sehra, kalgi and brooch come from the same
-                        shop, and it reaches you anywhere in India.
-                      </p>
-
-                      <ul className="space-y-2">
-                        {[
-                          'Tied and finished by a master — nothing to learn on the day',
-                          'Sehra, kalgi and groom accessories in one order',
-                          'Delivered across India, where no artist can reach',
-                        ].map((line) => (
-                          <li key={line} className="flex items-start gap-2 text-xs text-royal-100/80">
-                            <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-royal-400" />
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-
-                      <Link
-                        href="/shop"
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-royal-500 px-6 py-4 text-sm font-black uppercase tracking-widest text-maroon-950 shadow-xl shadow-royal-500/20 transition-colors hover:bg-royal-400"
-                      >
-                        <Crown size={16} /> Buy {styleLabel(selectedStyle)} Online
-                      </Link>
-
-                      <p className="text-center text-[11px] text-royal-200/60">
-                        Need a master artist at your venue? That is for the{' '}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedStyle('Barati Safa')}
-                          className="font-bold text-royal-300 underline underline-offset-2"
-                        >
-                          baraat safas
-                        </button>
-                        {' '}— we tie those for your whole party.
-                      </p>
-                    </motion.div>
-                  ) : booked ? (
+                  {booked ? (
                     <motion.div
                       key="success"
                       initial={{ scale: 0.8, opacity: 0 }}
