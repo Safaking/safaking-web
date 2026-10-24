@@ -20,6 +20,21 @@ import { useTermsLanguage } from '@/lib/terms-language';
 
 const PENDING_CODE = 'sk-referral-code';
 
+type ReferralOrder = {
+  placed_at: string;
+  total: number;
+  earned: number | null;
+  items: { name: string; quantity: number }[];
+};
+
+type ReferralRow = {
+  name: string;
+  status: string;
+  joined_at: string;
+  earned_total: number;
+  orders: ReferralOrder[];
+};
+
 export function ReferBoard() {
   const { user, loading } = useAuth();
   const [language] = useTermsLanguage();
@@ -28,6 +43,9 @@ export function ReferBoard() {
   const [code, setCode] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [joined, setJoined] = useState(0);
+  // Who joined, what they bought and what it earned. A share of somebody
+  // else's orders is only believable if the orders behind it are visible.
+  const [report, setReport] = useState<ReferralRow[] | null>(null);
   const [entry, setEntry] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,11 +71,13 @@ export function ReferBoard() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [mine, bal, people] = await Promise.all([
+    const [mine, bal, people, detail] = await Promise.all([
       supabase.rpc('my_referral_code'),
       supabase.rpc('credit_balance', { p_user: user.id }),
       supabase.from('referrals').select('id', { count: 'exact', head: true }),
+      supabase.rpc('my_referral_report'),
     ]);
+    if (Array.isArray(detail.data)) setReport(detail.data as ReferralRow[]);
     // A failure here used to leave "…" sitting in place of the code for ever,
     // with the share buttons dead and nothing on screen saying why.
     if (mine.data) setCode(mine.data as string);
@@ -286,6 +306,61 @@ export function ReferBoard() {
           <p className="mt-1 text-2xl font-black text-royal-100">{joined}</p>
         </div>
       </div>
+
+      {/* The orders behind the number. Somebody earning a share of other
+          people's purchases has to be able to check it against something. */}
+      {report && report.length > 0 && (
+        <div className="rounded-2xl border border-royal-400/20 bg-white/5 p-5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-royal-200/60">
+            {hi ? 'आपसे जुड़े लोग' : 'People who joined with your code'}
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {report.map((row, i) => (
+              <div key={`${row.name}-${row.joined_at}-${i}`} className="rounded-xl border border-royal-400/15 bg-white/5 p-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="truncate text-sm font-bold text-royal-100">{row.name}</p>
+                  <p className="shrink-0 font-mono text-sm font-black text-royal-300">
+                    +₹{row.earned_total.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <p className="mt-0.5 text-[11px] text-royal-200/45">
+                  {hi ? 'जुड़े' : 'Joined'} {new Date(row.joined_at).toLocaleDateString('en-IN')}
+                  {row.orders.length === 0 &&
+                    ` · ${hi ? 'अभी कोई ऑर्डर नहीं' : 'no orders yet'}`}
+                </p>
+
+                {row.orders.length > 0 && (
+                  <div className="mt-3 space-y-2 border-t border-royal-400/10 pt-3">
+                    {row.orders.map((order, j) => (
+                      <div key={`${order.placed_at}-${j}`} className="text-[11px]">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="min-w-0 truncate text-royal-100/75">
+                            {order.items.length > 0
+                              ? order.items
+                                  .map((it) => (it.quantity > 1 ? `${it.name} ×${it.quantity}` : it.name))
+                                  .join(', ')
+                              : hi
+                              ? 'ऑर्डर'
+                              : 'Order'}
+                          </span>
+                          <span className="shrink-0 font-mono text-royal-200/60">
+                            ₹{Number(order.total).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <p className="text-royal-200/40">
+                          {new Date(order.placed_at).toLocaleDateString('en-IN')}
+                          {order.earned ? ` · ${hi ? 'आपको' : 'you earned'} ₹${order.earned}` : ''}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Only of use before a first order; the database refuses it afterwards. */}
       <div className="rounded-2xl border border-royal-400/20 bg-white/5 p-5">

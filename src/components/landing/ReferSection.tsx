@@ -28,7 +28,7 @@ const STEPS = [
   {
     icon: IndianRupee,
     title: 'You get credit',
-    desc: 'Once they have actually bought something, credit lands on your account too.',
+    desc: 'You earn 10% of every order they place afterwards — not only the first.',
   },
 ];
 
