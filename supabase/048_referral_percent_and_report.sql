@@ -19,7 +19,7 @@
 -- ---------------------------------------------------------------------------
 -- The rate, as a setting rather than a number in a function
 -- ---------------------------------------------------------------------------
-insert into public.app_settings (key, value, label, help) values
+insert into public.app_settings (key, value, label, description) values
   ('referral_sharer_percent', 10, 'Referral: sharer''s share of each order (%)',
    'What the person who shared the code earns on every order their joiner pays for. 0 turns it off.')
 on conflict (key) do nothing;

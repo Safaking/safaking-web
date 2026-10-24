@@ -94,13 +94,13 @@ export function ChatWidget() {
         type="button"
         onClick={() => setOpen((was) => !was)}
         aria-label={hi ? 'SafaKing से पूछिए' : 'Ask SafaKing'}
-        className="fixed bottom-20 right-4 z-[55] flex h-14 w-14 items-center justify-center rounded-full bg-maroon-950 text-royal-300 shadow-2xl shadow-maroon-950/40 ring-1 ring-royal-400/30 transition-transform hover:scale-105 lg:bottom-6"
+        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[55] flex h-14 w-14 items-center justify-center rounded-full bg-maroon-950 text-royal-300 shadow-2xl shadow-maroon-950/40 ring-1 ring-royal-400/30 transition-transform hover:scale-105 lg:bottom-6"
       >
         {open ? <X size={22} /> : <MessageCircle size={22} />}
       </button>
 
       {open && (
-        <div className="fixed bottom-36 right-4 z-[55] flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-royal-400/25 bg-maroon-950 shadow-2xl lg:bottom-24">
+        <div className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 z-[55] flex max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-royal-400/25 bg-maroon-950 shadow-2xl lg:bottom-24">
           <div className="border-b border-royal-400/20 px-5 py-4">
             <p className="font-display text-sm font-black uppercase tracking-widest text-royal-100">
               {hi ? 'SafaKing से पूछिए' : 'Ask SafaKing'}
