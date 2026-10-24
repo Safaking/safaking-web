@@ -85,6 +85,10 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
     // Nothing to select any more; a style link still scrolls to the form.
   }, [styleRequest]);
   const [safaCount, setSafaCount] = useState<number>(25);
+  // A baraat is not always one of four round numbers. Typing the real figure
+  // matters most at the top end, where the quoted total is largest and the
+  // nearest preset can be a hundred safas out.
+  const [customCount, setCustomCount] = useState(false);
   const [pincode, setPincode] = useState('302001');
   const [pincodeResult, setPincodeResult] = useState<PincodeCheckResult | null>({
     deliverable: true,
@@ -648,9 +652,9 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                               <button
                                 key={count}
                                 type="button"
-                                onClick={() => setSafaCount(count)}
+                                onClick={() => { setCustomCount(false); setSafaCount(count); }}
                                 className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                                  safaCount === count
+                                  !customCount && safaCount === count
                                     ? 'bg-royal-500 text-maroon-950 border-royal-400 font-black'
                                     : 'bg-white/10 text-white border-royal-400/20 hover:bg-white/20'
                                 }`}
@@ -658,7 +662,35 @@ export function ArtistsSection({ onRequireSignIn, styleRequest }: ArtistsSection
                                 {count}
                               </button>
                             ))}
+                            <button
+                              type="button"
+                              onClick={() => { setCustomCount(true); setSafaCount((n) => (n < 100 ? 150 : n)); }}
+                              className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                customCount
+                                  ? 'bg-royal-500 text-maroon-950 border-royal-400 font-black'
+                                  : 'bg-white/10 text-white border-royal-400/20 hover:bg-white/20'
+                              }`}
+                            >
+                              100+
+                            </button>
                           </div>
+
+                          {customCount && (
+                            <input
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              value={safaCount}
+                              onChange={(e) => {
+                                // A blank box must not price the booking at
+                                // zero while somebody is still typing.
+                                const n = parseInt(e.target.value, 10);
+                                setSafaCount(Number.isFinite(n) && n > 0 ? n : 1);
+                              }}
+                              placeholder="How many safas?"
+                              className="mt-2 w-full rounded-lg border border-royal-400/30 bg-white/10 px-3 py-2 text-sm font-bold text-white outline-none focus:border-royal-400 placeholder:font-normal placeholder:text-royal-200/40"
+                            />
+                          )}
                         </div>
                       )}
 

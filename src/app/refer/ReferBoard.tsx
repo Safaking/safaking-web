@@ -33,6 +33,10 @@ type PartnerRecord = {
   business_name: string;
   city: string | null;
   kind: string | null;
+  village: string | null;
+  district: string | null;
+  state: string | null;
+  payout_upi: string | null;
   status: 'pending' | 'approved' | 'rejected';
 } | null;
 
@@ -59,7 +63,11 @@ export function ReferBoard() {
   // trade, rather than telling a cousin. Same code, details on record.
   const [partner, setPartner] = useState<PartnerRecord | null>(null);
   const [partnerForm, setPartnerForm] = useState(false);
-  const [biz, setBiz] = useState({ business_name: '', contact_name: '', phone: '', city: '', kind: '' });
+  const [biz, setBiz] = useState({
+    business_name: '', contact_name: '', phone: '', whatsapp: '', kind: '',
+    address_line: '', village: '', tehsil: '', district: '', state: '', pincode: '',
+    payout_upi: '',
+  });
   const [entry, setEntry] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -236,8 +244,15 @@ export function ReferBoard() {
       p_business_name: biz.business_name,
       p_contact_name: biz.contact_name || null,
       p_phone: biz.phone || null,
-      p_city: biz.city || null,
       p_kind: biz.kind || null,
+      p_whatsapp: biz.whatsapp || null,
+      p_address_line: biz.address_line || null,
+      p_village: biz.village || null,
+      p_tehsil: biz.tehsil || null,
+      p_district: biz.district || null,
+      p_state: biz.state || null,
+      p_pincode: biz.pincode || null,
+      p_payout_upi: biz.payout_upi || null,
     });
     setBusy(false);
     const result = data as { ok?: boolean; error?: string } | null;
@@ -414,7 +429,9 @@ export function ReferBoard() {
           <div className="mt-3">
             <p className="text-sm font-bold text-royal-100">{partner.business_name}</p>
             <p className="mt-1 text-[11px] text-royal-200/55">
-              {[partner.kind, partner.city].filter(Boolean).join(' · ')}
+              {[partner.kind, partner.village || partner.city, partner.district, partner.state]
+                .filter(Boolean)
+                .join(' · ')}
               {partner.status === 'pending' && ' · awaiting approval'}
               {partner.status === 'approved' && ' · approved'}
               {partner.status === 'rejected' && ' · not approved'}
@@ -429,8 +446,18 @@ export function ReferBoard() {
               ['business_name', 'Business name', true],
               ['contact_name', 'Your name', false],
               ['phone', 'Phone', false],
-              ['city', 'City', false],
+              ['whatsapp', 'WhatsApp number', false],
               ['kind', 'Shop, planner, photographer…', false],
+              // Kept in parts on purpose: a village is not a city and a
+              // district is not a state, and an address written as one line
+              // comes back unusable when somebody has to reach the place.
+              ['address_line', 'Shop or office address', true],
+              ['village', 'Village / town', true],
+              ['tehsil', 'Tehsil', false],
+              ['district', 'District', true],
+              ['state', 'State', true],
+              ['pincode', 'Pincode', false],
+              ['payout_upi', 'UPI id — where credit is paid out', false],
             ] as const).map(([field, placeholder, required]) => (
               <input
                 key={field}
@@ -444,7 +471,14 @@ export function ReferBoard() {
               <button
                 type="button"
                 onClick={() => void applyAsPartner()}
-                disabled={busy || !biz.business_name.trim()}
+                disabled={
+                  busy ||
+                  !biz.business_name.trim() ||
+                  !biz.address_line.trim() ||
+                  !biz.village.trim() ||
+                  !biz.district.trim() ||
+                  !biz.state.trim()
+                }
                 className="flex-1 rounded-full bg-royal-400 px-5 py-3 text-xs font-bold uppercase tracking-widest text-maroon-950 disabled:opacity-50"
               >
                 {busy ? 'Registering…' : 'Register'}
@@ -461,9 +495,9 @@ export function ReferBoard() {
         ) : (
           <div className="mt-3">
             <p className="text-sm leading-relaxed text-royal-100/75">
-              Run a shop, plan weddings or shoot them? Register the business and send customers
-              our way with the same code — approved partners earn at a higher rate than
-              ordinary customers.
+              Run a shop, plan weddings or shoot them? Register the business — an office is
+              as good as a shop — and send customers our way with the same code. Approved
+              partners earn at a higher rate than ordinary customers.
             </p>
             <button
               type="button"
