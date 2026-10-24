@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Gift, Copy, Check, MessageCircle, Loader2, AlertCircle, Users, Download } from 'lucide-react';
+import { Gift, Copy, Check, MessageCircle, Loader2, AlertCircle, Users, Download, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { BUSINESS } from '@/lib/business';
@@ -27,6 +27,13 @@ type ReferralOrder = {
   items: { name: string; quantity: number }[];
 };
 
+type PartnerRecord = {
+  business_name: string;
+  city: string | null;
+  kind: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+} | null;
+
 type ReferralRow = {
   name: string;
   status: string;
@@ -46,6 +53,11 @@ export function ReferBoard() {
   // Who joined, what they bought and what it earned. A share of somebody
   // else's orders is only believable if the orders behind it are visible.
   const [report, setReport] = useState<ReferralRow[] | null>(null);
+  // A shop, planner or photographer who sends customers as part of their own
+  // trade, rather than telling a cousin. Same code, details on record.
+  const [partner, setPartner] = useState<PartnerRecord | null>(null);
+  const [partnerForm, setPartnerForm] = useState(false);
+  const [biz, setBiz] = useState({ business_name: '', contact_name: '', phone: '', city: '', kind: '' });
   const [entry, setEntry] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -71,13 +83,15 @@ export function ReferBoard() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [mine, bal, people, detail] = await Promise.all([
+    const [mine, bal, people, detail, partnerRow] = await Promise.all([
       supabase.rpc('my_referral_code'),
       supabase.rpc('credit_balance', { p_user: user.id }),
       supabase.from('referrals').select('id', { count: 'exact', head: true }),
       supabase.rpc('my_referral_report'),
+      supabase.rpc('my_partner_record'),
     ]);
     if (Array.isArray(detail.data)) setReport(detail.data as ReferralRow[]);
+    setPartner((partnerRow.data ?? null) as PartnerRecord);
     // A failure here used to leave "…" sitting in place of the code for ever,
     // with the share buttons dead and nothing on screen saying why.
     if (mine.data) setCode(mine.data as string);
@@ -166,6 +180,29 @@ export function ReferBoard() {
    * Runs once per sign-in, and only while the code is still pending: claim()
    * clears it, so a second pass has nothing to do.
    */
+  const applyAsPartner = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    const { data, error: rpcError } = await supabase.rpc('apply_as_partner', {
+      p_business_name: biz.business_name,
+      p_contact_name: biz.contact_name || null,
+      p_phone: biz.phone || null,
+      p_city: biz.city || null,
+      p_kind: biz.kind || null,
+    });
+    setBusy(false);
+    const result = data as { ok?: boolean; error?: string } | null;
+    if (rpcError || !result?.ok) {
+      setError(result?.error ?? rpcError?.message ?? 'Could not register the business.');
+      return;
+    }
+    setPartnerForm(false);
+    setNotice('You are registered as a business partner. Your code is above — start sharing it.');
+    void load();
+  };
+
   const autoClaimed = useRef(false);
   useEffect(() => {
     if (!user || autoClaimed.current || !entry.trim()) return;
@@ -305,6 +342,78 @@ export function ReferBoard() {
           </p>
           <p className="mt-1 text-2xl font-black text-royal-100">{joined}</p>
         </div>
+      </div>
+
+      {/* For the other kind of referrer. The code and the rate are the same;
+          what this adds is the shop knowing who it is dealing with. */}
+      <div className="rounded-2xl border border-royal-400/25 bg-white/5 p-6">
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-royal-200/60">
+          <Briefcase size={11} /> Business partner
+        </p>
+
+        {partner ? (
+          <div className="mt-3">
+            <p className="text-sm font-bold text-royal-100">{partner.business_name}</p>
+            <p className="mt-1 text-[11px] text-royal-200/55">
+              {[partner.kind, partner.city].filter(Boolean).join(' · ')}
+              {partner.status === 'pending' && ' · awaiting approval'}
+              {partner.status === 'approved' && ' · approved'}
+              {partner.status === 'rejected' && ' · not approved'}
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-royal-200/45">
+              Your code works either way — approval only changes how the shop treats the account.
+            </p>
+          </div>
+        ) : partnerForm ? (
+          <div className="mt-4 space-y-2">
+            {([
+              ['business_name', 'Business name', true],
+              ['contact_name', 'Your name', false],
+              ['phone', 'Phone', false],
+              ['city', 'City', false],
+              ['kind', 'Shop, planner, photographer…', false],
+            ] as const).map(([field, placeholder, required]) => (
+              <input
+                key={field}
+                value={biz[field]}
+                onChange={(e) => setBiz((b) => ({ ...b, [field]: e.target.value }))}
+                placeholder={required ? `${placeholder} *` : placeholder}
+                className="w-full rounded-xl border border-royal-400/25 bg-white/5 px-4 py-3 text-sm text-royal-100 outline-none placeholder:text-royal-200/40 focus:border-royal-400/60"
+              />
+            ))}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => void applyAsPartner()}
+                disabled={busy || !biz.business_name.trim()}
+                className="flex-1 rounded-full bg-royal-400 px-5 py-3 text-xs font-bold uppercase tracking-widest text-maroon-950 disabled:opacity-50"
+              >
+                {busy ? 'Registering…' : 'Register'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPartnerForm(false)}
+                className="rounded-full border border-royal-400/30 px-5 py-3 text-xs font-bold uppercase tracking-widest text-royal-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <p className="text-sm leading-relaxed text-royal-100/75">
+              Run a shop, plan weddings or shoot them? Register the business and send customers
+              our way with the same code.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPartnerForm(true)}
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-royal-400/40 px-5 py-3 text-xs font-bold uppercase tracking-widest text-royal-200"
+            >
+              <Briefcase size={14} /> Sign up as a business partner
+            </button>
+          </div>
+        )}
       </div>
 
       {/* The orders behind the number. Somebody earning a share of other
