@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
@@ -51,6 +52,12 @@ export default function FaqPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32 sm:pb-16 space-y-8">
+        <BilingualHelp
+          tone="light"
+          title="Common questions"
+          en="Sizes, delivery, returns, artists and payment. If your question is not here, ring us — the number is at the bottom."
+          hi="नाप, डिलीवरी, वापसी, कारीगर और भुगतान। आपका सवाल यहाँ न मिले तो फ़ोन कीजिए — नंबर नीचे दिया है।"
+        />
         <p className="max-w-2xl text-sm leading-relaxed text-gray-700">
           Everything customers ring up to ask — bookings, the groom&apos;s safa, rentals, money and
           training. Read it in English or हिंदी; the switch changes every answer on the page.
