@@ -114,10 +114,23 @@ export async function buildReferPoster(
   ctx.fillText('ROYAL TURBAN HOUSE', W / 2, y);
   y += 58;
 
+  // The thing being asked for, in the largest type on the sheet after the
+  // name. A poster that only explains a discount never says what to do.
+  ctx.fillStyle = MAROON_DEEP;
+  ctx.font = `700 54px Georgia, 'Times New Roman', serif`;
+  ctx.fillText('Book your safa today', W / 2, y);
+  y += 24;
+
+  // A gold rule under it, the width of the words rather than the page.
+  const ruleW = Math.min(ctx.measureText('Book your safa today').width, W - 240);
+  ctx.fillStyle = GOLD;
+  ctx.fillRect((W - ruleW) / 2, y, ruleW, 3);
+  y += 44;
+
   ctx.fillStyle = MAROON;
-  ctx.font = `400 30px Helvetica, Arial, sans-serif`;
+  ctx.font = `400 28px Helvetica, Arial, sans-serif`;
   ctx.fillText('Scan to get credit off your first order', W / 2, y);
-  y += 40;
+  y += 38;
 
   // ── the QR, on white, with its quiet zone intact ───────────────────────
   // Sized so the code below it clears the foot. At 520 the code landed
