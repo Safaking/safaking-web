@@ -50,10 +50,10 @@ export default function ReferPage() {
             <p className="font-bold text-royal-100">How it works</p>
             <p className="mt-1">
               Share your code. Whoever uses it gets credit off their first order straight away — and
-              you earn 10% of every order they place, not just the first one.
+              you earn a share of every order they place, not just the first one.
             </p>
             <p className="mt-1 text-royal-200/60">
-              कोड शेयर कीजिए। जो इस्तेमाल करेगा उसे पहले ऑर्डर पर छूट मिलेगी, और उसके हर ऑर्डर पर आपको 10% क्रेडिट।
+              कोड शेयर कीजिए। जो इस्तेमाल करेगा उसे पहले ऑर्डर पर छूट मिलेगी, और उसके हर ऑर्डर पर आपको भी क्रेडिट।
             </p>
           </div>
         </div>

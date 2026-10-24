@@ -288,7 +288,7 @@ function SupplierLoginContent() {
             Supplier Portal
           </h1>
           <p className="text-xs sm:text-sm text-royal-200/75 max-w-xl mx-auto leading-relaxed">
-            Sell your safas &amp; accessories to SafaKing&apos;s customers across India. You set the price, stock and delivery charges. We bring the orders directly to you.
+            Sell safas, kalgi, sehra, mojari — anything a groom wears — to SafaKing&apos;s customers across India. You set the price, stock and delivery charges. We bring the orders directly to you.
           </p>
         </div>
       </div>

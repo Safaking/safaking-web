@@ -64,7 +64,13 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): st
  */
 export async function buildReferPoster(
   code: string,
-  qrCanvas: HTMLCanvasElement
+  qrCanvas: HTMLCanvasElement,
+  /**
+   * The shop the sheet is going up in. A partner sticking this on their own
+   * wall wants their name on it, not ours — it reads as their recommendation
+   * rather than somebody else's advertisement they were handed.
+   */
+  shopName?: string | null
 ): Promise<Blob | null> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -165,14 +171,37 @@ export async function buildReferPoster(
   ctx.fillStyle = GOLD;
   ctx.fillRect(0, H - footH, W, 5);
 
-  ctx.fillStyle = CREAM;
-  ctx.font = `700 36px Helvetica, Arial, sans-serif`;
-  ctx.fillText(BUSINESS.phone, W / 2, H - footH + 56);
+  const shop = shopName?.trim();
+  if (shop) {
+    // The shop's own name in the big slot, with ours underneath it: whoever
+    // is standing in that shop should see whose recommendation this is.
+    ctx.fillStyle = GOLD;
+    ctx.font = `600 20px Helvetica, Arial, sans-serif`;
+    ctx.fillText('AVAILABLE AT', W / 2, H - footH + 40);
 
-  ctx.fillStyle = 'rgba(253,246,236,0.6)';
-  ctx.font = `400 21px Helvetica, Arial, sans-serif`;
-  const lines = wrap(ctx, BUSINESS.address, W - 180).slice(0, 2);
-  lines.forEach((line, i) => ctx.fillText(line, W / 2, H - footH + 94 + i * 28));
+    ctx.fillStyle = CREAM;
+    // Long names shrink rather than run off the sheet.
+    let size = 40;
+    ctx.font = `700 ${size}px Helvetica, Arial, sans-serif`;
+    while (ctx.measureText(shop).width > W - 160 && size > 22) {
+      size -= 2;
+      ctx.font = `700 ${size}px Helvetica, Arial, sans-serif`;
+    }
+    ctx.fillText(shop, W / 2, H - footH + 84);
+
+    ctx.fillStyle = 'rgba(253,246,236,0.6)';
+    ctx.font = `400 21px Helvetica, Arial, sans-serif`;
+    ctx.fillText(`SafaKing · ${BUSINESS.phone}`, W / 2, H - footH + 122);
+  } else {
+    ctx.fillStyle = CREAM;
+    ctx.font = `700 36px Helvetica, Arial, sans-serif`;
+    ctx.fillText(BUSINESS.phone, W / 2, H - footH + 56);
+
+    ctx.fillStyle = 'rgba(253,246,236,0.6)';
+    ctx.font = `400 21px Helvetica, Arial, sans-serif`;
+    const lines = wrap(ctx, BUSINESS.address, W - 180).slice(0, 2);
+    lines.forEach((line, i) => ctx.fillText(line, W / 2, H - footH + 94 + i * 28));
+  }
 
   // Both ways in, spelled out: somebody reading this off a wall cannot click.
   // The address somebody types in later, so it is the largest thing down
