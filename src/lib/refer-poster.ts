@@ -5,7 +5,7 @@ import { BUSINESS } from '@/lib/business';
  *
  * A bare QR PNG is useless on a wall: nothing on it says whose it is, what
  * scanning it gets you, or who to ring. This draws an A4 poster around the
- * code — the shop's name and mark, a groom in a safa, the code in figures,
+ * code — the shop's mark and name, the code in figures,
  * and the address and number along the bottom.
  *
  * Drawn at 150dpi rather than 300. A4 at 300dpi is 2480×3508, which comes out
@@ -79,54 +79,29 @@ export async function buildReferPoster(
   ctx.fillStyle = page;
   ctx.fillRect(0, 0, W, H);
 
-  const [logo, groom] = await Promise.all([
-    loadImage('/logo.png'),
-    loadImage('/groom_main.jpg'),
-  ]);
+  const logo = await loadImage('/logo.png');
 
-  // The mark, very faint and very large behind everything — the same trick the
-  // hero plays with the word SAFA. Drawn before anything else so it never
-  // competes with the QR, which has to stay readable above all.
+
+  // The mark across the top, on its own maroon field — where the photograph
+  // used to be. A groom read as an advertisement; the mark reads as whose
+  // sheet this is, which is what somebody glancing at a wall needs.
+  const bandH = Math.round(H * 0.26);
+  const band = ctx.createLinearGradient(0, 0, 0, bandH);
+  band.addColorStop(0, MAROON_DEEP);
+  band.addColorStop(1, MAROON);
+  ctx.fillStyle = band;
+  ctx.fillRect(0, 0, W, bandH);
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(0, bandH - 5, W, 5);
+
   if (logo) {
-    ctx.save();
-    ctx.globalAlpha = 0.06;
-    const mw = W * 1.15;
-    const mh = (logo.height / logo.width) * mw;
-    ctx.drawImage(logo, (W - mw) / 2, H * 0.34, mw, mh);
-    ctx.restore();
-  }
-
-  // ── the groom, across the top, fading into the maroon ──────────────────
-  const bandH = Math.round(H * 0.27);
-  if (groom) {
-    // Clipped to the band. Covering the width means a tall photograph is
-    // scaled far past the band's height, and without this it ran down the
-    // whole sheet with the name, the code and the QR sitting on top of it.
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, W, bandH);
-    ctx.clip();
-    const scale = Math.max(W / groom.width, bandH / groom.height);
-    const dw = groom.width * scale;
-    const dh = groom.height * scale;
-    // Anchored to the top: the face is the part worth keeping.
-    ctx.drawImage(groom, (W - dw) / 2, 0, dw, dh);
-    const fade = ctx.createLinearGradient(0, bandH * 0.45, 0, bandH);
-    fade.addColorStop(0, 'rgba(253,246,236,0)');
-    fade.addColorStop(1, CREAM);
-    ctx.fillStyle = fade;
-    ctx.fillRect(0, bandH * 0.45, W, bandH * 0.55 + 2);
-    ctx.restore();
+    const lw = Math.min(W * 0.42, 440);
+    const lh = (logo.height / logo.width) * lw;
+    ctx.drawImage(logo, (W - lw) / 2, (bandH - lh) / 2 - 8, lw, lh);
   }
 
   // ── mark and name ──────────────────────────────────────────────────────
-  let y = bandH + 40;
-  if (logo) {
-    const lw = 150;
-    const lh = (logo.height / logo.width) * lw;
-    ctx.drawImage(logo, (W - lw) / 2, y, lw, lh);
-    y += lh + 28;
-  }
+  let y = bandH + 96;
 
   ctx.textAlign = 'center';
   ctx.fillStyle = MAROON_DEEP;
@@ -139,10 +114,23 @@ export async function buildReferPoster(
   ctx.fillText('ROYAL TURBAN HOUSE', W / 2, y);
   y += 58;
 
+  // The thing being asked for, in the largest type on the sheet after the
+  // name. A poster that only explains a discount never says what to do.
+  ctx.fillStyle = MAROON_DEEP;
+  ctx.font = `700 54px Georgia, 'Times New Roman', serif`;
+  ctx.fillText('Book your safa today', W / 2, y);
+  y += 24;
+
+  // A gold rule under it, the width of the words rather than the page.
+  const ruleW = Math.min(ctx.measureText('Book your safa today').width, W - 240);
+  ctx.fillStyle = GOLD;
+  ctx.fillRect((W - ruleW) / 2, y, ruleW, 3);
+  y += 44;
+
   ctx.fillStyle = MAROON;
-  ctx.font = `400 30px Helvetica, Arial, sans-serif`;
+  ctx.font = `400 28px Helvetica, Arial, sans-serif`;
   ctx.fillText('Scan to get credit off your first order', W / 2, y);
-  y += 40;
+  y += 38;
 
   // ── the QR, on white, with its quiet zone intact ───────────────────────
   // Sized so the code below it clears the foot. At 520 the code landed
@@ -171,7 +159,7 @@ export async function buildReferPoster(
 
   // ── address and number, along the bottom ───────────────────────────────
   // A maroon foot, so the cream page ends on the shop's own colour.
-  const footH = 250;
+  const footH = 268;
   ctx.fillStyle = MAROON_DEEP;
   ctx.fillRect(0, H - footH, W, footH);
   ctx.fillStyle = GOLD;
@@ -187,13 +175,15 @@ export async function buildReferPoster(
   lines.forEach((line, i) => ctx.fillText(line, W / 2, H - footH + 94 + i * 28));
 
   // Both ways in, spelled out: somebody reading this off a wall cannot click.
+  // The address somebody types in later, so it is the largest thing down
+  // here after the number.
   ctx.fillStyle = GOLD;
-  ctx.font = `700 26px Helvetica, Arial, sans-serif`;
-  ctx.fillText('www.safaking.in', W / 2, H - footH + 168);
+  ctx.font = `700 44px Helvetica, Arial, sans-serif`;
+  ctx.fillText('www.safaking.in', W / 2, H - footH + 176);
 
   ctx.fillStyle = 'rgba(253,246,236,0.55)';
   ctx.font = `400 19px Helvetica, Arial, sans-serif`;
-  ctx.fillText(`Android app · ${PLAY_URL}`, W / 2, H - footH + 204);
+  ctx.fillText(`Android app · ${PLAY_URL}`, W / 2, H - footH + 214);
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
 }
