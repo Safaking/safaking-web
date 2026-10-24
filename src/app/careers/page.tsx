@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -223,6 +224,15 @@ export default function CareersPage() {
           </motion.div>
         </div>
       </section>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+        <BilingualHelp
+          tone="light"
+          title="Working with us"
+          en="Tying, stitching, packing, delivery and shop work. No degree asked for — if you can learn the work, we teach it."
+          hi="बँधाई, सिलाई, पैकिंग, डिलीवरी और दुकान का काम। डिग्री नहीं पूछते — सीखने को तैयार हैं तो काम हम सिखा देंगे।"
+        />
+      </div>
 
       {/* Perks */}
       <section id="perks" className="py-20 px-4 sm:px-6 lg:px-8 bg-white border-b border-amber-100">
