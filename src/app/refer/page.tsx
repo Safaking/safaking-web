@@ -8,7 +8,7 @@ import { JsonLd, breadcrumbJsonLd } from '@/lib/seo';
 export const metadata: Metadata = {
   title: 'Refer a friend',
   description:
-    'Share your SafaKing code. Whoever joins with it gets credit off their first order, and you get credit when they buy.',
+    'Share your SafaKing code. Whoever joins with it gets credit off their first order, and you earn a share of everything they buy after that.',
   alternates: { canonical: '/refer' },
   openGraph: {
     title: 'Refer a friend · SafaKing',
@@ -50,10 +50,10 @@ export default function ReferPage() {
             <p className="font-bold text-royal-100">How it works</p>
             <p className="mt-1">
               Share your code. Whoever uses it gets credit off their first order straight away — and
-              you get credit of your own once they have actually bought something.
+              you earn 10% of every order they place, not just the first one.
             </p>
             <p className="mt-1 text-royal-200/60">
-              कोड शेयर कीजिए। जो इस्तेमाल करेगा उसे पहले ऑर्डर पर छूट मिलेगी, और उनके ख़रीदने पर आपको भी क्रेडिट।
+              कोड शेयर कीजिए। जो इस्तेमाल करेगा उसे पहले ऑर्डर पर छूट मिलेगी, और उसके हर ऑर्डर पर आपको 10% क्रेडिट।
             </p>
           </div>
         </div>
