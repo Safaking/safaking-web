@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import { motion } from 'framer-motion';
 import {
   Crown, Phone, Mail, MapPin, Clock, MessageCircle, Send, CheckCircle2, AlertCircle, Loader2,
@@ -68,6 +69,15 @@ export default function ContactPage() {
           </p>
         </div>
       </section>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+        <BilingualHelp
+          tone="light"
+          title="Getting in touch"
+          en="Ring us, send a WhatsApp, or leave your number below — whichever is easiest. Somebody from the shop answers, not a machine."
+          hi="फ़ोन कीजिए, WhatsApp भेजिए, या नीचे अपना नंबर छोड़ दीजिए। दुकान से कोई इंसान ही जवाब देगा, मशीन नहीं।"
+        />
+      </div>
 
       {/* Main Content */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

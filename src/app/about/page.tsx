@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
@@ -54,6 +55,15 @@ export default function AboutPage() {
           </motion.p>
         </div>
       </section>
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+        <BilingualHelp
+          tone="light"
+          title="About SafaKing"
+          en="A turban house that ties for weddings across India — safas made, sold, hired, and tied at your venue by artists who do this for a living."
+          hi="शादियों के लिए साफ़ा बाँधने वाला घराना — साफ़े बनते भी हैं, बिकते भी, किराये पर भी जाते हैं, और कारीगर आपके यहाँ आकर बाँधते भी हैं।"
+        />
+      </div>
 
       {/* Stats Counter Bar */}
       <section className="bg-maroon-900 text-white py-12 border-y border-royal-400/20">
