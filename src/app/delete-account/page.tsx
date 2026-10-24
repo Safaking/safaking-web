@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, Trash2, ShieldCheck, Archive, Loader2, CheckCircle2, AlertCircle, Phone, Mail } from 'lucide-react';
@@ -42,6 +43,12 @@ export default function DeleteAccountPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 pb-32 sm:pb-16 space-y-8">
+        <BilingualHelp
+          tone="light"
+          title="Deleting your account"
+          en="This removes your account and personal details. Orders already placed stay in our books, as the law requires."
+          hi="इससे आपका खाता और निजी जानकारी हट जाएगी। जो ऑर्डर हो चुके हैं वो हमारे रिकॉर्ड में रहेंगे, जैसा क़ानून कहता है।"
+        />
         <section>
           <h2 className="font-display font-black text-3xl text-maroon-950">Delete your SafaKing account</h2>
           <p className="mt-3 text-sm leading-relaxed text-gray-700 max-w-2xl">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -62,6 +63,12 @@ export default function KnowledgeCenterPage() {
       </section>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 space-y-14">
+        <BilingualHelp
+          tone="light"
+          title="About safas"
+          en="Styles, regions, fabrics and what suits which occasion — written for somebody buying their first safa."
+          hi="शैलियाँ, इलाक़े, कपड़े और कौनसा मौक़े पर क्या जँचता है — पहली बार साफ़ा लेने वाले के लिए लिखा गया।"
+        />
         {/* History */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}

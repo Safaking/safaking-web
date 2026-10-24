@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
@@ -55,6 +56,12 @@ export default function GalleryPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32 sm:pb-16 space-y-6">
+        <BilingualHelp
+          tone="light"
+          title="Our work"
+          en="Safas we have tied at real weddings. Tap any photograph to see it full size."
+          hi="असली शादियों में बाँधे गए साफ़े। किसी भी फ़ोटो पर दबाइए, पूरी बड़ी दिखेगी।"
+        />
         <p className="max-w-2xl text-sm leading-relaxed text-gray-700">
           Grooms we have crowned, safas from the collection, our artists at work, and a batch
           learning to tie. Tap any photograph to see it full size.

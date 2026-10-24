@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -107,6 +108,12 @@ export default function StudentDashboardPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-5">
+        <BilingualHelp
+          tone="light"
+          title="Learning to tie safas"
+          en="A paid course at our academy, then work through SafaKing if you want it. No experience needed — we teach from the first fold."
+          hi="हमारी अकादमी में सीखिए, और चाहें तो SafaKing के साथ काम भी कीजिए। पहले से अनुभव ज़रूरी नहीं — पहली तह से सिखाते हैं।"
+        />
         {error && (
           <div className="flex items-start gap-2 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />

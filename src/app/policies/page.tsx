@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -102,6 +103,12 @@ export default function PoliciesPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32 sm:pb-16 space-y-10">
+        <BilingualHelp
+          tone="light"
+          title="Our rules"
+          en="Cancellation, returns, damage and payment — written plainly, so nothing comes as a surprise later."
+          hi="रद्द करना, वापसी, नुक़सान और भुगतान — सीधी भाषा में, ताकि बाद में कोई बात अचानक न लगे।"
+        />
         <p className="text-sm text-gray-700 leading-relaxed max-w-2xl">
           These are the rules our system actually applies — the refund ladder, advance and change
           windows below are read live from the same settings that run every booking, so what you

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -183,6 +184,12 @@ export default function PlanEventPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+        <BilingualHelp
+          tone="light"
+          title="Planning a wedding"
+          en="Tell us the dates and how many people, and we work out the safas, the artists and what it costs."
+          hi="तारीख़ें और कितने लोग, बस इतना बता दीजिए — साफ़े, कारीगर और ख़र्च का हिसाब हम लगा देंगे।"
+        />
         {/* ---- Inputs ---- */}
         <form onSubmit={runMatch} className="bg-white rounded-3xl border border-amber-200/60 shadow-sm p-6">
           <h2 className="font-display font-bold text-lg text-maroon-950 mb-1">
