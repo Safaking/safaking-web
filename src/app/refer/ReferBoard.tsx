@@ -133,7 +133,8 @@ export function ReferBoard() {
     setSavingQr(true);
     setError(null);
     try {
-      const blob = await buildReferPoster(code, canvas);
+      // A registered partner gets their own shop's name on the sheet.
+      const blob = await buildReferPoster(code, canvas, partner?.business_name);
       if (!blob) throw new Error('The poster could not be drawn.');
       const filename = `safaking-${code}.png`;
 
@@ -461,7 +462,8 @@ export function ReferBoard() {
           <div className="mt-3">
             <p className="text-sm leading-relaxed text-royal-100/75">
               Run a shop, plan weddings or shoot them? Register the business and send customers
-              our way with the same code.
+              our way with the same code — approved partners earn at a higher rate than
+              ordinary customers.
             </p>
             <button
               type="button"

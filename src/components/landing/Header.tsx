@@ -53,6 +53,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Artists',
     items: [
+      // Also in Services, deliberately. Somebody wanting an artist at their
+      // venue opens the menu called Artists — finding only portfolios and a
+      // job application there sends them away from the one thing they came
+      // to do, and it is first because it is what most of them want.
+      { href: '/#artist-booking-form', label: 'Book a Safa Artist', hint: 'Tying at your venue', icon: Crown },
       { href: '/artists', label: 'Browse Artists', hint: 'Portfolios, ratings and rates', icon: Users },
       { href: '/artist-portal/login?tab=join', label: 'Join as an Artist', hint: 'Get paid wedding work', icon: Crown },
     ],
