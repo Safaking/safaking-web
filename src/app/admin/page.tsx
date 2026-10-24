@@ -37,6 +37,7 @@ import {
 import { TrainingManager } from '@/components/admin/TrainingManager';
 import { JobOpeningsManager } from '@/components/admin/JobOpeningsManager';
 import { ReferralDesk } from '@/components/admin/ReferralDesk';
+import PartnerDesk from '@/components/admin/PartnerDesk';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
 import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
@@ -2275,7 +2276,14 @@ export default function AdminPanelPage() {
             )}
 
             {/* ---- REFERRALS & CREDIT ---- */}
-            {activeTab === 'referrals' && <ReferralDesk />}
+            {activeTab === 'referrals' && (
+              <div className="space-y-6">
+                {/* Above the codes: an application nobody has answered is the
+                    one thing on this tab that is actually waiting. */}
+                <PartnerDesk />
+                <ReferralDesk />
+              </div>
+            )}
 
             {/* ---- CAREERS ---- */}
             {activeTab === 'careers' && (
