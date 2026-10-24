@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Crown, ShieldCheck, MapPin, Loader2, AlertCircle, Images } from 'lucide-react';
@@ -50,6 +51,12 @@ export default function ArtistDirectoryPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <BilingualHelp
+          tone="light"
+          title="Booking a safa artist"
+          en="An artist comes to your venue and ties safas for the whole baraat. Tell us the date, the place and how many — we send somebody who does this for a living."
+          hi="कारीगर आपके यहाँ आकर पूरी बारात के साफ़े बाँधता है। तारीख़, जगह और गिनती बता दीजिए — हम अनुभवी कारीगर भेजेंगे।"
+        />
         {error && (
           <div className="flex items-start gap-2 p-4 mb-6 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />

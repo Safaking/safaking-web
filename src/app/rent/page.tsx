@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -305,6 +306,12 @@ export default function RentPage() {
       <form onSubmit={handleBook} className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid lg:grid-cols-3 gap-8">
         {/* ---------- Left: selection ---------- */}
         <div className="lg:col-span-2 space-y-6">
+          <BilingualHelp
+            tone="light"
+            title="Renting a safa"
+            en="Tell us your dates and how many safas you need. Pay an advance now, the rest when they reach you, and return them after the wedding."
+            hi="तारीख़ और कितने साफ़े चाहिए, बता दीजिए। अभी कुछ अग्रिम, बाक़ी सामान पहुँचने पर — और शादी के बाद वापस कर दीजिए।"
+          />
           {/* Dates */}
           <section className="bg-white rounded-3xl border border-amber-200/60 shadow-sm p-6">
             <h2 className="font-display font-bold text-lg text-maroon-950 flex items-center gap-2 mb-4">

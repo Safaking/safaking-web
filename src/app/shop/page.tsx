@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -247,6 +248,12 @@ function ShopContent() {
 
       {/* Main Shop Catalog */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <BilingualHelp
+          tone="light"
+          title="Buying a safa"
+          en="Pick a safa, choose your head size, and it reaches you tied and ready. Not sure of the size? Our head-size guide is on the product page."
+          hi="साफ़ा चुनिए, सिर का नाप बताइए — बँधा-बँधाया आपके पते पर पहुँचेगा। नाप की जानकारी प्रोडक्ट पेज पर दी है।"
+        />
         <div className="mb-8">
           <h1 className="text-3xl font-serif font-bold text-slate-900">Royal Safa Shop & Collection</h1>
           <p className="text-xs text-slate-500 mt-1">Explore our complete catalog of handcrafted groom and wedding safas</p>

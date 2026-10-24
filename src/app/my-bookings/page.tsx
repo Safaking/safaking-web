@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -171,6 +172,12 @@ export default function MyBookingsPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+        <BilingualHelp
+          tone="light"
+          title="Your orders"
+          en="Everything you have bought or hired, with what is still to pay and when rented items are due back."
+          hi="आपके सभी ऑर्डर — ख़रीद और किराया दोनों, बाक़ी रकम और किराये का सामान कब लौटाना है, सब यहाँ।"
+        />
         {user && <ActiveBookingTracker userId={user.id} />}
         {user && (
           <MyOrders

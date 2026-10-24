@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -182,6 +183,12 @@ export default function EnquiryPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-5">
+        <BilingualHelp
+          tone="light"
+          title="Sending an enquiry"
+          en="Leave your number and what you need. Somebody from the shop rings you back — usually the same day."
+          hi="अपना नंबर और ज़रूरत लिख दीजिए। दुकान से कोई आपको फ़ोन करेगा — आमतौर पर उसी दिन।"
+        />
         {error && (
           <div className="flex items-start gap-2 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />
