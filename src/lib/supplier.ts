@@ -174,7 +174,36 @@ export interface SupplierRates {
   holdDays: number;
 }
 
-export const DEFAULT_SUPPLIER_RATES: SupplierRates = { platformRate: 0.08, gatewayRate: 0.02, holdDays: 7 };
+export const DEFAULT_SUPPLIER_RATES: SupplierRates = { platformRate: 0.20, gatewayRate: 0.02, holdDays: 7 };
+
+/**
+ * The platform fee falls as a supplier sells more.
+ *
+ * A flat fee treats the shop that sends two safas a month and the one that
+ * sends two hundred as the same business, and the second one is the one worth
+ * keeping. Measured on what they have sold through SafaKing in the last 30
+ * days, so a good month is rewarded in the month it happens rather than a
+ * year later.
+ *
+ * The top of each band is exclusive: ₹50,000 exactly earns the second rate.
+ */
+export const PLATFORM_FEE_SLABS = [
+  { upto: 50_000, rate: 0.20 },
+  { upto: 200_000, rate: 0.17 },
+  { upto: 500_000, rate: 0.15 },
+  { upto: Infinity, rate: 0.12 },
+] as const;
+
+/**
+ * @param sales30d what this supplier has sold through SafaKing in the last 30
+ *                 days. Unknown counts as nothing, which charges the highest
+ *                 rate — the safe direction to be wrong in, since a fee can be
+ *                 refunded and an underpayment has to be chased.
+ */
+export function platformRateFor(sales30d = 0): number {
+  const band = PLATFORM_FEE_SLABS.find((s) => sales30d < s.upto);
+  return band?.rate ?? PLATFORM_FEE_SLABS[PLATFORM_FEE_SLABS.length - 1].rate;
+}
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -236,12 +265,46 @@ export function supplierTerms(rates: SupplierRates): string[] {
   const example = splitSupplierPrice(100, 5, rates);
   return [
     `You set your own price and stock. From your price SafaKing keeps the GST, a ${Math.round(rates.platformRate * 100)}% platform fee and a ${Math.round(rates.gatewayRate * 100)}% payment gateway fee. A ₹100 safa at 5% GST pays you ${rupees(example.payout)}.`,
+    `The platform fee falls as you sell more: ${PLATFORM_FEE_SLABS.map((s) =>
+      s.upto === Infinity
+        ? `${Math.round(s.rate * 100)}% above ${rupees(500000)}`
+        : `${Math.round(s.rate * 100)}% up to ${rupees(s.upto)}`
+    ).join(', ')} — counted on your last 30 days.`,
     'You set a delivery charge for your city, your state and the rest of India. The customer pays it and you receive it in full.',
     'SafaKing checks every product, and every change to its name, price or photos, before customers see it.',
     'Pack an order as soon as it arrives. Send it only when your portal shows "Paid in full", with the courier name and tracking number.',
+    'A wedding has a date. An order that arrives late can be refused outright, and the loss is yours — so dispatch the day it comes in wherever you can. Repeated late dispatch can end with your account removed from the portal.',
+    'If you send by post it must be insured Speed Post parcel, so it travels quickly and is covered if it goes missing. Cash on delivery is allowed.',
+    'Keep your stock figures current. If an order is placed for something you do not physically have, arranging it is yours to sort out — SafaKing carries no responsibility for it.',
     `You are paid for a delivered order ${rates.holdDays} days after delivery, in a weekly batch, to the account you give us. To change that account you call SafaKing.`,
     "SafaKing's customers stay SafaKing's customers: never contact them for direct sales or take payment outside SafaKing.",
     'Only genuine products that match their photos and description.',
+  ];
+}
+
+/**
+ * The same terms in Hindi. Written out rather than translated line by line —
+ * these are the terms somebody is agreeing to, and the Hindi has to say what
+ * it means to a shopkeeper, not read as a rendering of the English.
+ */
+export function supplierTermsHindi(rates: SupplierRates): string[] {
+  const example = splitSupplierPrice(100, 5, rates);
+  return [
+    `दाम और स्टॉक आप तय करते हैं। आपके दाम में से SafaKing GST, ${Math.round(rates.platformRate * 100)}% प्लेटफ़ॉर्म फ़ीस और ${Math.round(rates.gatewayRate * 100)}% पेमेंट गेटवे फ़ीस रखता है। ₹100 का साफ़ा 5% GST पर आपको ${rupees(example.payout)} देता है।`,
+    `जितनी ज़्यादा बिक्री, उतनी कम फ़ीस — पिछले 30 दिन की बिक्री पर: ${PLATFORM_FEE_SLABS.map((s) =>
+      s.upto === Infinity
+        ? `${rupees(500000)} से ऊपर ${Math.round(s.rate * 100)}%`
+        : `${rupees(s.upto)} तक ${Math.round(s.rate * 100)}%`
+    ).join(', ')}।`,
+    'अपने शहर, अपने राज्य और बाक़ी भारत के लिए डिलीवरी चार्ज आप तय करते हैं। ग्राहक वो देता है और पूरा आपको मिलता है।',
+    'हर प्रोडक्ट, और उसके नाम, दाम या फ़ोटो में हर बदलाव, ग्राहक तक पहुँचने से पहले SafaKing जाँचता है।',
+    'ऑर्डर आते ही पैक कीजिए। भेजिए तभी जब आपके पोर्टल पर "Paid in full" दिखे, कूरियर का नाम और ट्रैकिंग नंबर डालकर।',
+    'शादी की तारीख़ होती है। देर से पहुँचा ऑर्डर पार्टी सीधे मना कर सकती है, और नुक़सान आपका होगा — इसलिए जिस दिन ऑर्डर आए उसी दिन भेजने की कोशिश कीजिए। बार-बार देर होने पर पोर्टल से आपका खाता हटाया भी जा सकता है।',
+    'डाक से भेजना हो तो इंश्योर्ड स्पीड पोस्ट पार्सल से ही भेजिए, ताकि जल्दी भी पहुँचे और गुम होने पर कवर भी रहे। कैश ऑन डिलीवरी भेज सकते हैं।',
+    'स्टॉक की गिनती हमेशा अपडेट रखिए। जो चीज़ आपके पास सचमुच नहीं है उसका ऑर्डर आ गया, तो उसका इंतज़ाम करना आपकी ज़िम्मेदारी है — इसमें SafaKing पोर्टल की कोई ज़िम्मेदारी नहीं होगी।',
+    `डिलीवर हुए ऑर्डर का पैसा डिलीवरी के ${rates.holdDays} दिन बाद, हफ़्तेवार बैच में, आपके बताए खाते में आता है। खाता बदलवाना हो तो SafaKing को फ़ोन कीजिए।`,
+    'SafaKing के ग्राहक SafaKing के ही रहेंगे: सीधी बिक्री के लिए उनसे सम्पर्क मत कीजिए, और SafaKing के बाहर पैसा मत लीजिए।',
+    'सिर्फ़ असली सामान, जो अपनी फ़ोटो और विवरण से मेल खाता हो।',
   ];
 }
 
