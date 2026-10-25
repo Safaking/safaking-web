@@ -154,6 +154,11 @@ function SupplierLoginContent() {
       );
       return;
     }
+    // The chips replaced a `required` select, so the check moves here.
+    if (!category.trim()) {
+      setError('Choose at least one thing you supply.');
+      return;
+    }
     if (!/^[1-9][0-9]{5}$/.test(pincode.trim())) {
       setError('Enter the 6-digit pincode your parcels will be sent from.');
       return;
@@ -461,21 +466,42 @@ function SupplierLoginContent() {
                     className={inputClass}
                   />
                 </div>
-                <select
-                  required
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className={plainInputClass}
-                >
-                  <option value="" disabled>
-                    What do you supply?
-                  </option>
-                  {SUPPLIER_CATEGORIES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                {/* Chips rather than a dropdown. Most of these suppliers make
+                    more than one thing — a weaver who also does zari work had
+                    to pick one and lose the other — and a multi-select
+                    dropdown is close to unusable on a phone, which is what
+                    they are applying from. Stored as one comma-separated
+                    string, so nothing downstream had to change. */}
+                <div className="sm:col-span-2">
+                  <p className={labelClass}>What do you supply? Pick all that apply.</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {SUPPLIER_CATEGORIES.map((type) => {
+                      const chosen = category
+                        .split(',')
+                        .map((c) => c.trim())
+                        .filter(Boolean);
+                      const on = chosen.includes(type);
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() =>
+                            setCategory(
+                              (on ? chosen.filter((c) => c !== type) : [...chosen, type]).join(', ')
+                            )
+                          }
+                          className={`rounded-full border px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                            on
+                              ? 'border-royal-500 bg-royal-500 text-maroon-950'
+                              : 'border-royal-300/60 bg-white text-maroon-800 hover:border-royal-400'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               <div>
