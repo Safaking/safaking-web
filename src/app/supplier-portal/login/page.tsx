@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase, friendlyError } from '@/lib/supabase';
 import {
   DEFAULT_SUPPLIER_RATES, INDIAN_STATES, SUPPLIER_CATEGORIES, SupplierRates, loadSupplierRates, supplierTerms,
+  supplierTermsHindi,
 } from '@/lib/supplier';
 
 /** Kept while a new applicant confirms their email, so they do not type it all again. */
@@ -646,9 +647,15 @@ function SupplierLoginContent() {
                   <ScrollText size={13} className="text-maroon-800/50" />
                   <p className="text-[10px] font-bold uppercase tracking-wider text-maroon-800/70">Supplier terms</p>
                 </div>
-                <ol className="p-3 space-y-1.5 text-[11px] text-maroon-800/80 leading-relaxed list-decimal list-inside max-h-44 overflow-y-auto custom-scrollbar">
-                  {supplierTerms(rates).map((term) => (
-                    <li key={term}>{term}</li>
+                {/* Both languages, one under the other. Somebody is agreeing
+                    to these: making them pick a language first, and then
+                    accept terms they half-read, is not consent worth having. */}
+                <ol className="p-3 space-y-3 text-[11px] text-maroon-800/80 leading-relaxed list-decimal list-inside max-h-56 overflow-y-auto custom-scrollbar">
+                  {supplierTerms(rates).map((term, i) => (
+                    <li key={term}>
+                      {term}
+                      <p className="mt-0.5 ml-4 text-maroon-800/55">{supplierTermsHindi(rates)[i]}</p>
+                    </li>
                   ))}
                 </ol>
                 <label className="flex items-start gap-2 p-3 border-t border-royal-200 cursor-pointer">
@@ -658,7 +665,10 @@ function SupplierLoginContent() {
                     onChange={(e) => setTermsAccepted(e.target.checked)}
                     className="mt-0.5 accent-maroon-900"
                   />
-                  <span className="text-[11px] text-maroon-800/80">I have read and accept these terms.</span>
+                  <span className="text-[11px] text-maroon-800/80">
+                    I have read and accept these terms.
+                    <span className="block text-maroon-800/55">मैंने ये शर्तें पढ़ लीं और मंज़ूर हैं।</span>
+                  </span>
                 </label>
               </div>
 
