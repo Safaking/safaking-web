@@ -38,6 +38,7 @@ import { TrainingManager } from '@/components/admin/TrainingManager';
 import { JobOpeningsManager } from '@/components/admin/JobOpeningsManager';
 import { ReferralDesk } from '@/components/admin/ReferralDesk';
 import PartnerDesk from '@/components/admin/PartnerDesk';
+import DispatchWatch from '@/components/admin/DispatchWatch';
 import { TeamBuilder } from '@/components/liveops/TeamBuilder';
 import { ContactInbox } from '@/components/admin/ContactInbox';
 import { PaymentReleaseQueue } from '@/components/admin/PaymentReleaseQueue';
@@ -2215,7 +2216,14 @@ export default function AdminPanelPage() {
             )}
 
             {/* ---- SUPPLIERS ---- */}
-            {activeTab === 'suppliers' && <SupplierDesk />}
+            {activeTab === 'suppliers' && (
+              <div className="space-y-6">
+                {/* Above the supplier list: a parcel that has not gone out is
+                    the thing on this tab with a clock running on it. */}
+                <DispatchWatch />
+                <SupplierDesk />
+              </div>
+            )}
 
             {activeTab === 'deletions' && <DeletionDesk />}
 

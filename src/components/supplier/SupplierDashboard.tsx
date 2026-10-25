@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { DispatchPressure } from './DispatchPressure';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -114,6 +115,11 @@ export function SupplierDashboard({
             <p className="sk-ticker-text text-[13px] font-bold text-rose-900" aria-hidden="true">{PLATFORM_RULE}</p>
           </div>
         </div>
+
+        {/* What is actually waiting on them today, under the standing rule.
+            A rule that is always on screen stops being read; a count that
+            changes does not. */}
+        <DispatchPressure />
 
         {!supplier.active && (
           <Banner tone="rose" title="Your supplier account is paused">
