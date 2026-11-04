@@ -4,12 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import {
-  Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
-  TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
-  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
-  Phone, User, Navigation, MessageCircle, Search, ZoomIn, MessageSquareWarning,
-  Camera, KeyRound, UserX, Gift} from 'lucide-react';
+import { AlertCircle, ArrowLeft, Briefcase, Calendar, CalendarRange, Camera, Crown, Edit, Gift, GraduationCap, KeyRound, Loader2, LogOut, Mail, MapPin, MessageCircle, MessageSquareWarning, Navigation, Package, Phone, Plus, Printer, Save, Search, ShieldAlert, ShieldCheck, ShoppingBag, Siren, SlidersHorizontal, Trash2, TrendingUp, User, UserX, Users, Wallet, X, ZoomIn } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
   supabase, friendlyError,
@@ -293,6 +288,14 @@ const TH = 'p-4 text-left';
 const THEAD =
   'bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-maroon-800/60 border-b border-amber-100';
 
+/** One line of an order: what it was and how many. */
+type OrderLine = {
+  order_id: string;
+  product_name: string;
+  quantity: number;
+  price: number;
+};
+
 export default function AdminPanelPage() {
   const { profile, logout, refreshProfile } = useAuth();
   // A manager gets the operational half of this panel; the admin gets all of
@@ -439,11 +442,14 @@ export default function AdminPanelPage() {
     [pincodes, pincodesSearch]
   );
 
+  const [orderLines, setOrderLines] = useState<Map<string, OrderLine[]>>(new Map());
+  const [openOrder, setOpenOrder] = useState<string | null>(null);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap, ck, qs] = await Promise.all([
+    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap, ck, qs, oi] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
@@ -459,13 +465,16 @@ export default function AdminPanelPage() {
       supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, phone, verified, active, blacklisted, verification_status, rating, total_events, standing, restricted_until'),
       supabase.from('booking_checkins').select('rental_id, booking_id, stage, created_at').order('created_at', { ascending: false }),
       supabase.from('artist_quality_scores').select('*'),
+      // What was actually in each order. The panel showed who ordered and
+      // where it goes but never what to put in the parcel.
+      supabase.from('order_items').select('order_id, product_name, quantity, price'),
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
     const isMissingTable = (err: { code?: string } | null) =>
       err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap, ck, qs].find((x) => x.error && !isMissingTable(x.error))?.error;
+    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap, ck, qs, oi].find((x) => x.error && !isMissingTable(x.error))?.error;
 
     const stages: Record<string, { stage: string; at: string }> = {};
     for (const row of (ck.data ?? []) as { rental_id: string | null; booking_id: string | null; stage: string; created_at: string }[]) {
@@ -480,6 +489,15 @@ export default function AdminPanelPage() {
     }
 
     setOrders((o.data as DBOrder[]) ?? []);
+    // Grouped by order so a row can show its own contents without another
+    // round trip per row.
+    const byOrder = new Map<string, OrderLine[]>();
+    for (const line of (oi.data ?? []) as OrderLine[]) {
+      const list = byOrder.get(line.order_id) ?? [];
+      list.push(line);
+      byOrder.set(line.order_id, list);
+    }
+    setOrderLines(byOrder);
     setBookings((b.data as DBArtistBooking[]) ?? []);
     setArtistApps((aa.data as DBArtistApplication[]) ?? []);
     setProducts((p.data as DBProduct[]) ?? []);
@@ -1490,6 +1508,49 @@ export default function AdminPanelPage() {
                                   {order.notes}
                                 </span>
                               )}
+
+                              {/* What to actually put in the parcel. The panel
+                                  said who ordered and where it goes, and never
+                                  what they ordered — so it had to be looked up
+                                  somewhere else before anything could be
+                                  packed. */}
+                              <div className="mt-2 border-t border-amber-100 pt-2">
+                                {(orderLines.get(order.id) ?? []).length === 0 ? (
+                                  <span className="text-[10px] font-semibold text-gray-400">
+                                    No items recorded
+                                  </span>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setOpenOrder(openOrder === order.id ? null : order.id)}
+                                      className="text-[10px] font-black uppercase tracking-wider text-maroon-800 hover:underline"
+                                    >
+                                      {openOrder === order.id ? 'Hide' : 'Show'} items (
+                                      {(orderLines.get(order.id) ?? []).reduce((n, l) => n + l.quantity, 0)})
+                                    </button>
+                                    {openOrder === order.id && (
+                                      <ul className="mt-1.5 space-y-0.5">
+                                        {(orderLines.get(order.id) ?? []).map((l, i) => (
+                                          <li key={`${l.product_name}-${i}`} className="text-[11px] text-maroon-900">
+                                            {l.quantity} × {l.product_name}
+                                            <span className="text-gray-400"> · ₹{Number(l.price).toLocaleString('en-IN')}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                  </>
+                                )}
+
+                                <a
+                                  href={`/api/label/${order.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-maroon-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-maroon-800 hover:border-maroon-400"
+                                >
+                                  <Printer size={11} /> Print address label
+                                </a>
+                              </div>
                             </td>
                             <td className="p-4">
                               <span className="font-bold text-maroon-950">Total: ₹{order.total_amount.toLocaleString()}</span>
