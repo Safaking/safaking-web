@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Briefcase, Calendar, CalendarRange, Camera, Crown, Edit, Gift, GraduationCap, KeyRound, Loader2, LogOut, Mail, MapPin, MessageCircle, MessageSquareWarning, Navigation, Package, Phone, Plus, Printer, Save, Search, ShieldAlert, ShieldCheck, ShoppingBag, Siren, SlidersHorizontal, Trash2, TrendingUp, User, UserX, Users, Wallet, X, ZoomIn } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Briefcase, Calendar, CalendarRange, Camera, ChevronDown, Crown, Edit, Gift, GraduationCap, KeyRound, Loader2, LogOut, Mail, MapPin, MessageCircle, MessageSquareWarning, Navigation, Package, Phone, Plus, Save, Search, ShieldAlert, ShieldCheck, ShoppingBag, Siren, SlidersHorizontal, Trash2, TrendingUp, User, UserX, Users, Wallet, X, ZoomIn } from 'lucide-react';
+import OrderDetails, { type OrderLine } from '@/components/admin/OrderDetails';
 import { useAuth } from '@/context/AuthContext';
 import {
   supabase, friendlyError,
@@ -287,14 +288,6 @@ function Empty({ label }: { label: string }) {
 const TH = 'p-4 text-left';
 const THEAD =
   'bg-amber-50/50 text-[10px] font-bold uppercase tracking-wider text-maroon-800/60 border-b border-amber-100';
-
-/** One line of an order: what it was and how many. */
-type OrderLine = {
-  order_id: string;
-  product_name: string;
-  quantity: number;
-  price: number;
-};
 
 export default function AdminPanelPage() {
   const { profile, logout, refreshProfile } = useAuth();
@@ -1481,9 +1474,13 @@ export default function AdminPanelPage() {
                         const adv = order.advance_amount ?? Math.round(order.total_amount * 0.5);
                         const bal = order.balance_amount ?? (order.total_amount - adv);
                         const isFullyPaid = order.payment_status === 'fully_paid';
+                        const lines = orderLines.get(order.id) ?? [];
+                        const isOpen = openOrder === order.id;
+                        const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
 
                         return (
-                          <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
+                          <Fragment key={order.id}>
+                          <tr className="hover:bg-amber-50/30 transition-colors">
                             <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
                             <td className="p-4 text-gray-600">
                               {order.customer_phone}
@@ -1509,47 +1506,24 @@ export default function AdminPanelPage() {
                                 </span>
                               )}
 
-                              {/* What to actually put in the parcel. The panel
-                                  said who ordered and where it goes, and never
-                                  what they ordered — so it had to be looked up
-                                  somewhere else before anything could be
-                                  packed. */}
+                              {/* Six columns is what fits across a row; an
+                                  order carries about twenty-five fields. The
+                                  rest are one click away rather than nowhere. */}
                               <div className="mt-2 border-t border-amber-100 pt-2">
-                                {(orderLines.get(order.id) ?? []).length === 0 ? (
-                                  <span className="text-[10px] font-semibold text-gray-400">
-                                    No items recorded
-                                  </span>
-                                ) : (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => setOpenOrder(openOrder === order.id ? null : order.id)}
-                                      className="text-[10px] font-black uppercase tracking-wider text-maroon-800 hover:underline"
-                                    >
-                                      {openOrder === order.id ? 'Hide' : 'Show'} items (
-                                      {(orderLines.get(order.id) ?? []).reduce((n, l) => n + l.quantity, 0)})
-                                    </button>
-                                    {openOrder === order.id && (
-                                      <ul className="mt-1.5 space-y-0.5">
-                                        {(orderLines.get(order.id) ?? []).map((l, i) => (
-                                          <li key={`${l.product_name}-${i}`} className="text-[11px] text-maroon-900">
-                                            {l.quantity} × {l.product_name}
-                                            <span className="text-gray-400"> · ₹{Number(l.price).toLocaleString('en-IN')}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    )}
-                                  </>
-                                )}
-
-                                <a
-                                  href={`/api/label/${order.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-maroon-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-maroon-800 hover:border-maroon-400"
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenOrder(isOpen ? null : order.id)}
+                                  className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-maroon-800 hover:underline"
                                 >
-                                  <Printer size={11} /> Print address label
-                                </a>
+                                  <ChevronDown
+                                    size={12}
+                                    className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                  />
+                                  {isOpen ? 'Hide' : 'Full'} details
+                                  <span className="font-bold text-gray-400">
+                                    · {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : 'no items recorded'}
+                                  </span>
+                                </button>
                               </div>
                             </td>
                             <td className="p-4">
@@ -1616,6 +1590,15 @@ export default function AdminPanelPage() {
                               </div>
                             </td>
                           </tr>
+
+                          {isOpen && (
+                            <tr>
+                              <td colSpan={6} className="border-t border-amber-100 p-0">
+                                <OrderDetails order={order} lines={lines} />
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         );
                       })}
                     </tbody>
