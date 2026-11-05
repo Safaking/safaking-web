@@ -117,6 +117,19 @@ export interface DBOrder {
   /** Supplier delivery charges on the order. SafaKing's own stock ships free. */
   shipping_amount?: number;
   notes?: string | null;
+  /** The day it is needed by. Late is not a smaller version of on time. */
+  wedding_date?: string | null;
+  /** Referral credit spent on this order, already deducted from the total. */
+  credit_applied?: number | null;
+  invoice_number?: string | null;
+  razorpay_order_id?: string | null;
+  razorpay_payment_id?: string | null;
+  /** Whether the sale has been taken off stock yet. */
+  stock_applied?: boolean;
+  return_reason?: string | null;
+  return_requested_at?: string | null;
+  /** Postage withheld from a refund, per the returns policy. */
+  postal_charge_deducted?: number | null;
 }
 
 export interface DBOrderItem {

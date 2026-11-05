@@ -1,15 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import {
-  Crown, ShoppingBag, Calendar, Users, Package, GraduationCap, Briefcase, MapPin,
-  TrendingUp, Plus, Edit, Trash2, ArrowLeft, LogOut, AlertCircle, Loader2, X, Save,
-  CalendarRange, SlidersHorizontal, ShieldCheck, ShieldAlert, Siren, Mail, Wallet,
-  Phone, User, Navigation, MessageCircle, Search, ZoomIn, MessageSquareWarning,
-  Camera, KeyRound, UserX, Gift} from 'lucide-react';
+import { AlertCircle, ArrowLeft, Briefcase, Calendar, CalendarRange, Camera, ChevronDown, Crown, Edit, Gift, GraduationCap, KeyRound, Loader2, LogOut, Mail, MapPin, MessageCircle, MessageSquareWarning, Navigation, Package, Phone, Plus, Save, Search, ShieldAlert, ShieldCheck, ShoppingBag, Siren, SlidersHorizontal, Trash2, TrendingUp, User, UserX, Users, Wallet, X, ZoomIn } from 'lucide-react';
+import OrderDetails, { type OrderLine } from '@/components/admin/OrderDetails';
 import { useAuth } from '@/context/AuthContext';
 import {
   supabase, friendlyError,
@@ -439,11 +435,14 @@ export default function AdminPanelPage() {
     [pincodes, pincodesSearch]
   );
 
+  const [orderLines, setOrderLines] = useState<Map<string, OrderLine[]>>(new Map());
+  const [openOrder, setOpenOrder] = useState<string | null>(null);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap, ck, qs] = await Promise.all([
+    const [o, b, aa, p, pin, s, e, j, u, r, cfg, ap, ck, qs, oi] = await Promise.all([
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('artist_bookings').select('*').order('event_date', { ascending: true }),
       supabase.from('artist_applications').select('*').order('created_at', { ascending: false }),
@@ -459,13 +458,16 @@ export default function AdminPanelPage() {
       supabase.from('artist_profiles').select('id, display_name, base_city, service_pincodes, phone, verified, active, blacklisted, verification_status, rating, total_events, standing, restricted_until'),
       supabase.from('booking_checkins').select('rental_id, booking_id, stage, created_at').order('created_at', { ascending: false }),
       supabase.from('artist_quality_scores').select('*'),
+      // What was actually in each order. The panel showed who ordered and
+      // where it goes but never what to put in the parcel.
+      supabase.from('order_items').select('order_id, product_name, quantity, price'),
     ]);
 
     // Filter out missing table errors (PGRST205/42P01) for optional auxiliary tables so missing secondary tables don't block the UI
     const isMissingTable = (err: { code?: string } | null) =>
       err?.code === 'PGRST205' || err?.code === '42P01';
     const coreError = [o, b, p].find((r) => r.error && !isMissingTable(r.error))?.error;
-    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap, ck, qs].find((x) => x.error && !isMissingTable(x.error))?.error;
+    const secondaryError = [aa, pin, s, e, j, u, r, cfg, ap, ck, qs, oi].find((x) => x.error && !isMissingTable(x.error))?.error;
 
     const stages: Record<string, { stage: string; at: string }> = {};
     for (const row of (ck.data ?? []) as { rental_id: string | null; booking_id: string | null; stage: string; created_at: string }[]) {
@@ -480,6 +482,15 @@ export default function AdminPanelPage() {
     }
 
     setOrders((o.data as DBOrder[]) ?? []);
+    // Grouped by order so a row can show its own contents without another
+    // round trip per row.
+    const byOrder = new Map<string, OrderLine[]>();
+    for (const line of (oi.data ?? []) as OrderLine[]) {
+      const list = byOrder.get(line.order_id) ?? [];
+      list.push(line);
+      byOrder.set(line.order_id, list);
+    }
+    setOrderLines(byOrder);
     setBookings((b.data as DBArtistBooking[]) ?? []);
     setArtistApps((aa.data as DBArtistApplication[]) ?? []);
     setProducts((p.data as DBProduct[]) ?? []);
@@ -1463,9 +1474,13 @@ export default function AdminPanelPage() {
                         const adv = order.advance_amount ?? Math.round(order.total_amount * 0.5);
                         const bal = order.balance_amount ?? (order.total_amount - adv);
                         const isFullyPaid = order.payment_status === 'fully_paid';
+                        const lines = orderLines.get(order.id) ?? [];
+                        const isOpen = openOrder === order.id;
+                        const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
 
                         return (
-                          <tr key={order.id} className="hover:bg-amber-50/30 transition-colors">
+                          <Fragment key={order.id}>
+                          <tr className="hover:bg-amber-50/30 transition-colors">
                             <td className="p-4 font-bold text-maroon-950">{order.customer_name}</td>
                             <td className="p-4 text-gray-600">
                               {order.customer_phone}
@@ -1490,6 +1505,26 @@ export default function AdminPanelPage() {
                                   {order.notes}
                                 </span>
                               )}
+
+                              {/* Six columns is what fits across a row; an
+                                  order carries about twenty-five fields. The
+                                  rest are one click away rather than nowhere. */}
+                              <div className="mt-2 border-t border-amber-100 pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenOrder(isOpen ? null : order.id)}
+                                  className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-maroon-800 hover:underline"
+                                >
+                                  <ChevronDown
+                                    size={12}
+                                    className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                  />
+                                  {isOpen ? 'Hide' : 'Full'} details
+                                  <span className="font-bold text-gray-400">
+                                    · {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : 'no items recorded'}
+                                  </span>
+                                </button>
+                              </div>
                             </td>
                             <td className="p-4">
                               <span className="font-bold text-maroon-950">Total: ₹{order.total_amount.toLocaleString()}</span>
@@ -1555,6 +1590,15 @@ export default function AdminPanelPage() {
                               </div>
                             </td>
                           </tr>
+
+                          {isOpen && (
+                            <tr>
+                              <td colSpan={6} className="border-t border-amber-100 p-0">
+                                <OrderDetails order={order} lines={lines} />
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         );
                       })}
                     </tbody>
