@@ -1,14 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { notFound } from 'next/navigation';
 import { BilingualHelp } from '@/components/BilingualHelp';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Crown, ShieldCheck, MapPin, Loader2, AlertCircle, Images } from 'lucide-react';
 import { listArtists, ArtistPublicProfile } from '@/lib/reviews';
+import { ARTIST_DIRECTORY_ENABLED } from '@/lib/features';
 import { RatingSummary } from '@/components/reviews/Stars';
 
 export default function ArtistDirectoryPage() {
+  // The directory is switched off. The address has to answer 404 as well as
+  // disappear from the menus — a page that is merely unlinked stays in search
+  // results and in anybody's history, and goes on looking like the site.
+  if (!ARTIST_DIRECTORY_ENABLED) notFound();
+
   const [artists, setArtists] = useState<ArtistPublicProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

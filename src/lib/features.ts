@@ -28,3 +28,18 @@
  * screenshot too.
  */
 export const VIRTUAL_TRYON_ENABLED = false;
+
+/**
+ * The public artist directory — /artists, and the "Browse Artists" entry in
+ * the Artists menu that opens it.
+ *
+ * Off for now, at the shop's request. Booking an artist is unaffected: "Book
+ * a Safa Artist" goes to the booking form on the home page, which is what
+ * most people opening that menu came to do anyway.
+ *
+ * Switched off rather than deleted. The directory, the profiles behind it and
+ * the ratings all still work; turning it back on is this one line. An
+ * artist's own profile page stays reachable, because the QR on their digital
+ * ID card points straight at it and that card is already in wallets.
+ */
+export const ARTIST_DIRECTORY_ENABLED = false;
