@@ -8,8 +8,9 @@ const SITE = 'https://www.safaking.in';
  * them here would promise a crawler content it cannot see without JavaScript.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  // /try-on is left out while the mirror is switched off — it answers 404,
-  // and offering a crawler a dead address is worse than offering nothing.
+  // /try-on and /artists are left out while they are switched off: they
+  // answer 404, and offering a crawler a dead address is worse than
+  // offering nothing.
   const pages: { path: string; priority: number; changeFrequency: 'daily' | 'weekly' | 'monthly' }[] = [
     { path: '/', priority: 1.0, changeFrequency: 'weekly' },
     { path: '/shop', priority: 0.9, changeFrequency: 'daily' },
@@ -17,7 +18,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/gallery', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/faq', priority: 0.8, changeFrequency: 'monthly' },
     { path: '/rent', priority: 0.9, changeFrequency: 'daily' },
-    { path: '/artists', priority: 0.8, changeFrequency: 'weekly' },
     { path: '/enquiry', priority: 0.8, changeFrequency: 'weekly' },
     { path: '/plan', priority: 0.7, changeFrequency: 'monthly' },
     { path: '/academy', priority: 0.6, changeFrequency: 'monthly' },

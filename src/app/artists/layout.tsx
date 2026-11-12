@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ARTIST_DIRECTORY_ENABLED } from '@/lib/features';
 
 /**
  * Page title and description for search results and link previews.
@@ -7,7 +8,7 @@ import type { Metadata } from 'next';
  * client component cannot export metadata. Without this the page inherited
  * the site-wide title, so every page looked identical to Google.
  */
-export const metadata: Metadata = {
+const DIRECTORY_METADATA: Metadata = {
   title: 'Our safa artists',
   description:
     'The trained safa artists who tie for SafaKing weddings. Book one for your baraat through SafaKing.',
@@ -18,6 +19,13 @@ export const metadata: Metadata = {
     url: '/artists',
   },
 };
+
+// A page that answers 404 should not still be describing itself to crawlers:
+// a canonical address and an inviting title are how a dead URL stays in
+// search results long after it stopped working. Same reasoning as /try-on.
+export const metadata: Metadata = ARTIST_DIRECTORY_ENABLED
+  ? DIRECTORY_METADATA
+  : { title: 'Not found', robots: { index: false, follow: false } };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return children;

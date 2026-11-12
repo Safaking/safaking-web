@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ARTIST_DIRECTORY_ENABLED } from '@/lib/features';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 
@@ -58,7 +59,12 @@ const NAV_GROUPS: NavGroup[] = [
       // job application there sends them away from the one thing they came
       // to do, and it is first because it is what most of them want.
       { href: '/#artist-booking-form', label: 'Book a Safa Artist', hint: 'Tying at your venue', icon: Crown },
-      { href: '/artists', label: 'Browse Artists', hint: 'Portfolios, ratings and rates', icon: Users },
+      // Browse Artists sat here. It follows ARTIST_DIRECTORY_ENABLED, which
+      // is off: offering a menu entry that answers 404 is worse than one
+      // fewer entry.
+      ...(ARTIST_DIRECTORY_ENABLED
+        ? [{ href: '/artists', label: 'Browse Artists', hint: 'Portfolios, ratings and rates', icon: Users }]
+        : []),
       { href: '/artist-portal/login?tab=join', label: 'Join as an Artist', hint: 'Get paid wedding work', icon: Crown },
     ],
   },
